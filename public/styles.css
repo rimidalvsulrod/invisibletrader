@@ -225,3 +225,11 @@ kbd,.step b{background:var(--bg)}
 .latchlbl{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);min-width:78px}
 .dialbox.locked .dial{cursor:not-allowed}.dialbox.locked .dial svg{opacity:.55}.dialbox.locked .kbtn{opacity:.4;pointer-events:none}
 .dialbox.locked .dial .face i{background:var(--mut2);box-shadow:none}
+
+/* Auto Trader live view */
+.lv{margin-top:16px;padding:12px 14px;border-radius:14px;background:rgba(var(--tint,127,127,127),.05);font-size:13.5px}
+.lrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ldot{width:9px;height:9px;border-radius:50%;background:var(--up);flex:none}.ldot.off{background:var(--warn)}
+.ldot.ping{animation:lping .9s ease-out}@keyframes lping{0%{box-shadow:0 0 0 0 var(--up)}100%{box-shadow:0 0 0 9px transparent}}
+.lbars{display:flex;align-items:flex-end;gap:2px;height:30px;margin:10px 0 8px}
+.lbars i{flex:1;background:var(--up);opacity:.45;border-radius:2px}.lbars i:last-child{opacity:1}

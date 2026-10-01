@@ -11,6 +11,7 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS settings (k text PRIMARY KEY, v text)`,
   `CREATE TABLE IF NOT EXISTS rate (k text PRIMARY KEY, n int NOT NULL, reset bigint NOT NULL)`,
   `INSERT INTO bot (id, enabled, cfg, state, positions) VALUES ('me', false, '{}', '{}', '[]') ON CONFLICT (id) DO NOTHING`,
+  `ALTER TABLE bot ADD COLUMN IF NOT EXISTS live text`, // runner heartbeat for the app's live view
 ];
 const ensure = () => ready ??= (async () => { for (const s of SCHEMA) await getPool().query(s); })().catch(e => { ready = null; throw e; });
 const q = async (sql, params = []) => { await ensure(); return (await getPool().query(sql, params)).rows; };

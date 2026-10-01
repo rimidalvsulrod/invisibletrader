@@ -50,6 +50,7 @@ module.exports = handler(async (req, body, q) => {
   const op = q.op || body.op;
   switch (op) {
     case 'state': return state();
+    case 'live': { const r = await db.one("SELECT enabled, live FROM bot WHERE id='me'"); return { enabled: !!r?.enabled, live: E.J(r?.live, null), now: Date.now() }; }
     case 'cfg': {
       const c = body.cfg || {}, cur = (await E.open()).cfg, D = E.DEF;
       const cfg = {

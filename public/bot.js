@@ -1,6 +1,28 @@
 /* Auto Trader — real money on your Kalshi account. The engine runs on the server; this page shows live Kalshi data and settings. */
-let botPoll, botFast, dialOpen = false, dialTimer; // the trade-size dial starts locked
-const botStopPoll = () => { clearInterval(botPoll); clearInterval(botFast); };
+let botPoll, botFast, botTick, dialOpen = false, dialTimer; // the trade-size dial starts locked
+const botStopPoll = () => { clearInterval(botPoll); clearInterval(botFast); clearInterval(botTick); };
+/* live view: the 24/7 runner writes a heartbeat every 2s (stream status, trades/s, last checks) */
+let LIVE = null;
+const liveOk = () => LIVE && Date.now() + LIVE.skew - LIVE.t < 15e3;
+const ago = ms => ms < 1e3 ? 'just now' : ms < 6e4 ? `${(ms / 1e3).toFixed(ms < 1e4 ? 1 : 0)}s ago` : rel((Date.now() - ms) / 1000);
+async function liveFetch() {
+  try { const r = await bapi('live'); LIVE = r.live && { ...r.live, skew: r.now - Date.now() }; liveDraw(true); } catch (e) {}
+  if (BOTON && !liveOk()) fetch('/api/cron').catch(() => {}); // runner offline: check from this page instead
+}
+function liveDraw(fresh) {
+  const el = $('#blive'); if (!el) return;
+  if (!liveOk()) { el.innerHTML = `<div class=lrow><span class="ldot off"></span><b>Runner offline</b><span class=mut>checking from this page while it's open — the GitHub runner restarts on its own</span></div>`; return; }
+  const L = LIVE, max = Math.max(1, ...L.bars);
+  el.innerHTML = `<div class=lrow><span class="ldot ${L.up ? '' : 'off'} ${fresh ? 'ping' : ''}"></span><b>${L.up ? 'Live' : 'Reconnecting to Polymarket…'}</b>
+      <span class=mut>watching ${L.watch} trader${L.watch == 1 ? '' : 's'} · Polymarket stream ${L.rate} trades/s</span></div>
+    <div class=lbars title="Polymarket trades per 2 seconds, last minute">${L.bars.map(b => `<i style="height:${Math.max(4, b / max * 100)}%"></i>`).join('')}</div>
+    <div class="lrow mut" style="font-size:12px" id=lago></div>`;
+  liveAgo();
+}
+function liveAgo() {
+  const el = $('#lago'); if (!el || !LIVE) return; const now = Date.now() + LIVE.skew;
+  el.textContent = `Heartbeat ${ago(now - LIVE.t)} · full check ${ago(now - LIVE.lastPoll)} · last tracked trade ${LIVE.lastTracked ? ago(now - LIVE.lastTracked) : 'none yet'}`;
+}
 const bapi = async (op, body) => {
   const r = await fetch('/api/bot' + (body ? '' : '?op=' + op), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op, ...body }) } : {});
   const j = await r.json().catch(() => ({ error: 'Bad response from server' }));
@@ -18,7 +40,9 @@ async function botPage() {
   if (!OWNER) return botLogin(false);
   await botRefresh();
   botStopPoll();
-  botFast = setInterval(() => { if (!$('#bstate')) return botStopPoll(); if (BOTON) fetch('/api/cron').catch(() => {}); }, 5000); // checks every 5s while open
+  liveFetch();
+  botFast = setInterval(() => { if (!$('#bstate')) return botStopPoll(); liveFetch(); }, 2000);
+  botTick = setInterval(liveAgo, 250);
   botPoll = setInterval(() => { if (!$('#bstate')) return botStopPoll(); if (!document.activeElement?.matches('input,select,textarea') && !dialOpen) botRefresh(true); }, 8000);
 }
 async function botRefresh() {
@@ -59,6 +83,7 @@ function botRender(S) {
       <div><div style="font-size:22px;font-weight:650;letter-spacing:-.5px">${S.enabled ? '<span class=up>Running</span>' : 'Paused'}</div>
       <div class=mut style="font-size:13px">${S.last ? `Last check ${rel(S.last / 1000)} · copying ${S.watching} trader${S.watching == 1 ? '' : 's'}` : connected ? 'Turn on to start copying' : 'Connect Kalshi to start'}</div></div></div>
       ${connected ? `<span class="pill ${real ? 'down' : 'ac'}" style="height:26px;padding:0 12px">${real ? 'Kalshi · real money' : 'Kalshi · demo account'}</span>` : ''}</div>
+    ${S.enabled ? '<div id=blive class=lv></div>' : ''}
     ${stale ? `<div class=note style="margin-top:16px">The bot is on but hasn't checked in 5 minutes — the 24/7 runner may be restarting. It recovers on its own; tap Check now to run immediately.</div>` : ''}
     ${S.disabledServer ? `<div class=note style="margin-top:16px">Trading is switched off on the server (TRADING_DISABLED).</div>` : ''}
     ${S.accountError ? `<div class=note style="margin-top:16px">Kalshi: ${esc(S.accountError)}</div>` : ''}
@@ -99,11 +124,12 @@ function botRender(S) {
         <div class=mut style="font-size:12.5px;margin-top:2px">${e.tk ? `<span class=num>${esc(e.tk)}</span> · ` : ''}${esc(e.note || '')}</div></td><td class="r mut hide-m" style="font-size:12.5px;white-space:nowrap">${rel(e.t / 1000)}</td></tr>`;
     }).join('') || `<tr><td class=empty>Nothing yet — when a trader you track buys on Polymarket, the bot's decision shows up here.</td></tr>`}</tbody></table></div>`;
 
-  const cronCard = `<div class="card pad"><div class="row sb"><h3>Always on</h3><span class=live>24/7</span></div><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 0">The bot runs on GitHub's servers around the clock, checking every ~10 seconds — your phone and this page can be closed. While this page is open it also checks every 5 seconds.</p></div>`;
+  const cronCard = `<div class="card pad"><div class="row sb"><h3>Always on</h3><span class=live>24/7</span></div><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 0">The bot runs on GitHub's servers around the clock, listening to Polymarket's live trade feed — it reacts within about a second of a tracked trader's trade, and double-checks every 15 seconds. Your phone and this page can be closed.</p></div>`;
 
   app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>Copies the Polymarket traders you track onto your Kalshi account.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
     ${status}<div class=split style="margin-top:20px"><div class=grid>${connected ? posT + fillsT : ''}${logT}</div><div class=grid>${keysCard}${connected ? settings : ''}${cronCard}</div></div>`;
   if (keepOpen && $('details')) $('details').open = true;
+  liveDraw(false);
 
   const act = async (fn, okMsg) => { try { const r = await fn(); if (okMsg) toast(typeof okMsg == 'function' ? okMsg(r) : okMsg); } catch (e) { toast(`<span class=down>${esc(e.message)}</span>`); } botRefresh(); };
   const save = cfg => act(() => bapi('cfg', { cfg }));

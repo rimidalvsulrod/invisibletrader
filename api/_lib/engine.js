@@ -1,72 +1,24 @@
 // Copy-trading engine — REAL MONEY ONLY. Your Kalshi account is the source of truth:
 //   cash comes from GET /portfolio/balance, holdings from GET /portfolio/positions, executions from order fill counts.
 // Signals come from Polymarket (traders you follow, or the top 10 if you follow no one). A copy is placed only when the
-// Kalshi market is clearly the same question:
-//   most words of the Polymarket question appear in the Kalshi market, every number/date matches,
-//   direction words (above/below/before/after/not…) are identical, both resolve within 3 days of each other,
-//   and the Kalshi ask is within your slippage of what the trader paid.
+// Kalshi market is clearly the same bet (see match.js) and the Kalshi ask is within your slippage of what the trader paid.
 // Orders are immediate-or-cancel limit orders (nothing rests on the book); sells are reduce-only.
 const crypto = require('crypto');
-const db = require('./db'), K = require('./kalshi'), S = require('./settings');
+const db = require('./db'), K = require('./kalshi'), S = require('./settings'), M = require('./match');
 const DEF = { pct: 5, minUsd: 1000, maxPrice: 85, slip: 3, maxUse: 100, thresh: 75 };
-const STOP = new Set('will the a an of in on at to be by for and or is are with from vs than this that win wins won'.split(' '));
-const DIR = new Set('above below over under more less fewer higher lower before after not least most exceed exceeds'.split(' '));
-const tok = s => String(s || '').toLowerCase().replace(/[^a-z0-9.]+/g, ' ').split(' ').filter(w => w && !STOP.has(w) && (w.length > 1 || /\d/.test(w)));
-const dirs = ws => [...new Set(ws.filter(w => DIR.has(w)))].sort().join(',');
 const cents = (d, c) => { const x = parseFloat(d); return isNaN(x) ? (c ?? 0) : Math.round(x * 100); };
 const num = (d, c) => { const x = parseFloat(d); return isNaN(x) ? (c ?? 0) : x; };
 const getJSON = u => fetch(u).then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${u.split('?')[0]}`)));
 const J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (e) { return d; } };
-const DAY = 864e5, MKC = {}, PMC = new Map();
+const DAY = 864e5;
+const tkey = t => crypto.createHash('sha1').update(`${t.transactionHash}|${t.asset}|${t.size}|${t.side}`).digest('base64').slice(0, 12);
 // Kalshi taker fee: round_up(0.07 × contracts × P × (1−P)) to the next cent
 const fee = (n, c) => Math.ceil(0.07 * n * (c / 100) * (1 - c / 100) * 100 - 1e-9) / 100;
 const orderCap = () => Number(process.env.MAX_ORDER_USD) || Infinity; // optional server-side ceiling (MAX_ORDER_USD); none by default
 
-// index of every open Kalshi event (refreshed every 15 min; 2 min if a page failed)
-async function eventIndex(env) {
-  const c = MKC[env]; if (c && Date.now() - c.t < (c.complete ? 9e5 : 12e4)) return c;
-  const { all, complete } = await K.openEvents(env); if (!all.length) { if (c) return c; throw new Error("couldn't load Kalshi events"); }
-  const ev = all.map(e => ({ e: e.event_ticker, tk: new Set(tok(`${e.title} ${e.sub_title || ''}`)) })).filter(e => e.e && e.tk.size), df = new Map();
-  for (const e of ev) for (const w of e.tk) df.set(w, (df.get(w) || 0) + 1);
-  return MKC[env] = { t: Date.now(), complete, ev, df };
-}
-const EMC = new Map();
-async function evMarkets(env, ev) {
-  const k = env + ev, c = EMC.get(k); if (c && Date.now() - c.t < 6e4) return c.data;
-  const data = (await K.eventMarkets(env, ev)).map(m => { const ws = tok(`${m.title} ${m.yes_sub_title || ''}`);
-    return { t: m.ticker, title: m.title, sub: m.yes_sub_title, ya: cents(m.yes_ask_dollars, m.yes_ask), na: cents(m.no_ask_dollars, m.no_ask), tk: new Set(ws), dir: dirs(ws),
-      ends: [m.close_time, m.expected_expiration_time].map(x => Date.parse(x)).filter(x => !isNaN(x)) }; }).filter(m => m.t && m.tk.size);
-  if (EMC.size > 500) EMC.clear(); EMC.set(k, { t: Date.now(), data }); return data;
-}
-// markets of the 12 events sharing the rarest words with the Polymarket question
-async function kalshiMarkets(env, title) {
-  const ix = await eventIndex(env), N = ix.ev.length, ws = [...new Set(tok(title))];
-  const top = ix.ev.map(e => { let s = 0; for (const w of ws) if (e.tk.has(w)) s += Math.log(N / ix.df.get(w)); return { e: e.e, s }; })
-    .filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 12);
-  const out = []; for (let i = 0; i < top.length; i += 4) (await Promise.all(top.slice(i, i + 4).map(x => evMarkets(env, x.e)))).forEach(m => out.push(...m));
-  return out;
-}
-async function pmEnd(conditionId) {
-  if (PMC.has(conditionId)) return PMC.get(conditionId);
-  const d = await getJSON(`https://gamma-api.polymarket.com/markets?condition_ids=${conditionId}`).then(r => Date.parse(r?.[0]?.endDate)).catch(() => NaN);
-  PMC.set(conditionId, d); if (PMC.size > 5000) PMC.clear(); return d;
-}
-function match(title, mk, th, end) {
-  const ws = [...new Set(tok(title))]; if (ws.length < 3) return { reason: 'question too short to match safely' };
-  const nums = ws.filter(w => /\d/.test(w)), d = dirs(ws); let best = null, near = null;
-  for (const m of mk) {
-    let h = 0; for (const w of ws) if (m.tk.has(w)) h++; const s = h / ws.length;
-    if (s < th || !nums.every(n => m.tk.has(n)) || h / m.tk.size < .25) continue;
-    if (m.dir !== d) { near ??= 'wording differs (above/below/before/after/not)'; continue; }
-    if (isNaN(end) || !m.ends.length) { near ??= 'could not confirm the resolution date'; continue; }
-    // short-term markets must resolve within 3 days of each other; long-dated ones (Polymarket end dates are often loose) within 90
-    if (!m.ends.some(x => Math.abs(x - end) <= (end - Date.now() > 30 * DAY ? 90 : 3) * DAY)) { near ??= 'resolves on a different date'; continue; }
-    if (!best || s > best.s) best = { m, s };
-  }
-  return best || { reason: near || 'not on Kalshi' };
-}
+// polling (backup for the live stream in runner.js); the cache-buster skips Polymarket's 5-minute CDN cache
 const runCtx = () => { const T = new Map(); let top; return {
-  trades: a => T.get(a) ?? T.set(a, getJSON(`https://data-api.polymarket.com/trades?user=${a}&limit=15`).catch(() => [])).get(a),
+  trades: a => T.get(a) ?? T.set(a, getJSON(`https://data-api.polymarket.com/trades?user=${a}&limit=25&_=${Date.now()}`).catch(() => [])).get(a),
   top: () => top ??= getJSON('https://data-api.polymarket.com/v1/leaderboard?timePeriod=ALL&orderBy=PNL&limit=10').then(r => r.map(x => x.proxyWallet)).catch(() => []) }; };
 
 /* ---------- Kalshi account snapshot ---------- */
@@ -101,15 +53,15 @@ function reconcile(s, acct) {
   }
 }
 
-async function buy(s, t, acct) {
-  const c = s.cfg, base = { trader: t.name || t.pseudonym || t.proxyWallet.slice(0, 8), title: t.title, outcome: t.outcome, pm: Math.round(t.price * 100), usd: t.size * t.price, act: 'buy' };
-  const o = String(t.outcome).toLowerCase(); if (o !== 'yes' && o !== 'no') return log(s, { ...base, st: 'skip', note: 'not a Yes/No market' });
-  const mk = await kalshiMarkets(s.creds.env, t.title).catch(() => null); if (!mk) return log(s, { ...base, st: 'skip', note: "couldn't load Kalshi's market list" });
-  const b = match(t.title, mk, c.thresh / 100, await pmEnd(t.conditionId)); if (!b.m) return log(s, { ...base, st: 'skip', note: b.reason });
-  const ask = o === 'yes' ? b.m.ya : b.m.na, e = { ...base, tk: b.m.t, kt: b.m.title + (b.m.sub ? ' — ' + b.m.sub : ''), side: o, ask, asset: t.asset };
+async function buy(s, t, acct, usd) {
+  const c = s.cfg, base = { trader: t.name || t.pseudonym || t.proxyWallet.slice(0, 8), title: t.title, outcome: t.outcome, pm: Math.round(t.price * 100), usd, act: 'buy' };
+  const b = await M.resolve(s.creds.env, t, c.thresh / 100).catch(e => ({ reason: `couldn't check Kalshi (${String(e.message || e).slice(0, 60)})` }));
+  if (!b.m) return log(s, { ...base, st: 'skip', note: b.reason });
+  const o = b.side, ask = o === 'yes' ? b.m.ya : b.m.na, e = { ...base, tk: b.m.t, kt: b.m.title + (b.m.sub ? ' — ' + b.m.sub : ''), side: o, ask, asset: t.asset };
   if (!ask || ask < 1 || ask > 99) return log(s, { ...e, st: 'skip', note: 'no Kalshi price right now' });
   if (ask > c.maxPrice) return log(s, { ...e, st: 'skip', note: `Kalshi price ${ask}¢ is above your max ${c.maxPrice}¢` });
   if (ask > e.pm + c.slip) return log(s, { ...e, st: 'skip', note: `Kalshi ${ask}¢ vs the trader's ${e.pm}¢ — more than ${c.slip}¢ worse` });
+  if (ask < e.pm - 15) return log(s, { ...e, st: 'skip', note: `Kalshi ${ask}¢ vs the trader's ${e.pm}¢ — prices too far apart to be the same bet` });
   if (s.copies.some(p => p.tk === e.tk) || held(acct, e.tk, 'yes') + held(acct, e.tk, 'no') > 0) return log(s, { ...e, st: 'skip', note: 'you already hold this market' });
   // size: % of your Kalshi cash, fee included, never more than the cash you have
   const budget = Math.min(acct.cash * c.pct / 100, orderCap(), acct.cash - 0.01);
@@ -159,16 +111,21 @@ async function run(ctx = runCtx(), minGap = 0) {
     if (!s.creds) { s.disable = true; log(s, { trader: 'bot', title: 'Bot paused — connect your Kalshi account first', st: 'error' }); await save(s); return { ran: true, error: 'no key' }; }
     if (process.env.TRADING_DISABLED) { s.disable = true; log(s, { trader: 'bot', title: 'Bot paused — TRADING_DISABLED is set on the server', st: 'error' }); await save(s); return { ran: true }; }
     let addrs = (await db.q('SELECT wallet FROM follows')).map(r => r.wallet); if (!addrs.length) addrs = await ctx.top(); addrs = addrs.slice(0, 15);
-    s.st.since ??= Math.floor(Date.now() / 1000) - 30; const seen = new Set(s.st.seen || []);
-    const trades = (await Promise.all(addrs.map(a => ctx.trades(a)))).flat().filter(t => t && t.timestamp >= s.st.since && !seen.has(t.transactionHash + t.asset + t.size + t.side)).sort((a, b) => a.timestamp - b.timestamp);
+    // remember trades from the last 10 minutes only (older ones are ignored), so the state stays small
+    const now = Math.floor(Date.now() / 1000); if (!s.st.seen2) { s.st.since = now - 60; delete s.st.seen; s.st.seen2 = []; }
+    s.st.since = Math.max(s.st.since ?? now - 60, now - 600); const seen = new Map(s.st.seen2 || []), acc = s.st.acc || {};
+    const trades = (await Promise.all(addrs.map(a => ctx.trades(a)))).flat().filter(t => t && t.timestamp >= s.st.since && !seen.has(tkey(t))).sort((a, b) => a.timestamp - b.timestamp);
     // checks run every ~10s; only touch Kalshi when there is something to do, or once a minute to stay in sync
     if (!trades.length && !(s.st.retry || []).length && Date.now() - (s.st.synced || 0) < 60e3) { s.st.last = Date.now(); s.st.watching = addrs.length; await save(s); return { ran: true, trades: 0 }; }
     const acct = await account(s.creds); reconcile(s, acct); s.st.synced = Date.now();
     for (const id of s.st.retry || []) { s.st.retry = s.st.retry.filter(x => x !== id); const cp = s.copies.find(x => x.id === id); if (cp) await sellCopy(s, cp, acct, 'retrying sell'); }
-    for (const t of trades) { if (s.disable) break; seen.add(t.transactionHash + t.asset + t.size + t.side);
+    for (const t of trades) { if (s.disable) break; seen.set(tkey(t), t.timestamp);
       if (t.side === 'SELL') { for (const cp of s.copies.filter(p => p.asset === t.asset)) await sellCopy(s, cp, acct, `${cp.trader} sold`); }
-      else if (t.side === 'BUY' && t.size * t.price >= s.cfg.minUsd) await buy(s, t, acct); }
-    s.st.seen = [...seen].slice(-800); s.st.last = Date.now(); s.st.watching = addrs.length; await save(s); return { ran: true, trades: trades.length, logs: s.logs.length };
+      else if (t.side === 'BUY') { // one order often arrives as several fills: add up a trader's buys of the same outcome over 10 minutes
+        const a = acc[`${t.proxyWallet}|${t.asset}`.toLowerCase()] ??= { usd: 0 }; a.usd += t.size * t.price; a.t = t.timestamp;
+        if (!a.fired && a.usd >= s.cfg.minUsd) { a.fired = 1; await buy(s, t, acct, a.usd); } } }
+    s.st.seen2 = [...seen].filter(x => x[1] >= s.st.since); s.st.acc = Object.fromEntries(Object.entries(acc).filter(x => x[1].t >= now - 600));
+    s.st.last = Date.now(); s.st.watching = addrs.length; await save(s); return { ran: true, trades: trades.length, logs: s.logs.length };
   } catch (e) { s.st.last = Date.now(); log(s, { trader: 'bot', title: 'Check failed: ' + String(e.message || e).slice(0, 140), st: 'error' }); await save(s).catch(() => {}); return { ran: true, error: String(e.message || e) }; }
 }
 // manual sells from the app: one ticker (any position you hold) or everything the bot copied
@@ -181,4 +138,4 @@ async function manualSell(target) {
       if (cp && f > 0) { cp.count -= f; if (cp.count < 1) s.copies = s.copies.filter(x => x !== cp); } } }
   await save(s, s.row.enabled && !s.disable);
 }
-module.exports = { DEF, run, manualSell, open, account, fee, J, match, tok, dirs, orderCap };
+module.exports = { DEF, run, manualSell, open, account, fee, J, orderCap };
