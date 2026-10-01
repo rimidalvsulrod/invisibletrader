@@ -70,7 +70,7 @@ function renderSide(){const p=location.hash.slice(2).split('/')[0];const fl=Obje
   $('#side').innerHTML=`<a class=logo href="#/"><i><svg width=16 height=16 viewBox="0 0 32 32"><path d="M5 16c3.5-6 7-8.5 11-8.5s7.5 2.5 11 8.5c-3.5 6-7 8.5-11 8.5S8.5 22 5 16z" fill=none stroke="#060708" stroke-width=3 /><circle cx=16 cy=16 r=3.6 fill="#060708" /></svg></i>InvisibleTrader</a>`+
   NAV.map(([g,items])=>`<div class=navg>${g}</div>`+items.map(([k,i,t])=>`<a class="nv ${p==k||(k==''&&!p)?'on':''}" href="#/${k}">${ic(i)}${t}${k=='bot'&&BOTON?'<span class=dot></span>':''}</a>`).join('')).join('')+
   (fl.length?`<div class=navg>Watching</div>`+fl.map(([a,n])=>`<a class=nv href="#/trader/${a}" style="height:34px">${av(n,a,null,'sm')}<span class=ell>${esc(n)}</span></a>`).join(''):'')+
-  `<div class=sfoot><a class="nv ${p=='help'?'on':''}" href="#/help">${ic('help')}Help & setup</a>${OWNER?`<a class=nv href="#" id=lo>${ic('lock')}Lock (log out)</a>`:`<a class=nv href="#/bot">${ic('lock')}Owner login</a>`}</div>`;
+  `<div class=sfoot><a class="nv ${p=='help'?'on':''}" href="#/help">${ic('help')}Help</a>${OWNER?`<a class=nv href="#" id=lo>${ic('lock')}Lock (log out)</a>`:`<a class=nv href="#/bot">${ic('lock')}Owner login</a>`}</div>`;
   $('#lo')&&($('#lo').onclick=async e=>{e.preventDefault();await fetch('/api/auth',{method:'POST',headers:{'content-type':'application/json'},body:'{"op":"logout"}'});OWNER=false;toast('Logged out');route()})}
 $('#mnav').onclick=()=>$('#side').classList.toggle('open');
 /* command palette */
@@ -236,19 +236,10 @@ function analyze(){
 }
 
 /* ---------- Help & setup ---------- */
-async function help(){
-  const me=await fetch('/api/auth?op=me').then(r=>r.json()).catch(()=>({setup:{}}));const st=me.setup||{};
-  const row=(ok,t,d)=>`<div class=step><b class=${ok?'ok':'no'}>${ok?'✓':'○'}</b><div><div style="font-weight:550">${t}</div><div class=mut style="font-size:13px;margin-top:3px">${d}</div></div></div>`;
-  app.innerHTML=`<div class="ph fade"><div><h1>Help & setup</h1><p class=lead>Data comes live from Polymarket. Orders go to Kalshi. Everything below is configured in Vercel → Project → Settings → Environment Variables.</p></div></div>
-   <div class=split><div class="card pad"><h2>Server setup</h2><div style="margin-top:8px">
-    ${row(st.db,'Database','Add a free Postgres database: Vercel → Storage → Create → Neon. It sets <code>DATABASE_URL</code> for you.')}
-    ${row(st.password,'Owner password','Set <code>ADMIN_PASSWORD</code> (8+ characters). This is how you log in to the Auto Trader.')}
-    ${row(st.session,'Session secret','Set <code>SESSION_SECRET</code> to any long random string (32+ characters).')}
-    ${row(null,'Kalshi keys','Create an API key at kalshi.com → Account → API keys (or demo.kalshi.co for practice money). Set <code>KALSHI_KEY_ID</code> and <code>KALSHI_PRIVATE_KEY</code> (paste the whole PEM). <code>KALSHI_ENV</code> = <code>demo</code> or <code>prod</code>.')}
-    ${row(null,'Real money switch','For real orders set <code>KALSHI_ENV=prod</code> and <code>KALSHI_ALLOW_LIVE=yes</code>. Optional: <code>MAX_ORDER_USD</code> (default 25) caps every order; <code>TRADING_DISABLED=1</code> stops all trading instantly.')}
-    ${row(null,'Run every minute','Set <code>CRON_SECRET</code>, then create a free job at cron-job.org that opens <code>https://YOUR-SITE/api/cron?key=YOUR_CRON_SECRET</code> every minute. That runs the bot even when this site is closed.')}
-   </div><p class=mut style="font-size:12.5px">After changing variables, redeploy (Vercel → Deployments → Redeploy).</p></div>
-   <div class=grid><div class="card pad"><h3>How the Auto Trader decides</h3><div class=mut style="font-size:13.5px;line-height:1.6;margin-top:8px">When a trader you follow buys on Polymarket, the bot looks for the same question on Kalshi. It only trades if the wording matches, every number and date matches, words like above/below/before/not match, both markets resolve within 3 days of each other, and Kalshi's price is close to what the trader paid. When the trader sells, the bot sells too.</div></div>
+function help(){
+  app.innerHTML=`<div class="ph fade"><div><h1>Help</h1><p class=lead>Data comes live from Polymarket. Orders go to your Kalshi account.</p></div></div>
+   <div class="grid g2"><div class="card pad"><h2>Turning on the Auto Trader</h2><div style="margin-top:8px">${[['Create a password','Open <a href="#/bot" style="color:#b3a9ff">Auto Trader</a> — the first visit asks you to make one.'],['Connect Kalshi','Create an API key on Kalshi (Account → API keys) and paste the Key ID + private key. Start with a demo.kalshi.co key.'],['Pick a size','Choose what % of your balance each copied trade uses, then flip the switch on.'],['Follow traders','Tap ☆ on anyone on the Leaderboard. The bot copies them (or the top 10 if you follow no one).']].map(([t,d],i)=>`<div class=step><b class=ok>${i+1}</b><div><div style="font-weight:550">${t}</div><div class=mut style="font-size:13px;margin-top:3px">${d}</div></div></div>`).join('')}</div></div>
+   <div class=grid><div class="card pad"><h3>How the bot decides</h3><div class=mut style="font-size:13.5px;line-height:1.6;margin-top:8px">When a trader you follow buys on Polymarket, the bot looks for the same question on Kalshi. It only trades if the wording matches, every number and date matches, words like above/below/before/not match, both markets resolve within 3 days of each other, and Kalshi's price is close to what the trader paid. When the trader sells, the bot sells too.</div></div>
     <div class="card pad"><h3>Accuracy</h3><div class=mut style="font-size:13.5px;line-height:1.6;margin-top:8px">Profit and volume are Polymarket's official numbers. Win rates use each trader's most recent resolved positions, including losers they never cashed out. "Open" only shows markets that haven't resolved yet.</div></div></div></div>`;
 }
 

@@ -1,11 +1,14 @@
 const { Pool } = require('pg');
 const { err } = require('./util');
 let pool, ready;
-const getPool = () => { if (!process.env.DATABASE_URL) throw err(503, 'Database not configured (set DATABASE_URL)'); return pool ??= new Pool({ connectionString: process.env.DATABASE_URL, max: 2 }); };
+// Neon's Vercel integration may name the variable DATABASE_URL, POSTGRES_URL, or add a custom prefix (e.g. STORAGE_DATABASE_URL)
+const dbUrl = () => process.env.DATABASE_URL || process.env.POSTGRES_URL || Object.entries(process.env).find(([k, v]) => /(DATABASE_URL|POSTGRES_URL)$/.test(k) && /^postgres/.test(v || ''))?.[1];
+const getPool = () => { const url = dbUrl(); if (!url) throw err(503, 'No database connected'); return pool ??= new Pool({ connectionString: url, max: 2 }); };
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS follows (wallet text PRIMARY KEY, name text)`,
   `CREATE TABLE IF NOT EXISTS bot (id text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, state text, positions text, pnl double precision NOT NULL DEFAULT 0, lock_until bigint, updated bigint)`,
   `CREATE TABLE IF NOT EXISTS botlog (id text PRIMARY KEY, ts bigint NOT NULL, entry text NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS settings (k text PRIMARY KEY, v text)`,
   `CREATE TABLE IF NOT EXISTS rate (k text PRIMARY KEY, n int NOT NULL, reset bigint NOT NULL)`,
   `INSERT INTO bot (id, enabled, cfg, state, positions) VALUES ('me', false, '{}', '{}', '[]') ON CONFLICT (id) DO NOTHING`,
 ];
@@ -18,4 +21,4 @@ async function limit(key, max, windowMs) {
   if (r.n >= max) throw err(429, 'Too many attempts — try again in a few minutes');
   await q('UPDATE rate SET n=n+1 WHERE k=$1', [key]);
 }
-module.exports = { q, one, limit };
+module.exports = { q, one, limit, dbUrl };

@@ -1,0 +1,13 @@
+# Wakes the Auto Trader every 30 minutes even when nobody has the site open.
+# (Every 30 min keeps a private repo inside GitHub's free 2,000 Actions minutes/month.
+#  For every-minute runs, paste the cron URL shown on the Auto Trader page into cron-job.org.)
+name: auto-trader
+on:
+  schedule: [{ cron: '*/30 * * * *' }]
+  workflow_dispatch: {}
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: curl -sS -m 60 "https://invisibletrader.vercel.app/api/cron" || true

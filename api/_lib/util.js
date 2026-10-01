@@ -1,15 +1,14 @@
 const crypto = require('crypto');
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
 const err = (s, m) => new HttpError(s, m);
-const secret = () => { const s = process.env.SESSION_SECRET; if (!s || s.length < 16) throw err(503, 'SESSION_SECRET is not set (min 16 chars)'); return s; };
-const hmac = s => crypto.createHmac('sha256', secret()).update(s).digest('base64url');
+const hmac = (key, s) => crypto.createHmac('sha256', key).update(s).digest('base64url');
 const same = (a, b) => { const x = crypto.createHash('sha256').update(String(a)).digest(), y = crypto.createHash('sha256').update(String(b)).digest(); return crypto.timingSafeEqual(x, y); };
 const COOKIE = 'it_session', DAY = 864e5, secure = () => (process.env.VERCEL || process.env.NODE_ENV === 'production' ? '; Secure' : '');
-function makeCookie(days = 30) { const body = Buffer.from(JSON.stringify({ owner: true, exp: Date.now() + days * DAY })).toString('base64url'); return `${COOKIE}=${body}.${hmac(body)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${days * 86400}${secure()}`; }
+function makeCookie(key, days = 30) { const body = Buffer.from(JSON.stringify({ owner: true, exp: Date.now() + days * DAY })).toString('base64url'); return `${COOKIE}=${body}.${hmac(key, body)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${days * 86400}${secure()}`; }
 const clearCookie = () => `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure()}`;
-function isOwner(req) {
+function isOwner(req, key) {
   const m = (req.headers.cookie || '').split(/;\s*/).find(c => c.startsWith(COOKIE + '=')); if (!m) return false;
-  const [body, sig] = m.slice(COOKIE.length + 1).split('.'); if (!body || !sig || !same(sig, hmac(body))) return false;
+  const [body, sig] = m.slice(COOKIE.length + 1).split('.'); if (!body || !sig || !same(sig, hmac(key, body))) return false;
   try { return JSON.parse(Buffer.from(body, 'base64url')).exp > Date.now(); } catch (e) { return false; }
 }
 const ip = req => String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim();
@@ -22,5 +21,5 @@ const handler = fn => async (req, res) => {
     res.setHeader('cache-control', 'no-store'); return res.status(200).json(out);
   } catch (e) { if (!e.status) console.error(e); return res.status(e.status || 500).json({ error: e.status ? e.message : 'Server error' }); }
 };
-const needOwner = req => { if (!isOwner(req)) throw err(401, 'Not logged in'); };
+const needOwner = (req, key) => { if (!isOwner(req, key)) throw err(401, 'Not logged in'); };
 module.exports = { err, same, makeCookie, clearCookie, isOwner, needOwner, ip, handler, DAY };

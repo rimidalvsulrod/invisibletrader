@@ -5,15 +5,15 @@
 //  - both markets resolve within 3 days of each other,
 //  - the Kalshi price is within your slippage of the price the Polymarket trader paid.
 const crypto = require('crypto');
-const db = require('./db'), K = require('./kalshi');
-const DEF = { paper: true, pct: 5, minUsd: 1000, maxPrice: 85, slip: 3, maxUse: 50, thresh: 75, pbal: 1000, liveAck: false };
+const db = require('./db'), K = require('./kalshi'), S = require('./settings');
+const DEF = { paper: true, pct: 5, minUsd: 1000, maxPrice: 85, slip: 3, maxUse: 50, thresh: 75, pbal: 1000, liveAck: false, maxOrder: 25 };
 const STOP = new Set('will the a an of in on at to be by for and or is are with from vs than this that win wins won'.split(' '));
 const DIR = new Set('above below over under more less fewer higher lower before after not least most exceed exceeds'.split(' '));
 const tok = s => String(s || '').toLowerCase().replace(/[^a-z0-9.]+/g, ' ').split(' ').filter(w => w && !STOP.has(w) && (w.length > 1 || /\d/.test(w)));
 const dirs = ws => [...new Set(ws.filter(w => DIR.has(w)))].sort().join(',');
 const centsOf = (d, c) => { const x = parseFloat(d); return isNaN(x) ? (c ?? 0) : Math.round(x * 100); };
 const getJSON = u => fetch(u).then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${u.split('?')[0]}`)));
-const maxOrderUsd = () => Number(process.env.MAX_ORDER_USD) || 25;
+const maxOrderUsd = cfg => Math.min(cfg.maxOrder || 25, Number(process.env.MAX_ORDER_USD) || Infinity); // env var, if set, is a hard ceiling
 const J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (e) { return d; } };
 const DAY = 864e5, MKC = {}, PMC = new Map();
 
@@ -48,22 +48,22 @@ const runCtx = () => { const T = new Map(); let top; return {
   trades: a => T.get(a) ?? T.set(a, getJSON(`https://data-api.polymarket.com/trades?user=${a}&limit=15`).catch(() => [])).get(a),
   top: () => top ??= getJSON('https://data-api.polymarket.com/v1/leaderboard?timePeriod=ALL&orderBy=PNL&limit=10').then(r => r.map(x => x.proxyWallet)).catch(() => []) }; };
 
-function liveStatus(cfg) { // can we place real orders right now?
-  const env = K.creds().env;
-  if (!K.configured()) return { ok: false, env, why: 'Kalshi keys are not set on the server' };
-  if (process.env.TRADING_DISABLED) return { ok: false, env, why: 'TRADING_DISABLED is set' };
-  if (env === 'prod' && process.env.KALSHI_ALLOW_LIVE !== 'yes') return { ok: false, env, why: 'KALSHI_ALLOW_LIVE is not "yes"' };
-  if (env === 'prod' && !cfg.liveAck) return { ok: false, env, why: 'real-money box not ticked' };
+function liveStatus(cfg, c) { // can we place real orders right now?
+  const env = c?.env || 'demo';
+  if (!c) return { ok: false, env, why: 'add your Kalshi API key first' };
+  if (process.env.TRADING_DISABLED) return { ok: false, env, why: 'TRADING_DISABLED is set on the server' };
+  if (env === 'prod' && process.env.KALSHI_ALLOW_LIVE === 'no') return { ok: false, env, why: 'KALSHI_ALLOW_LIVE=no on the server' };
+  if (env === 'prod' && !cfg.liveAck) return { ok: false, env, why: 'tick "I understand this uses real money"' };
   return { ok: true, env };
 }
 async function open() {
-  const row = await db.one("SELECT * FROM bot WHERE id='me'"), cfg = { ...DEF, ...J(row.cfg, {}) }, live = liveStatus(cfg);
-  const s = { row, cfg, st: J(row.state, {}), pos: J(row.positions, []), pnl: row.pnl || 0, logs: [], orders: 0, disable: false };
+  const row = await db.one("SELECT * FROM bot WHERE id='me'"), cfg = { ...DEF, ...J(row.cfg, {}) }, creds = await S.getCreds().catch(() => null), live = liveStatus(cfg, creds);
+  const s = { row, cfg, creds, st: J(row.state, {}), pos: J(row.positions, []), pnl: row.pnl || 0, logs: [], orders: 0, disable: false };
   s.paper = cfg.paper || !live.ok; s.env = s.paper ? 'prod' : live.env; s.why = !cfg.paper && !live.ok ? `Practice mode used: ${live.why}` : '';
   return s;
 }
 const log = (s, e) => s.logs.push({ t: Date.now(), ...e });
-async function balanceOf(s) { if (s.paper) return s.cfg.pbal + s.pnl; const b = await K.balance(); return b.ok ? b.balance : null; }
+async function balanceOf(s) { if (s.paper) return s.cfg.pbal + s.pnl; const b = await K.balance(s.creds); return b.ok ? b.balance : null; }
 function addPos(s, e, n) { s.pos.push({ id: crypto.randomBytes(5).toString('hex'), tk: e.tk, side: e.side, count: n, ask: e.ask, cost: n * e.ask / 100, asset: e.asset, trader: e.trader, title: e.title, kt: e.kt, paper: s.paper, t: Date.now() });
   log(s, { ...e, count: n, st: 'bought', note: s.paper ? 'practice' : `${s.env === 'prod' ? 'real money' : 'demo'} · filled ${n}` }); }
 const bad = (s, e, r) => { s.st.errs = (s.st.errs || 0) + 1; log(s, { ...e, st: 'error', note: r.json?.error?.message || r.json?.error || r.json?.message || JSON.stringify(r.json).slice(0, 120) });
@@ -79,17 +79,17 @@ async function buy(s, t, mk) {
   if (Math.abs(ask - e.pm) > Math.max(c.slip, 10) || ask > e.pm + c.slip) return log(s, { ...e, st: 'skip', note: `Kalshi ${ask}¢ vs Polymarket ${e.pm}¢ — prices don't line up` });
   if (s.pos.some(p => p.tk === e.tk)) return log(s, { ...e, st: 'skip', note: 'already holding this market' });
   const bal = await balanceOf(s); if (!(bal > 0)) return log(s, { ...e, st: 'skip', note: 'could not read balance' });
-  let n = Math.floor(bal * c.pct / 100 * 100 / ask); if (!s.paper) n = Math.min(n, Math.floor(maxOrderUsd() * 100 / ask));
+  let n = Math.floor(bal * c.pct / 100 * 100 / ask); if (!s.paper) n = Math.min(n, Math.floor(maxOrderUsd(c) * 100 / ask));
   if (n < 1) return log(s, { ...e, st: 'skip', note: `${c.pct}% of balance is less than 1 contract` });
   const inUse = s.pos.reduce((a, p) => a + p.cost, 0); if (inUse + n * ask / 100 > bal * c.maxUse / 100) return log(s, { ...e, st: 'skip', note: `would put more than ${c.maxUse}% of balance in trades` });
   if (s.paper) return addPos(s, e, n);
   if (s.orders >= 5) return log(s, { ...e, st: 'skip', note: 'max 5 orders per run' }); s.orders++;
-  const r = await K.placeOrder({ ticker: e.tk, side: o, action: 'buy', count: n, priceCents: ask, ref: `b-${Date.now()}-${e.tk}` });
+  const r = await K.placeOrder(s.creds, { ticker: e.tk, side: o, action: 'buy', count: n, priceCents: ask, ref: `b-${Date.now()}-${e.tk}` });
   if (!r.ok) return bad(s, e, r); s.st.errs = 0; const f = Math.floor(parseFloat(r.json.fill_count || 0));
   return f > 0 ? addPos(s, e, f) : log(s, { ...e, st: 'skip', note: 'order did not fill (price moved)' });
 }
 async function sell(s, p, why) {
-  const env = p.paper ? 'prod' : K.creds().env, e = { trader: p.trader, title: p.title, tk: p.tk, kt: p.kt, side: p.side, count: p.count, act: 'sell', outcome: p.side };
+  const env = p.paper ? 'prod' : (s.creds?.env || 'demo'), e = { trader: p.trader, title: p.title, tk: p.tk, kt: p.kt, side: p.side, count: p.count, act: 'sell', outcome: p.side };
   const m = await K.market(env, p.tk).catch(() => null), bid = m ? centsOf(p.side === 'yes' ? m.yes_bid_dollars : m.no_bid_dollars, p.side === 'yes' ? m.yes_bid : m.no_bid) : 0;
   if (!m) return log(s, { ...e, st: 'skip', note: `${why}: could not load market` });
   if (m.status && !['active', 'open'].includes(m.status)) { s.pos = s.pos.filter(x => x.id !== p.id); return log(s, { ...e, st: 'sold', note: `market ${m.status} — Kalshi settles it automatically` }); }
@@ -98,8 +98,8 @@ async function sell(s, p, why) {
   const done = (n, price) => { const proceeds = n * price / 100, part = p.cost * n / p.count; s.pos = s.pos.filter(x => x.id !== p.id); if (n < p.count) s.pos.push({ ...p, count: p.count - n, cost: p.cost - part }); s.pnl += proceeds - part;
     log(s, { ...e, count: n, st: 'sold', note: `${why} · ${proceeds - part >= 0 ? '+' : '-'}$${Math.abs(proceeds - part).toFixed(2)}` }); };
   if (p.paper) return done(p.count, bid);
-  if (!liveStatus(s.cfg).ok && !K.configured()) return log(s, { ...e, st: 'error', note: 'cannot sell: Kalshi keys missing' });
-  const r = await K.placeOrder({ ticker: p.tk, side: p.side, action: 'sell', count: p.count, priceCents: Math.max(1, bid - 5), ref: `s-${Date.now()}-${p.tk}` });
+  if (!s.creds) return log(s, { ...e, st: 'error', note: 'cannot sell: Kalshi key missing' });
+  const r = await K.placeOrder(s.creds, { ticker: p.tk, side: p.side, action: 'sell', count: p.count, priceCents: Math.max(1, bid - 5), ref: `s-${Date.now()}-${p.tk}` });
   if (!r.ok) return bad(s, e, r); const f = Math.floor(parseFloat(r.json.fill_count || 0));
   if (f > 0) return done(f, bid); s.st.retry = [...new Set([...(s.st.retry || []), p.id])]; return log(s, { ...e, st: 'skip', note: `${why}: sell did not fill, will retry` });
 }
@@ -108,7 +108,8 @@ async function save(s, enabled) {
   for (const l of s.logs) await db.q('INSERT INTO botlog (id, ts, entry) VALUES ($1,$2,$3)', [crypto.randomBytes(8).toString('hex'), l.t, JSON.stringify(l)]);
   if (s.logs.length) await db.q('DELETE FROM botlog WHERE ts<$1', [Date.now() - 14 * DAY]);
 }
-async function run(ctx = runCtx()) {
+async function run(ctx = runCtx(), minGap = 0) {
+  if (minGap) { const r = await db.one("SELECT state FROM bot WHERE id='me'"); if (Date.now() - (J(r?.state, {}).last || 0) < minGap) return { ran: false, why: 'ran recently' }; }
   const got = await db.one("UPDATE bot SET lock_until=$1 WHERE id='me' AND enabled=true AND (lock_until IS NULL OR lock_until<$2) RETURNING id", [Date.now() + 55e3, Date.now()]);
   if (!got) return { ran: false };
   const s = await open();
