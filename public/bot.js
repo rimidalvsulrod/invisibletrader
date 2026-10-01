@@ -114,7 +114,6 @@ function botRender(S) {
   $('#bsa') && ($('#bsa').onclick = () => confirm('Sell every position the bot copied, at the current bid?') && act(() => bapi('sell', { ticker: 'all' }), 'Sell orders sent'));
   $$('[data-sell]').forEach(b => b.onclick = () => confirm(`Sell your whole ${b.dataset.sell} position at the current bid?`) && act(() => bapi('sell', { ticker: b.dataset.sell }), 'Sell order sent'));
   $('#bclr').onclick = () => act(() => bapi('clearlog', {}));
-  $('#ccp').onclick = () => { navigator.clipboard?.writeText(location.origin + '/api/cron'); toast('Link copied'); };
   $('#kdel') && ($('#kdel').onclick = () => confirm('Disconnect your Kalshi account? The bot stops.') && act(() => bapi('keysdel', {}), 'Disconnected'));
   $('#ksave') && ($('#ksave').onclick = async () => {
     $('#ksave').disabled = true; $('#ksave').textContent = 'Checking with Kalshi…'; $('#kerr').textContent = '';
