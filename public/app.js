@@ -57,14 +57,17 @@ function renderNav(){const p=(location.hash.slice(2)||'profits').split('/')[0],a
 /* ---------- leaderboard ---------- */
 async function leaderboard(){
   const ord=LS.get('ord','PNL'),tab=LS.get('ltab','rank');
-  app.innerHTML=`<div class="row sb"><div><h1>Leaderboard</h1><div class=sub>All tracked history</div></div><select class=fld id=ord style="width:121px;margin-top:-3px"><option value=PNL>Highest P&L<option value=VOL>Highest volume</select></div>
+  app.innerHTML=`<div class="row sb"><div><h1>Leaderboard</h1><div class=sub>All tracked history</div></div><select class=fld id=ord style="width:121px;margin-top:-3px"><option value=PNL>Highest P&L<option value=VOL>Highest volume<option value=WR>Highest win rate</select></div>
   <div class=tabs><span data-t=rank class="${tab=='rank'?'on':''}">Rankings</span><span data-t=wins class="${tab=='wins'?'on':''}">Recent wins</span></div><div id=lb class=sub>Loading…</div>`;
   $('#ord').value=ord;$('#ord').onchange=e=>{LS.set('ord',e.target.value);leaderboard()};
   app.querySelectorAll('.tabs span').forEach(s=>s.onclick=()=>{LS.set('ltab',s.dataset.t);leaderboard()});
   const fb=(t,c='')=>fol[t.proxyWallet]?`<button class="btn u ${c}" data-follow="${t.proxyWallet}|${esc(t.userName)}">${ic('x',11)} Unfollow</button>`:`<button class="btn ${c}" data-follow="${t.proxyWallet}|${esc(t.userName)}">${ic('plus',11)} Follow</button>`;
   if(tab=='wins'){const ex=await loadExperts();if(!$('#lb'))return;const w=ex.flatMap(e=>e.closed.filter(c=>c.realizedPnl>0).map(c=>({...c,u:e}))).sort((a,b)=>b.timestamp-a.timestamp).slice(0,40);
     $('#lb').outerHTML=`<div class=tw><table><tr><th>Trader<th>Market<th class=r>Profit<th class=r>When</tr>${w.map(c=>`<tr class=tr><td><a href="#/trader/${c.u.proxyWallet}" style="font-weight:600">${esc(c.u.userName)}</a><td>${esc(c.title)} <span class=mut>— ${esc(c.outcome)}</span><td class="r pos">${sg(c.realizedPnl)}<td class="r mut">${ago(c.timestamp)}</tr>`).join('')}</table></div>`;return}
-  const lb=[...await lbOf('ALL',ord,0),...await lbOf('ALL',ord,50)];if(!$('#lb'))return;if(!lb.length){$('#lb').textContent='Could not load data from Polymarket — try reloading.';return}
+  const base=ord=='WR'?'PNL':ord;let lb=[...await lbOf('ALL',base,0),...await lbOf('ALL',base,50)];if(!$('#lb'))return;
+  if(ord=='WR'&&lb.length){let done=0,i=0;const el=$('#lb');const w=async()=>{while(i<lb.length){const t=lb[i++];await statOf(t.proxyWallet);if($('#lb')===el)el.textContent=`Calculating win rates… ${++done}/${lb.length}`}};
+    await Promise.all([...Array(8)].map(w));if($('#lb')!==el)return;
+    const S=await Promise.all(lb.map(t=>statOf(t.proxyWallet)));lb=lb.map((t,k)=>({...t,_s:S[k]})).filter(t=>t._s.n>=20).sort((a,b)=>b._s.wr-a._s.wr||b._s.n-a._s.n).map((t,k)=>({...t,rank:String(k+1)}))}if(!lb.length){$('#lb').textContent='Could not load data from Polymarket — try reloading.';return}
   const sv=ord=='VOL'?'vol':'pnl';
   $('#lb').outerHTML=`<div class=top3>${lb.slice(0,3).map(t=>`<div class="t3 ${fol[t.proxyWallet]?'f':''}"><div class="row sb ac" style="font-weight:700;font-size:10.5px;color:#e8e8f4;line-height:14px"><span>#${t.rank}</span><a href="#/trader/${t.proxyWallet}" style="margin-right:4px;color:#b4b4c2">${ic('arrow',15)}</a></div>
    <div style="margin-top:14px">${av(t.profileImage,t.proxyWallet)}</div><a href="#/trader/${t.proxyWallet}" class=nm style="display:block">${esc(t.userName||short(t.proxyWallet))}</a>
