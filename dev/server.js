@@ -1,4 +1,9 @@
-// Local dev server: serves public/ and runs the same proxy as api/proxy.js
+// Local dev server: serves public/ and runs the files in api/ like Vercel does.
+// Optional: DEV_PGMEM=1 runs with an in-memory Postgres so you can try accounts/bot locally without a database.
+if (process.env.DEV_PGMEM && !process.env.DATABASE_URL) {
+  const { newDb } = require('pg-mem'); require.cache[require.resolve('pg')] = { exports: newDb().adapters.createPg(), loaded: true, id: 'pg' };
+  process.env.DATABASE_URL = 'postgres://memory';
+}
 const http = require('http'), fs = require('fs'), url = require('url'), path = require('path');
 http.createServer(async (req, res) => {
   const u = url.parse(req.url, true);

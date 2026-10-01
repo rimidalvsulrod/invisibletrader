@@ -1,17 +1,35 @@
 # InvisibleTrader
 
-Polymarket trader tracker + Kalshi auto-trader. Static UI in `public/`, serverless API in `api/`.
-Local dev: `node dev/server.js`.
+Track the best Polymarket traders and copy them onto Kalshi.
+**Data:** Polymarket (official P&L/volume, positions, trades). **Orders:** Kalshi.
 
-## Auto Trader setup (Vercel → Settings → Environment Variables)
-| Variable | Meaning |
+- `public/` — the site (no build step)
+- `api/proxy.js` — read-only proxy to Polymarket's APIs
+- `api/auth.js` — owner login (single user)
+- `api/bot.js` — Auto Trader settings/state (owner only)
+- `api/cron.js` — runs the trading engine; call it every minute
+- `api/_lib/engine.js` — the copy-trading engine (Polymarket signal → matched Kalshi market → order)
+
+Local dev: `npm install && DEV_PGMEM=1 ADMIN_PASSWORD=devpassword SESSION_SECRET=devsecretdevsecretdev node dev/server.js`
+
+## Vercel environment variables
+| Variable | Purpose |
 |---|---|
-| `BOT_SECRET` | Password the UI sends with every trading request. **Required** — without it nobody can place orders. |
-| `KALSHI_KEY_ID` | Kalshi API key id |
-| `KALSHI_PRIVATE_KEY` | The PEM private key (RSA or Ed25519). `\n` escapes are fine. |
+| `DATABASE_URL` | Postgres (Vercel → Storage → Neon sets it) |
+| `ADMIN_PASSWORD` | Your login password (8+ chars) |
+| `SESSION_SECRET` | Long random string (32+ chars) |
+| `CRON_SECRET` | Key for `/api/cron?key=…` |
+| `KALSHI_KEY_ID`, `KALSHI_PRIVATE_KEY` | Kalshi API key (RSA or Ed25519 PEM) |
 | `KALSHI_ENV` | `demo` (default) or `prod` |
-| `KALSHI_ALLOW_LIVE` | Must be `yes` for `prod` orders to be accepted |
-| `MAX_ORDER_USD` | Hard per-order cap enforced on the server (default 25) |
-| `TRADING_DISABLED` | Set to `1` to block all orders instantly (kill switch) |
+| `KALSHI_ALLOW_LIVE` | `yes` to allow real-money orders on `prod` |
+| `MAX_ORDER_USD` | Hard cap per order (default 25) |
+| `TRADING_DISABLED` | `1` = kill switch |
 
-Start with `KALSHI_ENV=demo` (create keys at demo.kalshi.co). Orders are immediate-or-cancel limit orders.
+**Run every minute:** create a free job at cron-job.org hitting `https://YOUR-SITE/api/cron?key=CRON_SECRET` every minute
+(Vercel's free plan only allows daily crons).
+
+## How markets are lined up
+A copied buy is placed only if the Kalshi market matches the Polymarket question: most words match, every number/date matches,
+direction words (above/below/before/after/not…) are identical, both markets resolve within 3 days of each other,
+and Kalshi's price is within the slippage limit of what the trader paid. Otherwise the bot logs "Skipped" with the reason.
+When the copied trader sells, the bot sells (reduce-only, immediate-or-cancel).

@@ -1,233 +1,262 @@
-const $=s=>document.querySelector(s),app=$('#app');
-const IC={search:'<circle cx=7 cy=7 r=4.5 /><path d="M10.5 10.5l3 3" />',ai:'<path d="M6 2l1.2 3L10 6.2 7.2 7.4 6 10.5 4.8 7.4 2 6.2 4.8 5z" /><path d="M11.5 9l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8L9 11.5l1.8-.7z" />',bolt:'<path d="M2 12l4-4 3 3 5-6" /><path d="M2 14.5h12" />',feed:'<path d="M4 2h6l3 3v9H4z" /><path d="M10 2v3h3M6 9h5M6 11.5h5" />',trophy:'<path d="M5 2h6v4a3 3 0 01-6 0zM3 3h2v2a2 2 0 01-2-2zM13 3h-2v2a2 2 0 002-2zM8 9v3M5 14h6" />',journal:'<rect x=2.5 y=3.5 width=11 height=10 rx=1.8 /><path d="M5.5 2v3M10.5 2v3M2.5 6.5h11" />',term:'<rect x=2.5 y=7 width=3 height=6.5 rx=.8 /><rect x=6.500 y=2.500 width=3 height=11 rx=.8 /><rect x=10.500 y=5 width=3 height=8.500 rx=.8 />',help:'<circle cx=8 cy=8 r=6 /><path d="M6.3 6.4c0-1 .8-1.6 1.7-1.6s1.7.6 1.7 1.5c0 1.2-1.7 1.3-1.7 2.5M8 11v.1" />',arrow:'<path d="M5 11l6-6M6 5h5v5" />',users:'<circle cx=6 cy=6 r=2.3 /><path d="M2 13c0-2.5 2-4 4-4s4 1.5 4 4M11 4a2.2 2.2 0 010 4M12 9.5c1.5.4 2.5 1.7 2.5 3.5" />',plus:'<path d="M8 3.5v9M3.5 8h9" />',x:'<path d="M4 4l8 8M12 4l-8 8" />',down:'<path d="M4 6l4 4 4-4" />',share:'<circle cx=4 cy=8 r=1.6 /><circle cx=12 cy=4 r=1.6 /><circle cx=12 cy=12 r=1.6 /><path d="M5.5 7.2l5-2.4M5.5 8.8l5 2.4" />',bot:'<rect x=3 y=5 width=10 height=8 rx=2 /><path d="M8 2v3M6 9h.01M10 9h.01" />',sort:'<path d="M8 3v9M4.5 8.5L8 12l3.5-3.5" />',chr:'<path d="M6 4l4 4-4 4" />',check:'<path d="M3.5 8.5l3 3 6-7" />'};
-const ic=(n,s=14)=>`<svg width=${s} height=${s} viewBox="0 0 16 16" fill=none stroke=currentColor stroke-width=1.3 stroke-linecap=round stroke-linejoin=round>${IC[n]}</svg>`;
+/* InvisibleTrader — Polymarket data, Kalshi execution. */
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],app=$('#app');
+const P={search:'<circle cx=7 cy=7 r=4.5 /><path d="M10.5 10.5l3 3" />',home:'<path d="M2.5 7.5L8 3l5.5 4.5V13a1 1 0 01-1 1h-9a1 1 0 01-1-1z" /><path d="M6.5 14V10h3v4" />',trophy:'<path d="M5 2h6v4a3 3 0 01-6 0zM3 3h2v2a2 2 0 01-2-2zM13 3h-2v2a2 2 0 002-2zM8 9v3M5 14h6" />',wave:'<path d="M1.5 9c1.5 0 1.5-4 3-4s1.5 6 3 6 1.5-8 3-8 1.5 6 3 6" />',flask:'<path d="M6 2h4M6.5 2v4L3 13a1 1 0 00.9 1.4h8.2A1 1 0 0013 13L9.5 6V2" /><path d="M4.5 10h7" />',bot:'<rect x=3 y=5 width=10 height=8 rx=2.5 /><path d="M8 2v3M6 9h.01M10 9h.01" />',book:'<path d="M3 3.5A1.5 1.5 0 014.5 2H13v10.5H4.5A1.5 1.5 0 003 14z" /><path d="M3 14a1.5 1.5 0 001.5-1.5H13" />',spark:'<path d="M6 2l1.2 3L10 6.2 7.2 7.4 6 10.5 4.8 7.4 2 6.2 4.8 5z" /><path d="M11.5 9l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8L9 11.5l1.8-.7z" />',help:'<circle cx=8 cy=8 r=6 /><path d="M6.3 6.4c0-1 .8-1.6 1.7-1.6s1.7.6 1.7 1.5c0 1.2-1.7 1.3-1.7 2.5M8 11v.1" />',arrow:'<path d="M5 11l6-6M6 5h5v5" />',star:'<path d="M8 2l1.8 3.8 4.2.5-3.1 2.9.8 4.1L8 11.3l-3.7 2 .8-4.1L2 6.3l4.2-.5z" />',lock:'<rect x=3.5 y=7 width=9 height=7 rx=1.5 /><path d="M5.5 7V5a2.5 2.5 0 015 0v2" />',copy:'<rect x=5.5 y=5.5 width=8 height=8 rx=1.5 /><path d="M3 10.5V3.5A1 1 0 014 2.5h6.5" />',x:'<path d="M4 4l8 8M12 4l-8 8" />',chev:'<path d="M6 4l4 4-4 4" />'};
+const ic=(n,s=16)=>`<svg width=${s} height=${s} viewBox="0 0 16 16" fill=none stroke=currentColor stroke-width=1.5 stroke-linecap=round stroke-linejoin=round>${P[n]}</svg>`;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
-const big=n=>Math.abs(n)>=1e15?Math.abs(n).toExponential(2).replace('e+','e'):Math.abs(Math.round(n)).toLocaleString('en-US');
-const usd=n=>(n<0?'-':'')+'$'+big(n),sg=n=>(n<0?'-':'+')+'$'+big(n);
-const abbr=n=>{const a=Math.abs(n),s=n<0?'-':'+';return a>=1e6?s+'$'+(a/1e6).toFixed(1)+'m':a>=1e3?s+'$'+(a/1e3).toFixed(1)+'k':s+'$'+Math.round(a)};
-const short=a=>a.slice(0,6)+'…'+a.slice(-4),cls=n=>n>=0?'pos':'neg';
+const fmt=(n,d=0)=>Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const usd=(n,d=0)=>(n<0?'-':'')+'$'+fmt(n,d),sg=(n,d=0)=>(n<0?'-':'+')+'$'+fmt(n,d);
+const abbr=(n,sign=1)=>{const a=Math.abs(n),s=n<0?'-':sign?'+':'';return s+'$'+(a>=1e9?(a/1e9).toFixed(2)+'B':a>=1e6?(a/1e6).toFixed(a>=1e7?1:2)+'M':a>=1e3?(a/1e3).toFixed(1)+'K':Math.round(a))};
+const short=a=>a?a.slice(0,6)+'…'+a.slice(-4):'',nm=(n,a)=>!n?short(a):/^0x[0-9a-f]{16,}/i.test(n)?short(n):n,ud=n=>n>=0?'up':'down';
 const dt=ts=>new Date(ts*1000).toLocaleDateString('en',{month:'short',day:'numeric'});
-const ago=ts=>{const d=(Date.now()/1000-ts)/86400;return d<1?'today':d<60?Math.floor(d)+'d ago':Math.floor(d/30)+'mo ago'};
-const COL=['#14a3c4','#ec4899','#e8a91a','#3b82f6','#2fa84f','#a855f7'];
-const av=(img,a,sz)=>{const st=sz?` style="width:${sz}px;height:${sz}px"`:'';return img?`<span class=av${st}><img src="${esc(img)}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{innerHTML:gog('${a}')}).firstChild)"></span>`:`<span class=av${st}>${gog(a)}</span>`};
-const gog=(a,c)=>`<svg viewBox="0 0 40 40"><circle cx=20 cy=20 r=20 fill="${c||COL[parseInt(a.slice(2,4),16)%6]}" /><rect x=8 y=14 width=24 height=13 rx=6.5 fill=#fff /><path d="M11 18.5c0-1 .8-1.7 1.8-1.7h14.4c1 0 1.8.7 1.8 1.7v1.700c0 1.700-1.300 3-3 3-1.200 0-1.900-.5-2.600-1.200-.700-.700-1.500-1-2.400-1s-1.700.3-2.400 1c-.7.700-1.400 1.200-2.600 1.200-1.700 0-3-1.300-3-3z" fill=#1b2a8f /></svg>`;
-const api=async p=>{try{const[i,...q]=p.split('?');const r=await fetch('/api/proxy?u='+encodeURIComponent(i)+(q.length?'&'+q.join('?'):''));return await r.json()}catch(e){return[]}};
-const classify=t=>/bitcoin|btc|ethereum|\beth\b|solana|crypto|xrp|token|fdv|airdrop/i.test(t)?'Crypto':/elect|president|minister|trump|biden|senate|congress|vote|party|governor|mayor|ceasefire|shutdown|tariff|war\b|fed\b/i.test(t)?'Politics':/win on|\bvs\.?\b|\bfc\b|nba|nfl|mlb|nhl|ufc|open\b|cup|league|champion|ballon|match|game|series|bowl|prix|\bf1\b|trophy|title|draw/i.test(t)?'Sports':'Other';
+const rel=ts=>{const s=Date.now()/1000-ts;return s<60?Math.max(1,Math.floor(s))+'s ago':s<3600?Math.floor(s/60)+'m ago':s<86400?Math.floor(s/3600)+'h ago':s<86400*60?Math.floor(s/86400)+'d ago':Math.floor(s/2592000)+'mo ago'};
 const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-let fol=LS.get('fol',{});
-document.addEventListener('click',e=>{const f=e.target.closest('[data-follow]');if(!f)return;e.preventDefault();const[a,n]=f.dataset.follow.split('|');fol[a]?delete fol[a]:fol[a]=n;LS.set('fol',fol);route(true)});
+const toast=m=>{const t=document.createElement('div');t.className='toast';t.innerHTML=m;$('#toasts').append(t);setTimeout(()=>t.remove(),3200)};
+const hue=a=>{let h=0;for(const c of String(a))h=(h*31+c.charCodeAt(0))%360;return h};
+const av=(name,addr,img,cls='')=>{const h=hue(addr||name);const bg=`background:linear-gradient(135deg,hsl(${h} 70% 58%),hsl(${(h+50)%360} 70% 42%))`;
+  const L=esc((name||'?').replace(/^0x/,'').slice(0,1).toUpperCase());return`<span class="av ${cls}" style="${bg};position:relative">${L}${img?`<img src="${esc(img)}" alt="" style="position:absolute;inset:0" onerror="this.remove()">`:''}</span>`};
+const api=async p=>{try{const[i,...q]=p.split('?');const r=await fetch('/api/proxy?u='+encodeURIComponent(i)+(q.length?'&'+q.join('?'):''));return await r.json()}catch(e){return[]}};
+const classify=t=>/bitcoin|btc|ethereum|\beth\b|solana|crypto|xrp|doge|token|fdv|airdrop/i.test(t)?'Crypto':/elect|president|minister|trump|biden|senate|congress|vote|party|governor|mayor|ceasefire|shutdown|tariff|war\b|fed\b|rates/i.test(t)?'Politics':/win on|\bvs\.?\b|\bfc\b|nba|nfl|mlb|nhl|ufc|open\b|cup|league|champion|ballon|match|game|series|bowl|prix|\bf1\b|trophy|title|draw|tennis|golf/i.test(t)?'Sports':'Other';
+const sk=(h=14,w='100%')=>`<div class=sk style="height:${h}px;width:${w}"></div>`;
 
-/* ---------- chart ---------- */
-function lineChart(el,vals,o={}){
-  const w=el.clientWidth||600,h=o.h||200,L=o.L??2,R=o.R??16,T=o.T??10,B=o.B??10,col=o.color||'#00d26a',n=vals.length;
-  if(n<2){el.innerHTML='';return}
-  let mn=Math.min(...vals),mx=Math.max(...vals);if(o.zero)mn=Math.min(mn,0);const rg=(mx-mn)||1;
-  const X=i=>L+i/(n-1)*(w-L-R),Y=v=>T+(1-(v-mn)/rg)*(h-T-B);
-  const d=vals.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join('');
-  const ticks=o.fmt?[0,1,2,3].map(k=>mx-rg*k/3):[];
-  const dot=i=>`<circle cx=${X(i)} cy=${Y(vals[i])} r=7 fill="${col}" opacity=.18 /><circle cx=${X(i)} cy=${Y(vals[i])} r=3.2 fill="${col}" />`;
-  el.innerHTML=`<svg width=${w} height=${h}>${ticks.map(v=>`<text x=${o.la=='l'?17:(L-8)/2+0} y=${Y(v)+3} fill=#9a9aa6 font-size=${o.tf||7.5} text-anchor=${o.la=='l'?'start':'middle'} font-family="Onest,system-ui,sans-serif">${o.fmt(v)}</text>`).join('')}
-  <path d="${d}" fill=none stroke="${col}" stroke-width=${o.sw||1.4} stroke-linejoin=round stroke-linecap=round /><g id=hv>${dot(n-1)}</g></svg>${o.endLabel?`<div class=endl style="left:${X(n-1)+11}px;top:${Y(vals[n-1])-(o.endH||12)}px;color:${col};font-size:${o.endSize||22}px">${o.endLabel}</div>`:''}`;
-  if(o.onHover){el.onmousemove=e=>{const r=el.getBoundingClientRect(),i=Math.max(0,Math.min(n-1,Math.round((e.clientX-r.left-L)/(w-L-R)*(n-1))));el.querySelector('#hv').innerHTML=dot(i);o.onHover(i)};
-    el.onmouseleave=()=>{el.querySelector('#hv').innerHTML=dot(n-1);o.onHover(n-1)}}
-}
-
-/* ---------- data ---------- */
+/* ---------- data (accuracy notes inline) ---------- */
 const CACHE={};const cached=(k,f)=>CACHE[k]??=f();
+// newest closed positions first — the API's default sort returns the biggest winners only, which inflates win rates
 const closedOf=(a,pages=3)=>cached('c'+a+pages,async()=>(await Promise.all([...Array(pages)].map((_,i)=>api(`closed-positions?user=${a}&limit=50&offset=${i*50}&sortBy=TIMESTAMP&sortDirection=DESC`)))).flat().filter(x=>x&&x.title).sort((x,y)=>x.timestamp-y.timestamp));
-// Accurate recent sample: closed positions (newest first) + resolved-but-unredeemed positions (Polymarket's closed list omits
-// losers that were never redeemed, which would inflate win rates). Merged by resolution time, newest N.
+// + resolved-but-unredeemed positions (the closed list omits losers that were never redeemed); newest N by resolution time
 const resolvedOf=(a,pages=4)=>cached('r'+a+pages,async()=>{
   const[c,r]=await Promise.all([closedOf(a,pages),Promise.all([...Array(pages>2?2:1)].map((_,i)=>api(`positions?user=${a}&redeemable=true&sizeThreshold=0&limit=200&offset=${i*200}&sortBy=RESOLVING&sortDirection=DESC`))).then(x=>x.flat().filter(p=>p&&p.title&&p.endDate))]);
   const seen=new Set(c.map(x=>x.conditionId+x.outcomeIndex));
-  const extra=r.filter(p=>!seen.has(p.conditionId+p.outcomeIndex)).map(p=>({...p,totalBought:p.size,realizedPnl:p.cashPnl,timestamp:Date.parse(p.endDate)/1000})).filter(p=>p.timestamp&&p.timestamp<Date.now()/1000);
+  const extra=r.filter(p=>!seen.has(p.conditionId+p.outcomeIndex)).map(p=>({...p,totalBought:p.size,realizedPnl:p.cashPnl,timestamp:Date.parse(p.endDate)/1000,unredeemed:true})).filter(p=>p.timestamp&&p.timestamp<Date.now()/1000);
   return[...c,...extra].sort((x,y)=>y.timestamp-x.timestamp).slice(0,pages*50).reverse()});
-const openOf=a=>cached('o'+a,async()=>{const r=await api(`positions?user=${a}&sizeThreshold=1&limit=100&sortBy=CURRENT&sortDirection=DESC`);return Array.isArray(r)?r:[]});
+// truly open = market not yet resolved (redeemable positions are finished markets that were simply never cashed out)
+const openOf=a=>cached('o'+a,async()=>{const r=await api(`positions?user=${a}&sizeThreshold=1&limit=100&sortBy=CURRENT&sortDirection=DESC`);return(Array.isArray(r)?r:[]).filter(p=>!p.redeemable&&p.curPrice>0&&p.curPrice<1)});
+const lastTradeOf=a=>cached('lt'+a,async()=>{const r=await api(`trades?user=${a}&limit=1`);return Array.isArray(r)&&r[0]?r[0].timestamp:null});
 const lbOf=(per,ord,off=0)=>cached(`lb${per}${ord}${off}`,async()=>{const r=await api(`v1/leaderboard?timePeriod=${per}&orderBy=${ord}&limit=50&offset=${off}`);return Array.isArray(r)?r:[]});
-let EXP;
-const loadExperts=()=>EXP??=(async()=>{
-  const [a,m]=await Promise.all([lbOf('ALL','PNL'),lbOf('MONTH','PNL')]);
-  const seen=new Set(),lb=[...a.slice(0,10),...m.slice(0,12)].filter(t=>t.proxyWallet&&!seen.has(t.proxyWallet)&&seen.add(t.proxyWallet));
+let EXP;const loadExperts=()=>EXP??=(async()=>{const[a,m]=await Promise.all([lbOf('ALL','PNL'),lbOf('MONTH','PNL')]);const seen=new Set(),lb=[...a.slice(0,10),...m.slice(0,12)].filter(t=>t.proxyWallet&&!seen.has(t.proxyWallet)&&seen.add(t.proxyWallet));
   return Promise.all(lb.map(async t=>{const[closed,open]=await Promise.all([resolvedOf(t.proxyWallet,2),openOf(t.proxyWallet)]);return{...t,closed,open,wr:closed.length?closed.filter(c=>c.realizedPnl>0).length/closed.length:0}}))})();
-const statOf=a=>cached('st'+a,async()=>{const[tr,c]=await Promise.all([api(`traded?user=${a}`),resolvedOf(a,2)]);const w=c.filter(x=>x.realizedPnl>0).length,sample=c.length;return{n:tr.traded||sample,sample,wr:sample?w/sample:0,wins:w}});
+const statOf=a=>cached('st'+a,async()=>{const[c,lt]=await Promise.all([resolvedOf(a,2),lastTradeOf(a)]);const w=c.filter(x=>x.realizedPnl>0).length,n=c.length;return{n,w,wr:n?w/n:0,avgE:n?c.reduce((s,x)=>s+x.avgPrice,0)/n:0,last:lt}});
+
+/* ---------- follows (synced to server when logged in, so the bot copies them) ---------- */
+let fol=LS.get('fol',{}),OWNER=false;
+const syncFol=()=>OWNER&&fetch('/api/bot',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({op:'follows',list:Object.entries(fol).map(([wallet,name])=>({wallet,name}))})}).catch(()=>{});
+function toggleFollow(a,n){fol[a]?(delete fol[a],toast(`Unfollowed <b>${esc(n)}</b>`)):(fol[a]=n,toast(`Following <b>${esc(n)}</b>${OWNER?' — the Auto Trader will copy them':''}`));LS.set('fol',fol);syncFol();$$(`[data-f="${a}"]`).forEach(b=>b.classList.toggle('on',!!fol[a]));renderSide()}
+document.addEventListener('click',e=>{const f=e.target.closest('[data-f]');if(f){e.preventDefault();e.stopPropagation();toggleFollow(f.dataset.f,f.dataset.n)}});
+const folBtn=(a,n,label)=>`<button class="btn ${label?'':'ic'} fol ${fol[a]?'on':''}" data-f="${a}" data-n="${esc(n)}" title="Follow">${ic('star',15)}${label?' Follow':''}</button>`;
+
+/* ---------- charts ---------- */
+function area(el,vals,o={}){
+  const w=el.clientWidth||600,h=o.h||220,n=vals.length,pad={l:o.axis?84:0,r:o.r??8,t:o.t??14,b:o.b??(o.labels?24:6)};if(n<2){el.innerHTML=`<div class=empty>Not enough data yet</div>`;return}
+  let mn=Math.min(...vals),mx=Math.max(...vals);if(o.zero){mn=Math.min(mn,0);mx=Math.max(mx,0)}const rg=(mx-mn)||1;
+  const X=i=>pad.l+i/(n-1)*(w-pad.l-pad.r),Y=v=>pad.t+(1-(v-mn)/rg)*(h-pad.t-pad.b);
+  const up=o.color?o.color:(vals[n-1]>=vals[0]?'var(--up)':'var(--down)'),id='g'+Math.random().toString(36).slice(2,8);
+  const d=vals.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join('');
+  const ticks=o.axis?[0,1,2,3].map(k=>mn+rg*k/3):[];
+  el.innerHTML=`<svg width=${w} height=${h}><defs><linearGradient id=${id} x1=0 y1=0 x2=0 y2=1><stop offset=0 stop-color="${up}" stop-opacity=.28 /><stop offset=1 stop-color="${up}" stop-opacity=0 /></linearGradient></defs>
+   ${ticks.map(v=>`<line x1=${pad.l} x2=${w-pad.r} y1=${Y(v)} y2=${Y(v)} stroke="rgba(255,255,255,.05)" /><text x=0 y=${Y(v)+4} fill="#5b606d" font-size=11 font-family="Geist Mono">${o.fmt?o.fmt(v,rg):v}</text>`).join('')}
+   ${o.zero&&mn<0?`<line x1=${pad.l} x2=${w-pad.r} y1=${Y(0)} y2=${Y(0)} stroke="rgba(255,255,255,.15)" stroke-dasharray="3 4" />`:''}
+   <path d="${d}L${X(n-1)} ${h-pad.b}L${X(0)} ${h-pad.b}Z" fill="url(#${id})" /><path class=ln d="${d}" fill=none stroke="${up}" stroke-width=${o.sw||2} stroke-linejoin=round stroke-linecap=round style="stroke-dasharray:4000;--len:4000" />
+   <line id=${id}x y1=${pad.t} y2=${h-pad.b} stroke="rgba(255,255,255,.18)" stroke-dasharray="3 3" style="display:none" /><circle id=${id}c r=4.5 fill="${up}" stroke="#060708" stroke-width=2 cx=${X(n-1)} cy=${Y(vals[n-1])} />
+   ${o.labels?o.labels.filter((_,i)=>i%Math.ceil(n/6)==0).map((l,k)=>`<text x=${X(k*Math.ceil(n/6))} y=${h-4} fill="#5b606d" font-size=11 text-anchor=middle>${l}</text>`).join(''):''}</svg><div class=tip></div>`;
+  if(!o.tip)return;const tip=el.querySelector('.tip'),ln=el.querySelector(`#${id}x`),c=el.querySelector(`#${id}c`);
+  el.onmousemove=e=>{const r=el.getBoundingClientRect(),i=Math.max(0,Math.min(n-1,Math.round((e.clientX-r.left-pad.l)/(w-pad.l-pad.r)*(n-1))));
+    ln.style.display='';ln.setAttribute('x1',X(i));ln.setAttribute('x2',X(i));c.setAttribute('cx',X(i));c.setAttribute('cy',Y(vals[i]));tip.style.display='block';tip.style.left=X(i)+'px';tip.style.top=Y(vals[i])+'px';tip.innerHTML=o.tip(i)};
+  el.onmouseleave=()=>{ln.style.display='none';tip.style.display='none';c.setAttribute('cx',X(n-1));c.setAttribute('cy',Y(vals[n-1]))};
+}
 
 /* ---------- shell ---------- */
-const NAV=[['search','search','Search'],['ai','ai','AI Analyzer'],['profits','bolt','Profits'],['bot','bot','Auto Trader'],['feed','feed','Feed'],['leaderboard','trophy','Leaderboard']];
-const uname=()=>LS.get('uname','Guest');
-function renderNav(){const p=(location.hash.slice(2)||'profits').split('/')[0],a=(h,i,t,k)=>`<a class="nv ${p==k?'on':''}" href="#/${k}">${ic(i)}${t}</a>`;
-  $('#nav').innerHTML=NAV.map(([k,i,t])=>a(0,i,t,k)).join('')+`<div class=sec>Personal</div>`+a(0,'journal','Journal','journal')+
-  `<div class=sbot>${a(0,'term','Terminal','terminal')}${a(0,'help','Help','help')}<div class=usr id=usr><span class=av>${gog('0xaa','#a855f7')}</span><span>${esc(uname())}</span><span class=ch>${ic('down',12)}</span></div></div>`;
-  $('#usr').onclick=()=>{const n=prompt('Display name',uname());if(n){LS.set('uname',n.slice(0,24));renderNav()}}}
+const NAV=[['Discover',[['','home','Overview'],['leaderboard','trophy','Leaderboard'],['feed','wave','Whale Feed']]],['Strategy',[['backtest','flask','Profit Bot'],['bot','bot','Auto Trader']]],['You',[['journal','book','Following'],['analyze','spark','Analyzer']]]];
+let BOTON=false;
+function renderSide(){const p=location.hash.slice(2).split('/')[0];const fl=Object.entries(fol).slice(0,6);
+  $('#side').innerHTML=`<a class=logo href="#/"><i><svg width=16 height=16 viewBox="0 0 32 32"><path d="M5 16c3.5-6 7-8.5 11-8.5s7.5 2.5 11 8.5c-3.5 6-7 8.5-11 8.5S8.5 22 5 16z" fill=none stroke="#060708" stroke-width=3 /><circle cx=16 cy=16 r=3.6 fill="#060708" /></svg></i>InvisibleTrader</a>`+
+  NAV.map(([g,items])=>`<div class=navg>${g}</div>`+items.map(([k,i,t])=>`<a class="nv ${p==k||(k==''&&!p)?'on':''}" href="#/${k}">${ic(i)}${t}${k=='bot'&&BOTON?'<span class=dot></span>':''}</a>`).join('')).join('')+
+  (fl.length?`<div class=navg>Watching</div>`+fl.map(([a,n])=>`<a class=nv href="#/trader/${a}" style="height:34px">${av(n,a,null,'sm')}<span class=ell>${esc(n)}</span></a>`).join(''):'')+
+  `<div class=sfoot><a class="nv ${p=='help'?'on':''}" href="#/help">${ic('help')}Help & setup</a>${OWNER?`<a class=nv href="#" id=lo>${ic('lock')}Lock (log out)</a>`:`<a class=nv href="#/bot">${ic('lock')}Owner login</a>`}</div>`;
+  $('#lo')&&($('#lo').onclick=async e=>{e.preventDefault();await fetch('/api/auth',{method:'POST',headers:{'content-type':'application/json'},body:'{"op":"logout"}'});OWNER=false;toast('Logged out');route()})}
+$('#mnav').onclick=()=>$('#side').classList.toggle('open');
+/* command palette */
+let palT;function openPal(){$('#pal').hidden=false;$('#palq').value='';$('#palr').innerHTML=palHint();$('#palq').focus()}
+const palHint=()=>`<div class="pi mut" style="cursor:default">Type a trader's name, or paste a wallet address.</div>`+Object.entries(fol).slice(0,5).map(([a,n])=>`<a class=pi href="#/trader/${a}">${av(n,a,null,'sm')}<span class=grow>${esc(n)}</span><span class=pill n>Following</span></a>`).join('');
+$('#cmdk').onclick=openPal;$('#pal').onclick=e=>{if(e.target.id=='pal')$('#pal').hidden=true};
+addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key=='k'){e.preventDefault();openPal()}if(e.key=='Escape')$('#pal').hidden=true;
+  if(!$('#pal').hidden&&e.key=='Enter'){const f=$('#palr .pi[href]');if(f){location.hash=f.getAttribute('href');$('#pal').hidden=true}}});
+$('#palq').oninput=()=>{clearTimeout(palT);const v=$('#palq').value.trim();if(!v){$('#palr').innerHTML=palHint();return}
+  if(/^0x[0-9a-f]{40}$/i.test(v)){$('#palr').innerHTML=`<a class="pi on" href="#/trader/${v.toLowerCase()}">${av(v,v,null,'sm')}<span class=grow>Open wallet ${short(v)}</span>${ic('chev')}</a>`;return}
+  $('#palr').innerHTML=`<div class=pi>${sk(16,'60%')}</div>`;palT=setTimeout(async()=>{const r=(await api(`gamma/public-search?q=${encodeURIComponent(v)}&search_profiles=true&search_tags=false&limit_per_type=10`)).profiles||[];
+    if($('#palq').value.trim()!==v)return;$('#palr').innerHTML=r.length?r.map((p,i)=>`<a class="pi ${i?'':'on'}" href="#/trader/${p.proxyWallet}">${av(p.name||p.pseudonym,p.proxyWallet,p.profileImage,'sm')}<span class=grow>${esc(p.name||p.pseudonym)}</span><span class="mut num" style="font-size:12px">${short(p.proxyWallet)}</span></a>`).join(''):`<div class="pi mut">No traders found</div>`;
+    $$('#palr .pi[href]').forEach(x=>x.onclick=()=>$('#pal').hidden=true)},250)};
 
-/* ---------- leaderboard ---------- */
+/* ---------- Overview ---------- */
+async function overview(){
+  app.innerHTML=`<div class="ph fade"><div><h1>Market pulse</h1><p class=lead>What the best Polymarket traders are doing right now — and what your bot is doing about it.</p></div><span class=live>Live</span></div>
+  <div class="grid g3" id=ovs>${[0,1,2].map(()=>`<div class="card pad stat">${sk(12,'40%')}<div style="height:12px"></div>${sk(28,'70%')}</div>`).join('')}</div>
+  <div class=split style="margin-top:16px"><div class=card><div class="row sb pad" style="padding-bottom:6px"><h2>Whale trades</h2><a href="#/feed" class="btn sm">Open feed ${ic('chev',13)}</a></div><div id=ovf>${sk(200)}</div></div>
+  <div class=card><div class="row sb pad" style="padding-bottom:6px"><h2>Top traders</h2><a href="#/leaderboard" class="btn sm">All ${ic('chev',13)}</a></div><div id=ovl style="padding:0 10px 10px">${sk(200)}</div></div></div>`;
+  const[lb,tr]=await Promise.all([lbOf('ALL','PNL'),api('trades?limit=200&filterType=CASH&filterAmount=5000')]);if(!$('#ovs'))return;
+  const trades=Array.isArray(tr)?tr:[],bigH=trades.filter(t=>Date.now()/1000-t.timestamp<3600).sort((a,b)=>b.size*b.price-a.size*a.price)[0];
+  let bot=null;if(OWNER)bot=await fetch('/api/bot?op=state').then(r=>r.ok?r.json():null).catch(()=>null);
+  $('#ovs').innerHTML=`<a href="#/bot" class="card pad stat hero fade"><div class=k>${ic('bot',14)} Auto Trader</div><div class=v>${bot?(bot.enabled?'<span class=up>Running</span>':'Paused'):'Locked'}</div><div class=s>${bot?`${bot.paper?'Practice':'Real money'} · balance <span class=num>${bot.balance!=null?usd(bot.balance,2):'—'}</span> · P&L <span class="num ${ud(bot.pnl)}">${sg(bot.pnl,2)}</span>`:'Log in to control your bot'}</div></a>
+   <a href="#/trader/${lb[0]?.proxyWallet}" class="card pad stat fade"><div class=k>${ic('trophy',14)} #1 all-time</div><div class="v num up">${lb[0]?abbr(lb[0].pnl):'—'}</div><div class=s>${esc(lb[0]?.userName||'')}</div></a>
+   <div class="card pad stat fade"><div class=k>${ic('wave',14)} Biggest trade · last hour</div><div class="v num">${bigH?abbr(bigH.size*bigH.price,0):'—'}</div><div class="s ell">${bigH?`${esc(nm(bigH.name||bigH.pseudonym,bigH.proxyWallet))} · ${esc(bigH.outcome)} · ${esc(bigH.title)}`:'No $5K+ trades in the last hour'}</div></div>`;
+  $('#ovf').innerHTML=feedRows(trades.slice(0,9),true);
+  $('#ovl').innerHTML=lb.slice(0,7).map((t,i)=>`<a class="pi fade" href="#/trader/${t.proxyWallet}" style="animation-delay:${i*30}ms"><span class="mut num" style="width:16px">${t.rank}</span>${av(t.userName,t.proxyWallet,t.profileImage,'sm')}<span class="grow ell" style="font-weight:550">${esc(nm(t.userName,t.proxyWallet))}</span><span class="num up">${abbr(t.pnl)}</span></a>`).join('');
+}
+const feedRows=(d,compact)=>`<table class=tbl><tbody>${d.map(t=>{const v=t.size*t.price;return`<tr class=clk onclick="location.hash='#/trader/${t.proxyWallet}'"><td style="width:1%">${av(t.name||t.pseudonym,t.proxyWallet,t.profileImageOptimized||t.profileImage,'sm')}</td>
+  <td style="max-width:${compact?220:380}px"><div class=ell style="font-weight:550">${esc(nm(t.name||t.pseudonym,t.proxyWallet))} <span class="pill ${t.side=='BUY'?'up':'down'}" style="margin-left:4px">${t.side=='BUY'?'Bought':'Sold'} ${esc(t.outcome)}</span></div><div class="mut ell" style="font-size:12.5px;margin-top:2px">${esc(t.title)}</div></td>
+  <td class=r><div class="num" style="font-weight:600">${abbr(v,0)}</div><div class="mut num" style="font-size:12px">@ ${(t.price*100).toFixed(1)}¢</div></td>${compact?'':`<td class="r mut hide-m" style="font-size:12.5px;white-space:nowrap">${rel(t.timestamp)}</td>`}</tr>`}).join('')||'<tr><td class=empty>No trades match.</td></tr>'}</tbody></table>`;
+
+/* ---------- Leaderboard ---------- */
 async function leaderboard(){
-  const ord=LS.get('ord','PNL'),tab=LS.get('ltab','rank');
-  app.innerHTML=`<div class="row sb"><div><h1>Leaderboard</h1><div class=sub>All tracked history</div></div><select class=fld id=ord style="width:121px;margin-top:-3px"><option value=PNL>Highest P&L<option value=VOL>Highest volume<option value=WR>Highest win rate</select></div>
-  <div class=tabs><span data-t=rank class="${tab=='rank'?'on':''}">Rankings</span><span data-t=wins class="${tab=='wins'?'on':''}">Recent wins</span></div><div id=lb class=sub>Loading…</div>`;
-  $('#ord').value=ord;$('#ord').onchange=e=>{LS.set('ord',e.target.value);leaderboard()};
-  app.querySelectorAll('.tabs span').forEach(s=>s.onclick=()=>{LS.set('ltab',s.dataset.t);leaderboard()});
-  const fb=(t,c='')=>fol[t.proxyWallet]?`<button class="btn u ${c}" data-follow="${t.proxyWallet}|${esc(t.userName)}">${ic('x',11)} Unfollow</button>`:`<button class="btn ${c}" data-follow="${t.proxyWallet}|${esc(t.userName)}">${ic('plus',11)} Follow</button>`;
-  if(tab=='wins'){const ex=await loadExperts();if(!$('#lb'))return;const w=ex.flatMap(e=>e.closed.filter(c=>c.realizedPnl>0).map(c=>({...c,u:e}))).sort((a,b)=>b.timestamp-a.timestamp).slice(0,40);
-    $('#lb').outerHTML=`<div class=tw><table><tr><th>Trader<th>Market<th class=r>Profit<th class=r>When</tr>${w.map(c=>`<tr class=tr><td><a href="#/trader/${c.u.proxyWallet}" style="font-weight:600">${esc(c.u.userName)}</a><td>${esc(c.title)} <span class=mut>— ${esc(c.outcome)}</span><td class="r pos">${sg(c.realizedPnl)}<td class="r mut">${ago(c.timestamp)}</tr>`).join('')}</table></div>`;return}
-  const base=ord=='WR'?'PNL':ord;let lb=[...await lbOf('ALL',base,0),...await lbOf('ALL',base,50)];if(!$('#lb'))return;
-  if(ord=='WR'&&lb.length){let done=0,i=0;const el=$('#lb');const w=async()=>{while(i<lb.length){const t=lb[i++];await statOf(t.proxyWallet);if($('#lb')===el)el.textContent=`Calculating win rates… ${++done}/${lb.length}`}};
-    await Promise.all([...Array(8)].map(w));if($('#lb')!==el)return;
-    const S=await Promise.all(lb.map(t=>statOf(t.proxyWallet)));lb=lb.map((t,k)=>({...t,_s:S[k]})).filter(t=>t._s.sample>=20).sort((a,b)=>b._s.wr-a._s.wr||b._s.n-a._s.n).map((t,k)=>({...t,rank:String(k+1)}))}if(!lb.length){$('#lb').textContent='Could not load data from Polymarket — try reloading.';return}
-  const sv=ord=='VOL'?'vol':'pnl';
-  $('#lb').outerHTML=`<div class=top3>${lb.slice(0,3).map(t=>`<div class="t3 ${fol[t.proxyWallet]?'f':''}"><div class="row sb ac" style="font-weight:700;font-size:10.5px;color:#e8e8f4;line-height:14px"><span>#${t.rank}</span><a href="#/trader/${t.proxyWallet}" style="margin-right:4px;color:#b4b4c2">${ic('arrow',15)}</a></div>
-   <div style="margin-top:14px">${av(t.profileImage,t.proxyWallet)}</div><a href="#/trader/${t.proxyWallet}" class=nm style="display:block">${esc(t.userName||short(t.proxyWallet))}</a>
-   <div class="pn ${cls(t[sv])}">${sg(t[sv])}</div><div class=sub style="font-size:8.5px;margin-top:6px">${ord=='VOL'?'Volume':'Resolved P&L'}</div>
-   <div data-s="${t.proxyWallet}" style="margin-top:13px;height:34px;line-height:17px"><span style="font-size:13px;font-weight:700">—</span> <span class=mut style="font-size:9px">win rate</span><div class=mut style="font-size:9px">…</div></div>
-   <div style="position:absolute;left:16px;right:16px;bottom:16px">${fb(t,'w')}</div></div>`).join('')}</div>
-   <div class="row sb ac" style="margin:28px 0 0"><h2 style="font-size:18px">The rankings</h2><span class=sub style="margin:0">Top ${lb.length} by ${ord=='VOL'?'volume':'P&L'}</span></div>
-   <div class=row style="margin-top:24px;padding-bottom:10px;font-size:9px;color:#b9b9c6;border-bottom:1px solid var(--line);align-items:center"><span style="flex:1">Trader</span><span style="width:130px;text-align:right">Resolved P&L</span><span style="width:80px;text-align:right;margin-left:16px">Win rate</span><span style="width:86px;margin-left:16px"></span></div>
-   ${lb.map(t=>`<div class=lr data-r="${t.proxyWallet}"><span class=rk>${t.rank}</span>${av(t.profileImage,t.proxyWallet)}<div class=nm><a href="#/trader/${t.proxyWallet}">${esc(t.userName||short(t.proxyWallet))}</a><span data-sub>${usd(t.vol)} volume</span></div>
-   <span class=pl>${sg(t[sv])}</span><div class=wr data-w><b>—</b><span>&nbsp;</span></div><span class=bt>${fb(t,'w')}</span></div>`).join('')}`;
-  const io=new IntersectionObserver(es=>es.forEach(async e=>{if(!e.isIntersecting)return;io.unobserve(e.target);const a=e.target.dataset.r||e.target.dataset.s,s=await statOf(a);
-    if(e.target.dataset.r){e.target.querySelector('[data-sub]').textContent=`${s.n.toLocaleString()} markets traded`;e.target.querySelector('[data-w]').innerHTML=s.sample<20?`<b>—</b><span>too few to rate</span>`:`<b>${Math.round(s.wr*100)}%</b><span>${s.wins} of last ${s.sample}</span>`}
-    else e.target.innerHTML=s.sample<20?`<span style="font-size:13px;font-weight:700">—</span> <span class=mut style="font-size:9px">win rate</span><div class=mut style="font-size:9px">too few trades to rate</div>`:`<span style="font-size:13px;font-weight:700">${Math.round(s.wr*100)}%</span> <span class=mut style="font-size:9px">win rate</span><div class=mut style="font-size:9px">${s.wins} of last ${s.sample} trades</div>`}),{rootMargin:'200px'});
-  document.querySelectorAll('[data-r],[data-s]').forEach(x=>io.observe(x));
+  const per=LS.get('lbper','ALL'),ord=LS.get('lbord','PNL');
+  app.innerHTML=`<div class="ph fade"><div><h1>Leaderboard</h1><p class=lead>Ranked by Polymarket's official ${ord=='VOL'?'volume':'profit & loss'}. Win rates use each trader's most recent resolved positions.</p></div>
+   <div class="row wrapf"><div class=seg id=per>${[['DAY','Today'],['WEEK','Week'],['MONTH','Month'],['ALL','All time']].map(([k,l])=>`<button data-v=${k} class="${per==k?'on':''}">${l}</button>`).join('')}</div><div class=seg id=ord>${[['PNL','Profit'],['VOL','Volume']].map(([k,l])=>`<button data-v=${k} class="${ord==k?'on':''}">${l}</button>`).join('')}</div></div></div><div id=lb>${sk(160)}</div>`;
+  $$('#per button').forEach(b=>b.onclick=()=>{LS.set('lbper',b.dataset.v);leaderboard()});$$('#ord button').forEach(b=>b.onclick=()=>{LS.set('lbord',b.dataset.v);leaderboard()});
+  const lb=[...await lbOf(per,ord,0),...await lbOf(per,ord,50)];if(!$('#lb'))return;if(!lb.length){$('#lb').innerHTML=`<div class="card empty">Couldn't load the leaderboard from Polymarket — try again in a moment.</div>`;return}
+  const key=ord=='VOL'?'vol':'pnl',medal=['#ffd166','#cfd6e4','#e0a36b'];
+  $('#lb').innerHTML=`<div class="grid g3">${lb.slice(0,3).map((t,i)=>`<a href="#/trader/${t.proxyWallet}" class="card pod fade ${i==0?'g1':''}" style="animation-delay:${i*60}ms"><span class=rk style="color:${medal[i]}">#${i+1}</span>
+   <div class=row>${av(t.userName,t.proxyWallet,t.profileImage,'lg')}<div class=grow><div class="ell" style="font-weight:600;font-size:16px">${esc(nm(t.userName,t.proxyWallet))}</div><div class="mut num" style="font-size:12px">${short(t.proxyWallet)}</div></div></div>
+   <div class="num ${key=='pnl'?ud(t.pnl):''}" style="font-size:30px;font-weight:600;margin-top:18px;letter-spacing:-.05em">${key=='pnl'?sg(t.pnl):usd(t.vol)}</div><div class="row sb" style="margin-top:10px"><span class=mut style="font-size:12.5px">${key=='pnl'?'Profit':'Volume'} · ${{DAY:'today',WEEK:'this week',MONTH:'this month',ALL:'all time'}[per]}</span><span data-wr="${t.proxyWallet}" class=mut style="font-size:12.5px">…</span></div></a>`).join('')}</div>
+   <div class=card style="margin-top:16px;overflow:hidden"><table class=tbl><thead><tr><th style="width:48px">#</th><th>Trader</th><th class=r>${key=='pnl'?'Profit':'Volume'}</th><th class="r hide-m">${key=='pnl'?'Volume':'Profit'}</th><th class="r hide-m">Win rate</th><th></th></tr></thead><tbody>
+   ${lb.map(t=>`<tr class=clk onclick="location.hash='#/trader/${t.proxyWallet}'"><td class="mut num">${t.rank}</td><td><div class=row>${av(t.userName,t.proxyWallet,t.profileImage)}<div class=grow style="min-width:0"><div class=ell style="font-weight:550;max-width:260px">${esc(nm(t.userName,t.proxyWallet))}</div><div class="mut" style="font-size:12px" data-la="${t.proxyWallet}">&nbsp;</div></div></div></td>
+   <td class="r num ${key=='pnl'?ud(t.pnl):''}" style="font-weight:600">${key=='pnl'?sg(t.pnl):abbr(t.vol,0)}</td><td class="r num mut hide-m">${key=='pnl'?abbr(t.vol,0):sg(t.pnl)}</td><td class="r hide-m" data-w="${t.proxyWallet}"><span class=mut>…</span></td><td class=r style="width:1%">${folBtn(t.proxyWallet,t.userName||short(t.proxyWallet))}</td></tr>`).join('')}</tbody></table></div>
+   <p class=mut style="font-size:12.5px;margin-top:12px">Win rate = share of the trader's most recent resolved positions (up to 100) that made money, including losing positions they never cashed out. Hover a win rate to see the average entry price — buying at 99¢ wins often but earns little.</p>`;
+  const io=new IntersectionObserver(es=>es.forEach(async e=>{if(!e.isIntersecting)return;io.unobserve(e.target);const a=e.target.dataset.w||e.target.dataset.wr,s=await statOf(a);
+    const wr=s.n<20?'<span class=mut title="Fewer than 20 resolved positions">—</span>':`<span class="num" title="${s.w} of last ${s.n} won · avg entry ${Math.round(s.avgE*100)}¢">${Math.round(s.wr*100)}%</span>`;
+    if(e.target.dataset.w){e.target.innerHTML=wr+(s.n>=20?`<div class="mut" style="font-size:11.5px">avg entry ${Math.round(s.avgE*100)}¢</div>`:'');const la=$(`[data-la="${a}"]`);if(la&&s.last){const old=Date.now()/1000-s.last>7*86400;la.innerHTML=old?`<span class="pill warn" style="height:18px">Inactive · ${rel(s.last)}</span>`:`Active ${rel(s.last)}`}}
+    else e.target.innerHTML=s.n<20?'—':`<b class=num style="color:#fff">${Math.round(s.wr*100)}%</b> win rate`}),{rootMargin:'250px'});
+  $$('[data-w],[data-wr]').forEach(x=>io.observe(x));
 }
 
-/* ---------- profits ---------- */
-async function profits(){
-  const tab=LS.get('ptab','bot');
-  app.innerHTML=`<h1>Profits</h1><div class=sub style="font-size:10.9px">A backtested, rules-based strategy built on every tracked trader.</div>
-  <div class="tabs w"><span data-t=bot class="${tab=='bot'?'on':''}">Profit Bot</span><span data-t=all class="${tab=='all'?'on':''}">All markets</span></div><div id=pb class=sub>Loading top traders…</div>`;
-  app.querySelectorAll('.tabs span').forEach(s=>s.onclick=()=>{LS.set('ptab',s.dataset.t);profits()});
-  const ex=await loadExperts();if(!$('#pb'))return;
-  const seen=new Set(),picks=ex.flatMap(e=>e.closed.map(c=>({...c,wr:e.wr}))).filter(c=>c.avgPrice>=.4&&c.avgPrice<=.9&&c.totalBought*c.avgPrice>=300).sort((a,b)=>a.timestamp-b.timestamp).filter(c=>{const k=c.conditionId+c.outcomeIndex;return seen.has(k)?0:(seen.add(k),1)});
-  const open={};ex.forEach(e=>e.open.forEach(p=>{if(p.curPrice<.03||p.curPrice>.97||p.redeemable)return;const k=p.conditionId+p.outcomeIndex,o=open[k]??={...p,n:0,inv:0,pnl:0,wr:0};o.n++;o.inv+=p.initialValue;o.pnl+=p.cashPnl;o.wr=Math.max(o.wr,e.wr)}));
-  const all=Object.values(open),multi=all.filter(o=>o.n>=2);
-  if(tab=='bot')bot(picks,multi.length>=3?multi:all);else{const d=document.createElement('div');$('#pb').replaceWith(d);pickGrid(d,all,'All markets','Every open position held by the top traders.',1)}
-}
-function bot(picks,open){
-  const wins=picks.filter(c=>c.realizedPnl>0).length,losses=picks.length-wins,ret=c=>c.realizedPnl>0?1/c.avgPrice-1:-1;
-  const A=(t,l,x)=>`position:absolute;top:${t}px;left:${l}px;${x||''}`;
-  $('#pb').outerHTML=`<div class=hero>
-   <div class=ey style="${A(31,23)}">${ic('bot',10)} PROFIT BOT</div><span style="${A(23,0,'right:23px;left:auto;width:24px;height:24px;border:1px solid #26262e;border-radius:50%;display:grid;place-items:center;color:#9a9aa6;font-size:10px')}">?</span>
-   <div style="${A(55,23)}"><div class=lab>STARTING AMOUNT</div></div><input id=s1 type=range min=10 max=1000 step=10 value=50 style="${A(78,23)}"><b id=v1 style="${A(72,164,'font-size:10.5px')}">$50</b>
-   <div style="${A(55,236)}"><div class=lab>RESTAKE PER PICK</div></div><input id=s2 type=range min=1 max=25 value=15 style="${A(78,236)}"><b id=v2 style="${A(72,399,'font-size:10.5px')}">15%</b>
-   <div id=fl style="${A(101,23,'font-size:9.5px;color:#d6d6e2')}"></div>
-   <div id=bigv style="${A(121,23,'font-size:44px;font-weight:700;letter-spacing:-1.8px;color:var(--g);line-height:54px;white-space:nowrap')}"></div>
-   <div style="${A(131,0,'right:23px;left:auto;text-align:right')}"><div id=pk style="font-size:17px;font-weight:700;letter-spacing:-.5px;line-height:20px"></div><div class=mut style="font-size:8.5px;margin-top:4px">the bot's latest resolved pick</div></div>
-   <div id=real style="${A(192,23,'font-size:8.5px;color:#d6d6e2')}"></div>
-   <div id=hd style="${A(210,23,'font-size:22px;font-weight:700;letter-spacing:-.7px;line-height:28px')}"></div><div id=hv2 class=pos style="${A(210,0,'right:23px;left:auto;font-size:22px;font-weight:700;letter-spacing:-.7px;line-height:28px')}"></div>
-   <div id=ch class=chart style="${A(258,23,'right:23px;height:180px')}"></div>
-   <div style="${A(452,23,'right:23px;border-top:1px solid #1d1d26')}"></div>
-   ${[['Win rate',(wins/picks.length*100).toFixed(1)+'%','',23],['Avg return per pick','+'+(picks.reduce((s,c)=>s+ret(c),0)/picks.length*100).toFixed(1)+'%','pos',311],['Avg entry price',Math.round(picks.reduce((s,c)=>s+c.avgPrice,0)/picks.length*100)+'¢','',599]].map(([l,v,c,x])=>`<div style="${A(472,x)}"><div style="font-size:9px;color:#d6d6e2">${l}</div><div class="${c}" style="font-size:18px;font-weight:700;letter-spacing:-.6px;margin-top:9px;line-height:22px">${v}</div></div>`).join('')}</div>
-  <div class="row sb ac" style="margin-top:21px;font-size:9px"><span><b style="font-size:11px">${wins}</b> <span class=mut>won</span></span><span><b style="font-size:11px">${losses}</b> <span class=mut>lost</span></span></div>
-  <div style="display:flex;gap:4px;margin-top:8px"><div style="flex:${wins};height:3px;background:var(--g);border-radius:2px"></div><div style="flex:${losses};height:3px;background:#c2495a;border-radius:2px"></div></div><div id=pg></div>`;
-  const run=()=>{const s=+$('#s1').value,f=+$('#s2').value/100;$('#s1').style.setProperty('--p',((s-10)/990*100)+'%');$('#s2').style.setProperty('--p',((f*100-1)/24*100)+'%');$('#v1').textContent='$'+s;$('#v2').textContent=f*100+'%';
-    let b=s;const v=[s,...picks.map(c=>b*=1+f*ret(c))];
-    $('#fl').textContent=`If you restaked ${f*100}% of the bankroll every pick`;
-    $('#real').textContent=`Real sequence, real resolved picks since ${dt(picks[0].timestamp)}. ${f*100}% of bankroll restaked each time, not a flat amount. Built from each top trader's most recent resolved positions — an estimate, not a guarantee.`;
-    const show=i=>{const t=usd(v[v.length-1]);$('#bigv').textContent=t;$('#bigv').style.fontSize=t.length>16?'26px':t.length>12?'36px':'44px';$('#pk').textContent='Pick #'+(i||picks.length);$('#hd').textContent=dt(picks[(i||picks.length)-1].timestamp);$('#hv2').textContent=sg(v[i||v.length-1]-s)};
-    show(0);lineChart($('#ch'),v,{h:180,T:26,B:15,L:56,R:22,la:'c',fmt:x=>sg(x-s),onHover:i=>show(i===v.length-1?0:i)})};
-  $('#s1').oninput=$('#s2').oninput=run;run();
-  pickGrid($('#pg'),open,'Picks for today','Open markets where the rules are satisfied right now.');
-}
-function pickGrid(el,list,title,subt,inner){
-  let sort=LS.get('psort','n');
-  const draw=()=>{const arr=[...list].sort((a,b)=>sort=='n'?b.n-a.n||b.inv-a.inv:b.pnl/b.inv-a.pnl/a.inv).slice(0,12);
-    el.innerHTML=`<div class="row sb" style="align-items:flex-end;margin:31px 0 17px"><div><h2 style="font-size:19px">${title}</h2><div class=sub style="font-size:9px;margin-top:5px">${subt}</div></div>
-     <div class=row style="gap:8px"><div class=seg><span data-s=n class="${sort=='n'?'on':''}">Most experts</span><span data-s=p class="${sort=='p'?'on':''}">Most profitable</span></div><select class=fld style="width:86px"><option>Ongoing</select></div></div>
-     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:17px">${arr.map((p,i)=>`<div class=pc><div class=tp><span>${classify(p.title)}</span><a href="https://polymarket.com/event/${p.eventSlug}" target=_blank>View market ${ic('arrow',9)}</a></div>
-      <div class=tt><img src="${esc(p.icon)}" alt=""><span>${esc(p.title)}</span></div><div class="sp chart" id=sp${i}></div><div class=ft><span>Polymarket</span><span>All time</span></div>
-      <div class=st><div><b>${Math.round(p.wr*100)}%</b><span>top trader win rate</span></div><div><b class=pos>${usd(p.inv)}</b><span>invested</span></div><div><b>${ic('users',11)} ${p.n}</b><span>experts</span></div></div>
-      <a class="bet ${/^no$/i.test(p.outcome)?'n':''}" href="https://polymarket.com/event/${p.eventSlug}" target=_blank>Bet ${esc(p.outcome).toUpperCase()} ${ic('arrow',11)}</a></div>`).join('')}</div>`;
-    el.querySelectorAll('.seg span').forEach(s=>s.onclick=()=>{sort=s.dataset.s;LS.set('psort',sort);draw()});
-    arr.forEach(async(p,i)=>{const h=(await api(`clob/prices-history?market=${p.asset}&interval=max&fidelity=720`)).history,c=$('#sp'+i);if(h&&c&&h.length>1)lineChart(c,h.map(x=>x.p),{h:86,T:12,B:12,L:4,R:68,color:'#6a7bff',sw:1.2,endSize:22,endH:13,endLabel:`${(p.curPrice*100).toFixed(1)}<span style="font-size:14px">%</span>`})});
-  };draw();
-}
-
-/* ---------- trader ---------- */
+/* ---------- Trader profile ---------- */
 async function trader(a){
-  app.innerHTML='<div class=sub>Loading trader…</div>';
-  const [closed,act,act1,offR,trR]=await Promise.all([resolvedOf(a,4),openOf(a),api(`activity?user=${a}&limit=1`),api(`v1/leaderboard?timePeriod=ALL&orderBy=PNL&user=${a}`),api(`traded?user=${a}`)]);
-  const me=Array.isArray(offR)?offR[0]:null,official=me&&me.pnl!=null?me.pnl:null,traded=trR&&trR.traded;
-  const name=me?.userName||act1[0]?.name||act1[0]?.pseudonym||short(a);
-  let cum=0;const cs=closed.map(c=>cum+=c.realizedPnl),net=official??cum,v=[official!=null?official-cum:0,...cs.map(x=>official!=null?official-cum+x:x)],N=closed.length,inv=closed.reduce((s,c)=>s+c.totalBought*c.avgPrice,0),wins=closed.filter(c=>c.realizedPnl>0).length;
-  const best=closed.reduce((b,c)=>c.realizedPnl>(b?.realizedPnl??-1e18)?c:b,null),last4=closed.slice(-4),lw=last4.filter(c=>c.realizedPnl>0).length;
-  const cats={};closed.forEach(c=>{const k=classify(c.title),o=cats[k]??={n:0,w:0,p:0};o.n++;o.w+=c.realizedPnl>0;o.p+=c.realizedPnl});
-  const ex=await loadExperts(),mine=new Set(closed.map(c=>c.conditionId)),sim=ex.filter(e=>e.proxyWallet!=a).map(e=>({e,o:e.closed.filter(c=>mine.has(c.conditionId)).length})).filter(x=>x.o).sort((x,y)=>y.o-x.o).slice(0,5);
-  const isF=!!fol[a];
-  app.classList.add('p');
-  app.innerHTML=`<h1>${esc(name)}</h1><div class=row style="gap:12px;margin-top:11px;font-size:11px;align-items:center;height:16px"><a class=mut style="cursor:pointer" data-follow="${a}|${esc(name)}">${isF?'Unfollow':'Follow'}</a><a class=l id=shr style="display:flex;gap:5px;align-items:center">${ic('share',11)} Share profile card</a></div>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:19px"><div class=tile><div class=sub>Net P&L${official!=null?' · all time':' · last '+N}</div><b class=${cls(net)}>${sg(net)}</b></div><div class=tile><div class=sub>Win Rate · last ${N}</div><b>${closed.length?(wins/closed.length*100).toFixed(1):0}%</b></div>
-  <div class=tile><div class=sub>ROI · last ${N}</div><b class=${cls(cum)}>${inv?(cum/inv>=0?'+':'')+(cum/inv*100).toFixed(1):0}%</b></div><div class=tile><div class=sub>Markets traded</div><b>${(traded??closed.length).toLocaleString()}</b></div></div>
-  <div class=pg2><div><div class=sub style="margin:2px 0 9px;font-size:9.5px;color:#d6d6e2;line-height:12px">P&L over time${official!=null?' (all-time total, recent trades plotted)':''}</div><div class="cd" style="border-radius:18px;height:220px"><div id=ch class=chart style="height:218px"></div></div>
-   <div class="row ac" style="margin-top:26px;gap:10px;height:30px"><div class=row style="gap:14px;margin-right:4px;font-size:12px;font-weight:600"><span id=ta style="cursor:pointer;padding-bottom:6px">Active (${act.length})</span><span id=tc style="cursor:pointer;padding-bottom:6px">Closed</span></div>
-   <input id=ps class=fld style="flex:1;height:30px;border-radius:8px;background:#0d0d11;font-size:11px" placeholder="Search positions"><button class="fld" id=so style="height:30px;border-radius:8px;background:#0d0d11">${ic('sort',11)} Profit/Loss</button></div>
-   <div class=tw style="margin-top:17px;border-radius:12px"><table id=tb style="table-layout:fixed"></table></div></div>
-  <div><div class=cd style="border-radius:18px;padding:15px 16px;min-height:85px;font-size:9.5px"><div class="row sb" style="line-height:14px"><span>Biggest Win (recent)</span><b class=pos>${best?sg(best.realizedPnl):'-'}</b></div><div class=sub style="font-size:8px;margin:1px 0 9px;color:#9a9aa6">${best?esc(best.title)+' — '+esc(best.outcome):''}</div><div class="row sb" style="line-height:14px"><span>Recent Form</span><b>${lw}-${last4.length-lw} (last ${last4.length})</b></div></div>
-   <div class=sub style="margin:19px 0 8px;font-size:9.5px;color:#d6d6e2">Where they win · last ${N}</div><div class=tw style="border-radius:14px"><table><tr><th>Category<th class=r>Trades<th class=r>Win Rate<th class=r>Profit</tr>${Object.entries(cats).sort((x,y)=>y[1].n-x[1].n).map(([k,o])=>`<tr style="height:27px"><td>${k}<td class=r>${o.n}<td class=r>${(o.w/o.n*100).toFixed(1)}%<td class="r ${cls(o.p)}">${abbr(o.p)}</tr>`).join('')}</table></div>
-   <div class=sub style="margin:19px 0 8px;font-size:9.5px;color:#d6d6e2">Similar top traders</div><div class=tw style="border-radius:14px"><table><tr><th>Trader<th class=r>Overlap<th class=r>Net P&L</tr>${sim.map(s=>`<tr style="height:28px"><td><a class=l href="#/trader/${s.e.proxyWallet}">${esc(s.e.userName||short(s.e.proxyWallet))}</a><span class=circ data-follow="${s.e.proxyWallet}|${esc(s.e.userName)}" style="${fol[s.e.proxyWallet]?'background:#0f8a4b;color:#fff':''}">${fol[s.e.proxyWallet]?ic('check',9):'+'}</span><td class=r>${s.o}<td class="r ${cls(s.e.pnl)}">${abbr(s.e.pnl)}</tr>`).join('')||'<tr style="height:28px"><td colspan=3 class=mut>No overlap with top traders</tr>'}</table></div></div></div>`;
-  $('#shr').onclick=()=>{navigator.clipboard?.writeText(location.href);$('#shr').lastChild.textContent=' Link copied'};
-  lineChart($('#ch'),v,{h:218,T:53,B:44,L:66,R:sg(net).length*11.2+22,la:'l',tf:8.5,fmt:x=>sg(x),endLabel:sg(net),endH:11,color:net>=0?'#00d26a':'#f0475a'});
-  let mode=act.length?'a':'c',desc=true;
-  const cell=(c,isA)=>{const traded=isA?c.initialValue:c.totalBought*c.avgPrice,pnl=isA?c.cashPnl:c.realizedPnl,amt=traded+pnl;
-    return`<tr class=tr><td style="padding-left:13px"><a href="https://polymarket.com/event/${c.eventSlug}" target=_blank style="font-weight:500;font-size:10.5px;line-height:14px">${esc(c.title)} <span class=mut style="font-weight:400">— ${esc(c.outcome)}</span></a><div class=mut style="font-size:8px;margin-top:3px">Avg ${Math.round(c.avgPrice*100)}¢${isA?'':' · '+ago(c.timestamp)}</div>
-    <td class=${isA?'mut':pnl>0?'pos':'neg'} style="font-size:11px">${isA?'Open':pnl>0?'Won':'Lost'}<td class=r style="font-size:11.2px">${usd(traded)}<td class=r><div style="font-weight:500;font-size:11.5px">${usd(amt)}</div><div class=${cls(pnl)} style="font-size:9.3px;line-height:12px">${sg(pnl)}<br>(${pnl>=0?'+':''}${traded?(pnl/traded*100).toFixed(1):0}%)</div></tr>`};
-  const draw=()=>{const q=$('#ps').value.toLowerCase(),isA=mode=='a';let L=(isA?act:closed).filter(c=>c.title.toLowerCase().includes(q));
-    L=[...L].sort((x,y)=>{const f=c=>isA?c.cashPnl:c.realizedPnl;return desc?f(y)-f(x):f(x)-f(y)});
-    $('#ta').style.cssText=`cursor:pointer;padding-bottom:6px;color:${isA?'#fff':'#8a8a96'};${isA?'border-bottom:1px solid #6370ff':''}`;$('#tc').style.cssText=`cursor:pointer;padding-bottom:6px;color:${isA?'#8a8a96':'#fff'};${isA?'':'border-bottom:1px solid #6370ff'}`;
-    $('#tb').innerHTML=`<colgroup><col style="width:260px"><col style="width:60px"><col style="width:82px"><col></colgroup><tr><th style="padding-left:13px">Market<th>Result<th class=r>Total Traded<th class=r>Amount</tr>`+(L.map(c=>cell(c,isA)).join('')||'<tr class=tr><td colspan=4 class=mut>Nothing here</tr>')};
-  $('#ta').onclick=()=>{mode='a';draw()};$('#tc').onclick=()=>{mode='c';draw()};$('#ps').oninput=draw;$('#so').onclick=()=>{desc=!desc;draw()};draw();
+  app.innerHTML=`<div class="card pad" style="height:120px">${sk(20,'30%')}</div><div class="grid g4" style="margin-top:16px">${[0,1,2,3].map(()=>`<div class="card pad">${sk(50)}</div>`).join('')}</div>`;
+  const[closed,open,act,offR,trR,lt]=await Promise.all([resolvedOf(a,4),openOf(a),api(`activity?user=${a}&limit=1`),api(`v1/leaderboard?timePeriod=ALL&orderBy=PNL&user=${a}`),api(`traded?user=${a}`),lastTradeOf(a)]);
+  if(location.hash.slice(2)!=='trader/'+a)return;
+  const me=Array.isArray(offR)?offR[0]:null,official=me&&me.pnl!=null?me.pnl:null,name=nm(me?.userName||act[0]?.name||act[0]?.pseudonym,a),img=me?.profileImage||act[0]?.profileImage;
+  const N=closed.length,wins=closed.filter(c=>c.realizedPnl>0).length;let cum=0;const cs=closed.map(c=>cum+=c.realizedPnl),net=official??cum,base=official!=null?official-cum:0,series=[base,...cs.map(x=>base+x)];
+  const inv=closed.reduce((s,c)=>s+c.totalBought*c.avgPrice,0),avgE=N?closed.reduce((s,c)=>s+c.avgPrice,0)/N:0,openVal=open.reduce((s,p)=>s+(p.currentValue||0),0);
+  const best=closed.reduce((b,c)=>c.realizedPnl>(b?.realizedPnl??-1e18)?c:b,null),last10=closed.slice(-10),inactive=lt&&Date.now()/1000-lt>7*86400;
+  const cats={};closed.forEach(c=>{const k=classify(c.title),o=cats[k]??={n:0,w:0,p:0};o.n++;o.w+=c.realizedPnl>0;o.p+=c.realizedPnl});const catMax=Math.max(1,...Object.values(cats).map(o=>o.n));
+  app.innerHTML=`<div class="card pad hero fade"><div class="row wrapf" style="gap:18px">${av(name,a,img,'lg')}<div class=grow><div class="row wrapf"><h1>${esc(name)}</h1>${inactive?`<span class="pill warn">Inactive · last trade ${rel(lt)}</span>`:lt?`<span class="pill up">Active ${rel(lt)}</span>`:''}</div>
+   <div class="row wrapf mut" style="margin-top:6px;font-size:13px"><span class=num>${short(a)}</span><a class=btn sm id=cpy style="height:26px">${ic('copy',13)}</a><a class="btn sm" href="https://polymarket.com/profile/${a}" target=_blank style="height:26px">Polymarket ${ic('arrow',12)}</a></div></div>${folBtn(a,name,1)}</div></div>
+  <div class="grid g4" style="margin-top:16px">
+   <div class="card pad stat fade"><div class=k>Profit · all time</div><div class="v num ${ud(net)}">${abbr(net)}</div><div class=s>${official!=null?'Official Polymarket figure':`Sum of last ${N} resolved`}</div></div>
+   <div class="card pad stat fade"><div class=k>Win rate</div><div class="v num">${N?(wins/N*100).toFixed(1)+'%':'—'}</div><div class=s>${wins} of last ${N} · avg entry ${Math.round(avgE*100)}¢</div></div>
+   <div class="card pad stat fade"><div class=k>Return on stake</div><div class="v num ${ud(cum)}">${inv?(cum/inv>=0?'+':'')+(cum/inv*100).toFixed(1)+'%':'—'}</div><div class=s>Last ${N} resolved · ${abbr(cum)}</div></div>
+   <div class="card pad stat fade"><div class=k>Open positions</div><div class="v num">${abbr(openVal,0)}</div><div class=s>${open.length} live market${open.length==1?'':'s'} · ${(trR?.traded||0).toLocaleString()} traded</div></div></div>
+  <div class=split style="margin-top:16px"><div class="card pad fade"><div class="row sb"><div><h2>Profit over time</h2><div class=mut style="font-size:12.5px;margin-top:3px">${official!=null?`Last ${N} resolved positions, anchored to the official all-time total`:`Last ${N} resolved positions`}</div></div><div class="num ${ud(net)}" style="font-size:20px;font-weight:600">${sg(net)}</div></div><div id=ch class=chart style="margin-top:14px"></div></div>
+   <div class=grid><div class="card pad fade"><h3>Recent form</h3><div class="form" style="margin:12px 0 4px">${last10.map(c=>`<i title="${esc(c.title)}: ${sg(c.realizedPnl)}" style="background:${c.realizedPnl>0?'var(--up)':'var(--down)'}"></i>`).join('')||'<span class=mut>—</span>'}</div><div class=mut style="font-size:12.5px">${last10.filter(c=>c.realizedPnl>0).length}–${last10.filter(c=>c.realizedPnl<=0).length} in the last ${last10.length}</div>
+     ${best&&best.realizedPnl>0?`<div class=kv style="margin-top:10px;border-top:1px solid var(--line)"><span class=mut>Biggest recent win</span><b class="num up">${abbr(best.realizedPnl)}</b></div><div class="mut ell" style="font-size:12.5px">${esc(best.title)}</div>`:''}</div>
+    <div class="card pad fade"><h3>Where they trade</h3><div style="margin-top:10px">${Object.entries(cats).sort((x,y)=>y[1].n-x[1].n).map(([k,o])=>`<div style="margin:10px 0"><div class="row sb" style="font-size:13px"><span>${k} <span class=mut>· ${o.n}</span></span><span class="num ${ud(o.p)}">${abbr(o.p)} <span class=mut>· ${Math.round(o.w/o.n*100)}% win</span></span></div><div class=bar style="margin-top:6px"><i style="width:${o.n/catMax*100}%"></i></div></div>`).join('')||'<span class=mut>—</span>'}</div><div class=mut style="font-size:11.5px">Categories are guessed from market titles.</div></div></div></div>
+  <div class="sec"><div class=seg id=tabs><button data-t=o class=on>Open · ${open.length}</button><button data-t=c>Resolved · ${N}</button></div><input class=inp id=ps placeholder="Filter markets…" style="max-width:260px;height:36px"></div><div class=card style="overflow:hidden" id=pt></div>`;
+  $('#cpy').onclick=()=>{navigator.clipboard?.writeText(a);toast('Wallet address copied')};
+  area($('#ch'),series,{h:250,axis:1,fmt:(v,rg)=>rg<Math.abs(v)*.05?sg(v):abbr(v),tip:i=>i?`<b class="num ${ud(closed[i-1].realizedPnl)}">${sg(closed[i-1].realizedPnl)}</b> ${esc(closed[i-1].title.slice(0,40))}<div class="mut num">${dt(closed[i-1].timestamp)} · total ${abbr(series[i])}</div>`:`<span class=mut>Start of window</span>`});
+  let tab='o';const draw=()=>{const q=$('#ps').value.toLowerCase(),L=(tab=='o'?open:[...closed].reverse()).filter(x=>x.title.toLowerCase().includes(q));
+    $('#pt').innerHTML=`<table class=tbl><thead><tr><th>Market</th><th class=r>${tab=='o'?'Value':'Staked'}</th><th class=r>P&L</th><th class="r hide-m">${tab=='o'?'Price':'Resolved'}</th></tr></thead><tbody>${L.map(c=>{const st=tab=='o'?c.initialValue:c.totalBought*c.avgPrice,pnl=tab=='o'?c.cashPnl:c.realizedPnl;
+      return`<tr><td><a class=mkt href="https://polymarket.com/event/${c.eventSlug}" target=_blank>${c.icon?`<img src="${esc(c.icon)}" alt="" loading=lazy onerror="this.style.visibility='hidden'">`:''}<div style="min-width:0"><div class=ell style="font-weight:500;max-width:420px">${esc(c.title)}</div><div class=mut style="font-size:12px;margin-top:2px"><span class="pill n" style="height:19px">${esc(c.outcome)}</span> avg ${(c.avgPrice*100).toFixed(1)}¢${c.unredeemed?' · not cashed out':''}</div></div></a></td>
+      <td class="r num">${usd(tab=='o'?c.currentValue:st)}</td><td class="r num ${ud(pnl)}">${sg(pnl)}<div class=mut style="font-size:11.5px">${st?(pnl>=0?'+':'')+(pnl/st*100).toFixed(1)+'%':''}</div></td><td class="r mut hide-m num" style="font-size:12.5px">${tab=='o'?(c.curPrice*100).toFixed(1)+'¢':dt(c.timestamp)}</td></tr>`}).join('')||`<tr><td colspan=4 class=empty>${tab=='o'?'No live positions — everything this trader holds has already resolved.':'Nothing here.'}</td></tr>`}</tbody></table>`};
+  $$('#tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;$$('#tabs button').forEach(x=>x.classList.toggle('on',x==b));draw()});$('#ps').oninput=draw;draw();
 }
 
-/* ---------- search / AI / journal / terminal / help / feed ---------- */
-async function searchPage(){
-  app.innerHTML=`<h1>Search</h1><div class=sub>Find any Polymarket trader by name or wallet address.</div><form id=sf class=row style="margin:30px 0 20px;gap:10px"><input id=q class=fld placeholder="Name or 0x… address" style="flex:1;height:40px;border-radius:12px" autofocus><button class="btn" style="height:40px;border-radius:12px;padding:0 22px">Search</button></form><div id=sr></div>`;
-  $('#sf').onsubmit=async e=>{e.preventDefault();const v=$('#q').value.trim();if(!v)return;
-    if(/^0x[0-9a-f]{40}$/i.test(v)){location.hash='#/trader/'+v.toLowerCase();return}
-    $('#sr').innerHTML='<span class=sub>Searching…</span>';const r=(await api(`gamma/public-search?q=${encodeURIComponent(v)}&search_profiles=true&search_tags=false&limit_per_type=10`)).profiles||[];
-    $('#sr').innerHTML=r.length?`<div class=tw><table>${r.map(p=>`<tr class=tr style="height:52px"><td style="font-size:12px;font-weight:600"><a href="#/trader/${p.proxyWallet}">${esc(p.name||p.pseudonym)}</a><td class="r mut">${short(p.proxyWallet)}<td class=r style="width:100px"><a class=l href="#/trader/${p.proxyWallet}">View ${ic('chr',10)}</a></tr>`).join('')}</table></div>`:'<span class=sub>No traders found.</span>'}}
-async function aiPage(){
-  const opts=Object.entries(fol).map(([a,n])=>`<option value="${a}">${esc(n)}</option>`).join('');
-  app.innerHTML=`<h1>AI Analyzer</h1><div class=sub>Rule-based read on a trader's edge, risk and style — paste a wallet or pick someone you follow.</div><form id=sf class=row style="margin:30px 0 20px;gap:10px"><input id=q class=fld placeholder="0x… wallet address" style="flex:1;height:40px;border-radius:12px"><select id=pk class=fld style="width:160px;height:40px;border-radius:12px"><option value="">Following…</option>${opts}</select><button class=btn style="height:40px;border-radius:12px;padding:0 22px">${ic('ai',13)} Analyze</button></form><div id=sr></div>`;
-  $('#pk').onchange=e=>$('#q').value=e.target.value;
-  $('#sf').onsubmit=async e=>{e.preventDefault();const a=$('#q').value.trim().toLowerCase();if(!/^0x[0-9a-f]{40}$/.test(a)){$('#sr').innerHTML='<span class=sub>Enter a valid 0x wallet address.</span>';return}
-    $('#sr').innerHTML='<span class=sub>Analyzing…</span>';const[c,o]=await Promise.all([resolvedOf(a,3),openOf(a)]);if(!c.length){$('#sr').innerHTML='<span class=sub>No resolved trades found.</span>';return}
-    const w=c.filter(x=>x.realizedPnl>0),wr=w.length/c.length,avgE=c.reduce((s,x)=>s+x.avgPrice,0)/c.length,pnl=c.reduce((s,x)=>s+x.realizedPnl,0),inv=c.reduce((s,x)=>s+x.totalBought*x.avgPrice,0),best=Math.max(...c.map(x=>x.realizedPnl)),sizes=c.map(x=>x.totalBought*x.avgPrice).sort((p,q)=>p-q),med=sizes[sizes.length>>1];
-    const edge=wr-avgE,L4=c.slice(-8),lw=L4.filter(x=>x.realizedPnl>0).length,cats={};c.forEach(x=>{const k=classify(x.title);cats[k]=(cats[k]||0)+x.realizedPnl});const bc=Object.entries(cats).sort((p,q)=>q[1]-p[1])[0];
-    const B=[[edge>.05?'pos':edge<0?'neg':'mut',`Edge: wins ${(wr*100).toFixed(0)}% of the time at an average entry of ${(avgE*100).toFixed(0)}¢ → ${(edge*100>=0?'+':'')+(edge*100).toFixed(1)} pts vs. implied odds.`],
-      [pnl>=0?'pos':'neg',`Realized ${sg(pnl)} on ${usd(inv)} staked (${inv?(pnl/inv*100).toFixed(1):0}% ROI) across ${c.length} resolved positions.`],
-      [best/Math.max(1,pnl)>.6?'neg':'pos',`Concentration: the single best win is ${(best/Math.max(1,pnl)*100).toFixed(0)}% of total profit${best/Math.max(1,pnl)>.6?' — results lean on one big bet.':' — profits are well spread.'}`],
-      ['mut',`Style: ${avgE>.7?'favorite grinder (buys high-probability outcomes)':avgE<.4?'longshot hunter (buys low-probability outcomes)':'balanced mid-odds trader'}; median stake ${usd(med)}.`],
-      [lw>=6?'pos':lw<=2?'neg':'mut',`Recent form: ${lw}-${L4.length-lw} over the last ${L4.length} resolved positions; ${o.length} open positions right now.`],
-      ['mut',`Best category: ${bc[0]} (${sg(bc[1])}).`]];
-    const score=Math.max(0,Math.min(100,Math.round(50+edge*120+(pnl>=0?10:-15)+(lw-L4.length/2)*3)));
-    $('#sr').innerHTML=`<div class="cd" style="border-radius:22px;padding:22px 24px"><div class="row sb ac"><div><div class=sub style="margin:0">Analyzer score</div><div style="font-size:38px;font-weight:700;letter-spacing:-1.5px;line-height:44px" class=${score>=60?'pos':score<40?'neg':''}>${score}<span class=mut style="font-size:16px">/100</span></div></div><a class=l href="#/trader/${a}">Open profile ${ic('chr',10)}</a></div>
-      <div style="margin-top:14px">${B.map(([k,t])=>`<div style="padding:11px 0;border-top:1px solid var(--line);font-size:11.5px;line-height:17px" class=${k=='mut'?'':k}>${t}</div>`).join('')}</div></div>`}}
-function journalPage(){
-  const notes=LS.get('notes',[]),fl=Object.entries(fol);
-  app.innerHTML=`<h1>Journal</h1><div class=sub>Your followed traders and trade notes — saved in this browser.</div>
-  <h2 style="margin:30px 0 14px;font-size:16px">Following (${fl.length})</h2>${fl.length?`<div class=tw><table>${fl.map(([a,n])=>`<tr class=tr style="height:50px"><td style="font-size:12px;font-weight:600"><a href="#/trader/${a}">${esc(n)}</a><td class="r mut">${short(a)}<td class=r style="width:110px"><button class="btn u" data-follow="${a}|${esc(n)}" style="height:30px">${ic('x',11)} Unfollow</button></tr>`).join('')}</table></div>`:'<div class=sub>Nobody yet — follow traders from the Leaderboard.</div>'}
-  <h2 style="margin:34px 0 14px;font-size:16px">Notes</h2><form id=nf style="display:flex;gap:10px"><input id=nt class=fld placeholder="Write a trade note…" style="flex:1;height:40px;border-radius:12px"><button class=btn style="height:40px;border-radius:12px">Add</button></form>
-  <div style="margin-top:14px">${notes.map((n,i)=>`<div class=cd style="border-radius:14px;padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;gap:12px;font-size:12px"><span>${esc(n.t)}<div class=sub style="margin:4px 0 0">${new Date(n.d).toLocaleString()}</div></span><a class=mut style="cursor:pointer" data-del=${i}>${ic('x',12)}</a></div>`).join('')}</div>`;
-  $('#nf').onsubmit=e=>{e.preventDefault();const t=$('#nt').value.trim();if(!t)return;notes.unshift({t,d:Date.now()});LS.set('notes',notes);journalPage()};
-  app.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{notes.splice(+x.dataset.del,1);LS.set('notes',notes);journalPage()});
+/* ---------- Whale feed ---------- */
+let feedT,seenT=new Set();
+async function feed(){
+  const min=LS.get('fmin',10000);let side='all',only=false;
+  app.innerHTML=`<div class="ph fade"><div><h1>Whale Feed</h1><p class=lead>Large Polymarket trades as they happen. Click a trader to see their record.</p></div><span class=live id=fst>Live</span></div>
+   <div class="row wrapf" style="margin-bottom:14px"><div class=row id=mins>${[1000,5000,10000,50000].map(v=>`<button class="chip ${v==min?'on':''}" data-v=${v}>${abbr(v,0).replace('+','')}+</button>`).join('')}</div><div class=seg id=sides><button data-s=all class=on>All</button><button data-s=BUY>Buys</button><button data-s=SELL>Sells</button></div>
+   <button class=chip id=fo>${ic('star',13)} Following only</button><label class="row mut" style="font-size:13px;margin-left:auto;gap:6px"><input type=checkbox id=nt> Notify me</label></div><div class=card style="overflow:hidden" id=ft>${sk(300)}</div>`;
+  let cur=min;$$('#mins .chip').forEach(b=>b.onclick=()=>{cur=+b.dataset.v;LS.set('fmin',cur);$$('#mins .chip').forEach(x=>x.classList.toggle('on',x==b));seenT.clear();tick()});
+  $$('#sides button').forEach(b=>b.onclick=()=>{side=b.dataset.s;$$('#sides button').forEach(x=>x.classList.toggle('on',x==b));tick()});
+  $('#fo').onclick=()=>{only=!only;$('#fo').classList.toggle('on',only);tick()};$('#nt').onchange=e=>e.target.checked&&Notification.requestPermission();
+  async function tick(){if(!$('#ft'))return clearInterval(feedT);let d=await api(`trades?limit=250&filterType=CASH&filterAmount=${cur}`);if(!Array.isArray(d)||!$('#ft'))return;
+    if(side!='all')d=d.filter(t=>t.side==side);if(only)d=d.filter(t=>fol[t.proxyWallet]);
+    const first=!seenT.size,fresh=d.filter(t=>!seenT.has(t.transactionHash+t.asset));d.forEach(t=>seenT.add(t.transactionHash+t.asset));
+    $('#ft').innerHTML=feedRows(d.slice(0,120));if(!first)[...$('#ft').querySelectorAll('tbody tr')].slice(0,fresh.length).forEach(r=>r.classList.add('flash'));
+    $('#fst').textContent='Live · '+new Date().toLocaleTimeString();if(!first&&fresh.length&&$('#nt').checked&&Notification.permission=='granted')new Notification(`${fresh.length} new whale trade(s)`)}
+  tick();clearInterval(feedT);feedT=setInterval(tick,12000);
 }
-function helpPage(){app.innerHTML=`<h1>Help</h1><div class=sub>How InvisibleTrader works</div><div style="margin-top:28px;display:grid;gap:10px">${[
- ['Where does the data come from?','Everything is pulled live from Polymarket\'s public APIs (data-api, gamma and clob) through this site\'s own server-side proxy.'],
- ['What is the Profit Bot?','A backtest that replays the real resolved picks of the top traders in sequence, restaking a fixed % of the bankroll each time. Change the sliders to re-run it.'],
- ['What does Follow do?','Follow saves a trader in this browser (Journal page). You can filter the Feed to followed traders only.'],
- ['What is the Feed / Terminal?','Live large trades across Polymarket. Terminal is a denser, faster-refreshing view with a lower size threshold.'],
- ['Limits','Win rate and ROI use each trader\'s most recent closed positions, and the API may omit some losing positions, so treat numbers as approximate. Not financial advice.']].map(([q,a])=>`<div class="pre"><b>${q}</b><div class=mut style="margin-top:4px">${a}</div></div>`).join('')}</div>`}
-let seenT=new Set(),ft;
-async function feed(term){
-  const T=!!term,st=T?'terminal':'feed';
-  app.innerHTML=`<h1>${T?'Terminal':'Feed'}</h1><div class=sub>Live whale trades · refreshes every ${T?5:15}s</div><div class=row style="margin:22px 0 16px;align-items:center;gap:12px;font-size:11px"><span class=mut>Min size $</span><input id=min type=number class=fld value=${LS.get(st+'min',T?1000:5000)} style="width:100px;height:32px;cursor:text"><label class=mut style="display:flex;gap:5px"><input type=checkbox id=fo> Following only</label><label class=mut style="display:flex;gap:5px"><input type=checkbox id=nt> Notify</label><span class=mut id=st></span></div><div class=tw><table id=ft></table></div>`;
-  $('#min').onchange=e=>{LS.set(st+'min',e.target.value);seenT.clear();tick()};$('#nt').onchange=e=>e.target.checked&&Notification.requestPermission();$('#fo').onchange=()=>{seenT.clear();tick()};
-  async function tick(){if(!$('#ft'))return;let d=await api(`trades?limit=${T?300:200}&filterType=CASH&filterAmount=${+$('#min').value||0}`);if(!Array.isArray(d))return;if($('#fo').checked)d=d.filter(t=>fol[t.proxyWallet]);
-    const first=!seenT.size;let fresh=0;
-    const rows=d.map(t=>{const k=t.transactionHash+t.asset+t.size,n=!first&&!seenT.has(k);seenT.add(k);if(n)fresh++;
-      return`<tr style="height:${T?30:44}px;${n?'background:#00d26a1a':''}"><td class=mut>${new Date(t.timestamp*1000).toLocaleTimeString()}<td><a class=l href="#/trader/${t.proxyWallet}">${esc(t.name||t.pseudonym||short(t.proxyWallet))}</a><td class=${t.side=='BUY'?'pos':'neg'}>${t.side}<td class=r><b>${usd(t.size*t.price)}</b><td><a href="https://polymarket.com/event/${t.eventSlug}" target=_blank>${esc(t.title)}</a> <span class=mut>${esc(t.outcome)}</span><td class=r>${(t.price*100).toFixed(1)}¢</tr>`}).join('');
-    $('#ft').innerHTML='<tr><th>Time<th>Trader<th>Side<th class=r>Size<th>Market<th class=r>Price</tr>'+(rows||'<tr style="height:44px"><td colspan=6 class=mut>No trades match.</tr>');$('#st').textContent='Updated '+new Date().toLocaleTimeString();
-    if(fresh&&$('#nt').checked&&Notification.permission==='granted')new Notification(`🐋 ${fresh} new whale trade(s)`)}
-  tick();clearInterval(ft);ft=setInterval(tick,T?5000:15000);
+
+/* ---------- Profit Bot (backtest) ---------- */
+async function backtest(){
+  app.innerHTML=`<div class="ph fade"><div><h1>Profit Bot</h1><p class=lead>A backtest: replay the real resolved picks of top traders in order, restaking a share of the bankroll each time.</p></div></div><div id=bt>${sk(380)}</div>`;
+  const ex=await loadExperts();if(!$('#bt'))return;
+  const seen=new Set(),picks=ex.flatMap(e=>e.closed.map(c=>({...c,wr:e.wr}))).filter(c=>c.avgPrice>=.4&&c.avgPrice<=.9&&c.totalBought*c.avgPrice>=300).sort((a,b)=>a.timestamp-b.timestamp).filter(c=>{const k=c.conditionId+c.outcomeIndex;return seen.has(k)?0:(seen.add(k),1)});
+  if(picks.length<5){$('#bt').innerHTML=`<div class="card empty">Not enough resolved picks to backtest right now.</div>`;return}
+  const ret=c=>c.realizedPnl>0?1/c.avgPrice-1:-1,wins=picks.filter(c=>c.realizedPnl>0).length,cfg=LS.get('bt',{s:100,f:5});
+  const open={};ex.forEach(e=>e.open.forEach(p=>{if(p.curPrice<.03||p.curPrice>.97)return;const k=p.conditionId+p.outcomeIndex,o=open[k]??={...p,n:0,inv:0,wr:0,who:[]};o.n++;o.inv+=p.initialValue;o.wr=Math.max(o.wr,e.wr);o.who.push(e.userName)}));
+  const ideas=Object.values(open).filter(o=>o.n>=2).sort((a,b)=>b.n-a.n||b.inv-a.inv).slice(0,9);
+  $('#bt').innerHTML=`<div class="card pad hero fade"><div class="grid g2" style="gap:28px"><div><label class=lbl>Starting amount <b class=num id=v1 style="color:#fff;float:right"></b></label><input type=range id=s1 min=10 max=1000 step=10 value=${cfg.s}></div><div><label class=lbl>Restake per pick <b class=num id=v2 style="color:#fff;float:right"></b></label><input type=range id=s2 min=1 max=25 value=${cfg.f}></div></div>
+   <div class="row sb wrapf" style="margin-top:26px;align-items:flex-end"><div><div class=mut style="font-size:13px" id=hl></div><div class="num up" id=big style="font-size:48px;font-weight:600;letter-spacing:-.06em;line-height:1.1;margin-top:4px"></div></div><div style="text-align:right"><div class="num" style="font-size:20px;font-weight:600">${picks.length} picks</div><div class=mut style="font-size:12.5px">since ${dt(picks[0].timestamp)}</div></div></div>
+   <div id=bch class=chart style="margin-top:18px"></div>
+   <div class="grid g3" style="margin-top:18px;border-top:1px solid var(--line);padding-top:18px"><div class=stat><div class=k>Win rate</div><div class="v num">${(wins/picks.length*100).toFixed(1)}%</div></div><div class=stat><div class=k>Avg return per pick</div><div class="v num ${ud(picks.reduce((s,c)=>s+ret(c),0))}">${(picks.reduce((s,c)=>s+ret(c),0)/picks.length*100).toFixed(1)}%</div></div><div class=stat><div class=k>Avg entry price</div><div class="v num">${Math.round(picks.reduce((s,c)=>s+c.avgPrice,0)/picks.length*100)}¢</div></div></div>
+   <div class="row sb" style="margin-top:18px;font-size:12.5px"><span><b class=num>${wins}</b> <span class=mut>won</span></span><span><b class=num>${picks.length-wins}</b> <span class=mut>lost</span></span></div><div style="display:flex;gap:3px;margin-top:7px"><div style="flex:${wins};height:6px;border-radius:6px;background:var(--up)"></div><div style="flex:${picks.length-wins};height:6px;border-radius:6px;background:var(--down)"></div></div>
+   <p class=mut style="font-size:12px;margin:14px 0 0">Rules: entries between 40¢ and 90¢ with at least $300 staked, first trader per market only. Uses each top trader's most recent resolved positions. Past results don't predict future ones.</p></div>
+  <div class=sec><div><h2>Consensus picks</h2><div class=mut style="font-size:13px;margin-top:3px">Live markets where two or more top traders currently hold the same side.</div></div></div>
+  <div class="grid g3">${ideas.map((p,i)=>`<div class="card pad fade" style="animation-delay:${i*40}ms"><div class="row sb mut" style="font-size:12px"><span>${classify(p.title)}</span><a href="https://polymarket.com/event/${p.eventSlug}" target=_blank>View ${ic('arrow',11)}</a></div>
+    <div class=mkt style="margin-top:12px;align-items:flex-start">${p.icon?`<img src="${esc(p.icon)}" alt="" style="width:42px;height:42px" onerror="this.style.visibility='hidden'">`:''}<div style="font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(p.title)}</div></div>
+    <div class="row sb" style="margin-top:12px;align-items:flex-end"><div id=sp${i} class=chart style="height:64px;flex:1"></div><div style="text-align:right;margin-left:12px"><div class="num" style="font-size:24px;font-weight:600;color:#b3a9ff">${(p.curPrice*100).toFixed(0)}¢</div><div class=mut style="font-size:11.5px">${esc(p.outcome)}</div></div></div>
+    <div class="row sb" style="margin-top:12px;font-size:12.5px;border-top:1px solid var(--line);padding-top:12px"><span title="${esc(p.who.join(', '))}">${ic('star',12)} <b>${p.n}</b> <span class=mut>top traders</span></span><span class=num>${abbr(p.inv,0)} <span class=mut>in</span></span></div></div>`).join('')||`<div class="card empty" style="grid-column:1/-1">No consensus picks right now.</div>`}</div>`;
+  const run=()=>{const s=+$('#s1').value,f=+$('#s2').value/100;LS.set('bt',{s,f:f*100});$('#s1').style.setProperty('--p',(s-10)/990*100+'%');$('#s2').style.setProperty('--p',(f*100-1)/24*100+'%');$('#v1').textContent='$'+s;$('#v2').textContent=Math.round(f*100)+'%';
+    let b=s;const v=[s,...picks.map(c=>b*=1+f*ret(c))],end=v[v.length-1];$('#hl').textContent=`$${s} restaking ${Math.round(f*100)}% per pick would now be`;
+    $('#big').textContent=end>=1e12?'$'+end.toExponential(2):usd(end,end<1000?2:0);$('#big').className='num '+ud(end-s);
+    area($('#bch'),v,{h:230,axis:1,fmt:x=>abbr(x,0),tip:i=>i?`<b class=num>${usd(v[i],2)}</b><div class=mut>Pick #${i} · ${dt(picks[i-1].timestamp)} · ${picks[i-1].realizedPnl>0?'won':'lost'}</div><div class=mut style="max-width:260px;white-space:normal">${esc(picks[i-1].title)}</div>`:'Start'})};
+  $('#s1').oninput=$('#s2').oninput=run;run();
+  ideas.forEach(async(p,i)=>{const h=(await api(`clob/prices-history?market=${p.asset}&interval=1m&fidelity=360`)).history,el=$('#sp'+i);if(h&&el&&h.length>1)area(el,h.map(x=>x.p),{h:64,color:'#8b7bff',sw:1.6,t:6,b:4})});
 }
-function route(){clearInterval(ft);app.classList.remove('p');renderNav();const[p,a]=(location.hash.slice(2)||'profits').split('/');
-  ({profits,bot:botPage,feed:()=>feed(0),terminal:()=>feed(1),leaderboard,search:searchPage,ai:aiPage,journal:journalPage,help:helpPage,trader:()=>trader(a)})[p]?.();window.scrollTo(0,0)}
-addEventListener('hashchange',()=>route());route();
+
+/* ---------- Following + notes ---------- */
+function journal(){
+  const fl=Object.entries(fol),notes=LS.get('notes',[]);
+  app.innerHTML=`<div class="ph fade"><div><h1>Following</h1><p class=lead>Traders you follow${OWNER?' — your Auto Trader copies these':''}. Plus your private trade notes.</p></div></div>
+   <div class="grid g3" id=fg>${fl.map(([a,n])=>`<a href="#/trader/${a}" class="card pad fade"><div class=row>${av(n,a)}<div class=grow><div class=ell style="font-weight:600">${esc(n)}</div><div class="mut num" style="font-size:12px">${short(a)}</div></div>${folBtn(a,n)}</div><div class="row sb" style="margin-top:14px;font-size:13px" data-fs="${a}">${sk(14)}</div></a>`).join('')||`<div class="card empty" style="grid-column:1/-1">You're not following anyone yet. Tap ${ic('star',13)} on the <a href="#/leaderboard" style="color:#b3a9ff">leaderboard</a>.</div>`}</div>
+   <div class=sec><h2>Notes</h2></div><form id=nf class=row><input class=inp id=nt placeholder="Write a note…"><button class="btn pri">Add</button></form>
+   <div style="margin-top:12px" class=grid>${notes.map((n,i)=>`<div class="card pad row sb" style="padding:14px 18px"><div><div>${esc(n.t)}</div><div class=mut style="font-size:12px;margin-top:4px">${new Date(n.d).toLocaleString()}</div></div><button class="btn ic sm" data-del=${i}>${ic('x',13)}</button></div>`).join('')}</div>`;
+  $('#nf').onsubmit=e=>{e.preventDefault();const t=$('#nt').value.trim();if(!t)return;notes.unshift({t,d:Date.now()});LS.set('notes',notes);journal()};
+  $$('[data-del]').forEach(b=>b.onclick=()=>{notes.splice(+b.dataset.del,1);LS.set('notes',notes);journal()});
+  fl.forEach(async([a])=>{const s=await statOf(a),el=$(`[data-fs="${a}"]`);if(el)el.innerHTML=`<span class=mut>Win rate <b class=num style="color:#fff">${s.n>=20?Math.round(s.wr*100)+'%':'—'}</b></span><span class=mut>${s.last?'Last trade '+rel(s.last):'No trades'}</span>`});
+}
+
+/* ---------- Analyzer ---------- */
+function analyze(){
+  app.innerHTML=`<div class="ph fade"><div><h1>Analyzer</h1><p class=lead>A plain-English read on any trader's edge, risk and style — computed from their real resolved positions.</p></div></div>
+   <form id=af class=row><input class=inp id=aq placeholder="Paste a 0x wallet address" value="${esc(LS.get('aq',''))}"><button class="btn pri">${ic('spark',15)} Analyze</button></form><div id=ar style="margin-top:16px"></div>`;
+  $('#af').onsubmit=async e=>{e.preventDefault();const a=$('#aq').value.trim().toLowerCase();if(!/^0x[0-9a-f]{40}$/.test(a)){$('#ar').innerHTML=`<div class="card empty">Enter a valid wallet (0x…). Tip: copy it from any trader's profile.</div>`;return}LS.set('aq',a);
+    $('#ar').innerHTML=sk(200);const[c,o,lt]=await Promise.all([resolvedOf(a,4),openOf(a),lastTradeOf(a)]);if(c.length<5){$('#ar').innerHTML=`<div class="card empty">Not enough resolved positions to analyze.</div>`;return}
+    const w=c.filter(x=>x.realizedPnl>0),wr=w.length/c.length,avgE=c.reduce((s,x)=>s+x.avgPrice,0)/c.length,pnl=c.reduce((s,x)=>s+x.realizedPnl,0),inv=c.reduce((s,x)=>s+x.totalBought*x.avgPrice,0),best=Math.max(...c.map(x=>x.realizedPnl)),sz=c.map(x=>x.totalBought*x.avgPrice).sort((p,q)=>p-q),med=sz[sz.length>>1],edge=wr-avgE,L=c.slice(-10),lw=L.filter(x=>x.realizedPnl>0).length;
+    const cats={};c.forEach(x=>{const k=classify(x.title);cats[k]=(cats[k]||0)+x.realizedPnl});const bc=Object.entries(cats).sort((p,q)=>q[1]-p[1])[0];
+    const score=Math.max(0,Math.min(100,Math.round(50+edge*150+(pnl>=0?10:-15)+(lw-5)*2-(lt&&Date.now()/1000-lt>14*86400?10:0))));
+    const B=[[edge>.03?'up':edge<-.02?'down':'',`<b>Edge.</b> Wins ${(wr*100).toFixed(0)}% of the time at an average entry of ${(avgE*100).toFixed(0)}¢. The price implies ~${(avgE*100).toFixed(0)}% — so they beat the market by ${(edge*100>=0?'+':'')+(edge*100).toFixed(1)} points.`],
+      [pnl>=0?'up':'down',`<b>Results.</b> ${sg(pnl)} on ${usd(inv)} staked (${inv?(pnl/inv*100).toFixed(1):0}% return) across the last ${c.length} resolved positions.`],
+      [best/Math.max(1,pnl)>.6?'down':'up',`<b>Concentration.</b> The single best win is ${pnl>0?Math.round(best/pnl*100)+'% of':'larger than'} total profit${best/Math.max(1,pnl)>.6?' — results lean on one big bet.':' — profits are well spread.'}`],
+      ['',`<b>Style.</b> ${avgE>.85?'Buys near-certain outcomes for small, frequent gains — a high win rate here is expected, not impressive.':avgE>.65?'Favors favorites.':avgE<.35?'Hunts long shots — expect a low win rate with occasional big payouts.':'Trades mid-range odds.'} Median stake ${usd(med)}.`],
+      [lw>=7?'up':lw<=3?'down':'',`<b>Form.</b> ${lw}–${L.length-lw} over the last ${L.length}. ${o.length} live position${o.length==1?'':'s'}. ${lt?'Last trade '+rel(lt)+'.':''}`],
+      ['',`<b>Best category.</b> ${bc[0]} (${sg(bc[1])}).`]];
+    $('#ar').innerHTML=`<div class="split fade"><div class="card pad">${B.map(([k,t])=>`<div style="padding:13px 0;border-bottom:1px solid var(--line);line-height:1.55" class=${k}><span style="color:var(--text)">${t}</span></div>`).join('')}</div>
+     <div class="card pad hero" style="text-align:center"><div class=mut style="font-size:13px">Analyzer score</div><div class="num ${score>=60?'up':score<40?'down':''}" style="font-size:64px;font-weight:600;letter-spacing:-.06em;line-height:1.1;margin:8px 0">${score}</div><div class=bar><i style="width:${score}%"></i></div><a class="btn" style="margin-top:18px;width:100%" href="#/trader/${a}">Open profile ${ic('chev',13)}</a><p class=mut style="font-size:11.5px;margin:12px 0 0">Score blends edge vs. implied odds, profitability, recent form and activity. Not financial advice.</p></div></div>`};
+  if($('#aq').value)$('#af').requestSubmit();
+}
+
+/* ---------- Help & setup ---------- */
+async function help(){
+  const me=await fetch('/api/auth?op=me').then(r=>r.json()).catch(()=>({setup:{}}));const st=me.setup||{};
+  const row=(ok,t,d)=>`<div class=step><b class=${ok?'ok':'no'}>${ok?'✓':'○'}</b><div><div style="font-weight:550">${t}</div><div class=mut style="font-size:13px;margin-top:3px">${d}</div></div></div>`;
+  app.innerHTML=`<div class="ph fade"><div><h1>Help & setup</h1><p class=lead>Data comes live from Polymarket. Orders go to Kalshi. Everything below is configured in Vercel → Project → Settings → Environment Variables.</p></div></div>
+   <div class=split><div class="card pad"><h2>Server setup</h2><div style="margin-top:8px">
+    ${row(st.db,'Database','Add a free Postgres database: Vercel → Storage → Create → Neon. It sets <code>DATABASE_URL</code> for you.')}
+    ${row(st.password,'Owner password','Set <code>ADMIN_PASSWORD</code> (8+ characters). This is how you log in to the Auto Trader.')}
+    ${row(st.session,'Session secret','Set <code>SESSION_SECRET</code> to any long random string (32+ characters).')}
+    ${row(null,'Kalshi keys','Create an API key at kalshi.com → Account → API keys (or demo.kalshi.co for practice money). Set <code>KALSHI_KEY_ID</code> and <code>KALSHI_PRIVATE_KEY</code> (paste the whole PEM). <code>KALSHI_ENV</code> = <code>demo</code> or <code>prod</code>.')}
+    ${row(null,'Real money switch','For real orders set <code>KALSHI_ENV=prod</code> and <code>KALSHI_ALLOW_LIVE=yes</code>. Optional: <code>MAX_ORDER_USD</code> (default 25) caps every order; <code>TRADING_DISABLED=1</code> stops all trading instantly.')}
+    ${row(null,'Run every minute','Set <code>CRON_SECRET</code>, then create a free job at cron-job.org that opens <code>https://YOUR-SITE/api/cron?key=YOUR_CRON_SECRET</code> every minute. That runs the bot even when this site is closed.')}
+   </div><p class=mut style="font-size:12.5px">After changing variables, redeploy (Vercel → Deployments → Redeploy).</p></div>
+   <div class=grid><div class="card pad"><h3>How the Auto Trader decides</h3><div class=mut style="font-size:13.5px;line-height:1.6;margin-top:8px">When a trader you follow buys on Polymarket, the bot looks for the same question on Kalshi. It only trades if the wording matches, every number and date matches, words like above/below/before/not match, both markets resolve within 3 days of each other, and Kalshi's price is close to what the trader paid. When the trader sells, the bot sells too.</div></div>
+    <div class="card pad"><h3>Accuracy</h3><div class=mut style="font-size:13.5px;line-height:1.6;margin-top:8px">Profit and volume are Polymarket's official numbers. Win rates use each trader's most recent resolved positions, including losers they never cashed out. "Open" only shows markets that haven't resolved yet.</div></div></div></div>`;
+}
+
+/* ---------- router ---------- */
+function route(){clearInterval(feedT);typeof botStopPoll=='function'&&botStopPoll();$('#side').classList.remove('open');renderSide();
+  const[p,a]=location.hash.slice(2).split('/');window.scrollTo(0,0);
+  const R={'':overview,leaderboard,feed,terminal:feed,backtest,profits:backtest,bot:botPage,journal,analyze,ai:analyze,help,search:openPal,trader:()=>trader(a)};(R[p]||overview)()}
+addEventListener('hashchange',route);
+fetch('/api/auth?op=me').then(r=>r.json()).then(m=>{OWNER=!!m.owner;if(OWNER){fetch('/api/bot?op=state').then(r=>r.ok?r.json():null).then(s=>{if(!s)return;BOTON=s.enabled;
+  if(s.follows?.length&&!Object.keys(fol).length){s.follows.forEach(f=>fol[f.wallet]=f.name||short(f.wallet));LS.set('fol',fol)}else syncFol();renderSide()}).catch(()=>{})}renderSide()}).catch(()=>{});
+route();
