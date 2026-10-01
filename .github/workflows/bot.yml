@@ -11,7 +11,7 @@ on:
   workflow_dispatch: {}
   push:
     branches: [main]
-    paths: ['.github/workflows/bot.yml', 'runner.js']
+    paths: ['.github/workflows/bot.yml', 'runner.js', 'api/**', 'package*.json']
 permissions:
   actions: write
   contents: read
@@ -45,6 +45,11 @@ jobs:
         if: steps.dog.outputs.skip != '1'
         run: |
           me=$(gh run view ${{ github.run_id }} --json createdAt -q .createdAt)
+          # new code or hand-over: once this runner is up, stop older ones (they finish their current check first)
+          ( sleep 45
+            for id in $(gh run list -w bot.yml -L 20 --json databaseId,status -q ".[] | select(.status != \"completed\" and .databaseId < ${{ github.run_id }}) | .databaseId"); do
+              gh run cancel "$id" && echo "stopped older run $id" || true
+            done ) &
           ( sleep $(( (RUN_MINUTES - 10) * 60 ))
             newer=$(gh run list -w bot.yml -L 20 --json status,createdAt -q "[.[] | select(.status != \"completed\" and .createdAt > \"$me\")] | length")
             if [ "$newer" = 0 ]; then gh workflow run bot.yml && echo "handed over to a new run"; else echo "a newer run is active; not handing over"; fi ) &
