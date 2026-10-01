@@ -1,9 +1,11 @@
-// Vercel serverless proxy: /api/<path> -> Polymarket data API; /api/gamma/* and /api/clob/* -> those hosts
+// Vercel serverless proxy: /api/proxy?u=<path>&<query> -> Polymarket APIs.
+// u starting with gamma/ or clob/ goes to those hosts; anything else goes to the data API.
 const HOSTS = { gamma: 'https://gamma-api.polymarket.com', clob: 'https://clob.polymarket.com' };
 module.exports = async (req, res) => {
-  const segs = [].concat(req.query.path);
+  const segs = String(req.query.u || '').split('/').filter(s => s && s !== '..' && s !== '.');
+  if (!segs.length) return res.status(400).json({ error: 'missing u' });
   const base = HOSTS[segs[0]] ? HOSTS[segs.shift()] : 'https://data-api.polymarket.com';
-  const qs = new URLSearchParams(req.query); qs.delete('path');
+  const qs = new URLSearchParams(req.query); qs.delete('u');
   try {
     const r = await fetch(`${base}/${segs.join('/')}?${qs}`);
     res.setHeader('content-type', 'application/json');

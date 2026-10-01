@@ -11,7 +11,7 @@ const ago=ts=>{const d=(Date.now()/1000-ts)/86400;return d<1?'today':d<60?Math.f
 const COL=['#14a3c4','#ec4899','#e8a91a','#3b82f6','#2fa84f','#a855f7'];
 const av=(img,a,sz)=>{const st=sz?` style="width:${sz}px;height:${sz}px"`:'';return img?`<span class=av${st}><img src="${esc(img)}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{innerHTML:gog('${a}')}).firstChild)"></span>`:`<span class=av${st}>${gog(a)}</span>`};
 const gog=(a,c)=>`<svg viewBox="0 0 40 40"><circle cx=20 cy=20 r=20 fill="${c||COL[parseInt(a.slice(2,4),16)%6]}" /><rect x=8 y=14 width=24 height=13 rx=6.5 fill=#fff /><path d="M11 18.5c0-1 .8-1.7 1.8-1.7h14.4c1 0 1.8.7 1.8 1.7v1.700c0 1.700-1.300 3-3 3-1.200 0-1.900-.5-2.600-1.200-.700-.700-1.500-1-2.400-1s-1.700.3-2.400 1c-.7.700-1.400 1.200-2.600 1.200-1.700 0-3-1.300-3-3z" fill=#1b2a8f /></svg>`;
-const api=async p=>{try{const r=await fetch('/api/'+p);return await r.json()}catch(e){return[]}};
+const api=async p=>{try{const[i,...q]=p.split('?');const r=await fetch('/api/proxy?u='+encodeURIComponent(i)+(q.length?'&'+q.join('?'):''));return await r.json()}catch(e){return[]}};
 const classify=t=>/bitcoin|btc|ethereum|\beth\b|solana|crypto|xrp|token|fdv|airdrop/i.test(t)?'Crypto':/elect|president|minister|trump|biden|senate|congress|vote|party|governor|mayor|ceasefire|shutdown|tariff|war\b|fed\b/i.test(t)?'Politics':/win on|\bvs\.?\b|\bfc\b|nba|nfl|mlb|nhl|ufc|open\b|cup|league|champion|ballon|match|game|series|bowl|prix|\bf1\b|trophy|title|draw/i.test(t)?'Sports':'Other';
 const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 let fol=LS.get('fol',{});
@@ -64,7 +64,7 @@ async function leaderboard(){
   const fb=(t,c='')=>fol[t.proxyWallet]?`<button class="btn u ${c}" data-follow="${t.proxyWallet}|${esc(t.userName)}">${ic('x',11)} Unfollow</button>`:`<button class="btn ${c}" data-follow="${t.proxyWallet}|${esc(t.userName)}">${ic('plus',11)} Follow</button>`;
   if(tab=='wins'){const ex=await loadExperts();if(!$('#lb'))return;const w=ex.flatMap(e=>e.closed.filter(c=>c.realizedPnl>0).map(c=>({...c,u:e}))).sort((a,b)=>b.timestamp-a.timestamp).slice(0,40);
     $('#lb').outerHTML=`<div class=tw><table><tr><th>Trader<th>Market<th class=r>Profit<th class=r>When</tr>${w.map(c=>`<tr class=tr><td><a href="#/trader/${c.u.proxyWallet}" style="font-weight:600">${esc(c.u.userName)}</a><td>${esc(c.title)} <span class=mut>— ${esc(c.outcome)}</span><td class="r pos">${sg(c.realizedPnl)}<td class="r mut">${ago(c.timestamp)}</tr>`).join('')}</table></div>`;return}
-  const lb=[...await lbOf('ALL',ord,0),...await lbOf('ALL',ord,50)];if(!$('#lb'))return;
+  const lb=[...await lbOf('ALL',ord,0),...await lbOf('ALL',ord,50)];if(!$('#lb'))return;if(!lb.length){$('#lb').textContent='Could not load data from Polymarket — try reloading.';return}
   const sv=ord=='VOL'?'vol':'pnl';
   $('#lb').outerHTML=`<div class=top3>${lb.slice(0,3).map(t=>`<div class="t3 ${fol[t.proxyWallet]?'f':''}"><div class="row sb ac" style="font-weight:700;font-size:10.5px;color:#e8e8f4;line-height:14px"><span>#${t.rank}</span><a href="#/trader/${t.proxyWallet}" style="margin-right:4px;color:#b4b4c2">${ic('arrow',15)}</a></div>
    <div style="margin-top:14px">${av(t.profileImage,t.proxyWallet)}</div><a href="#/trader/${t.proxyWallet}" class=nm style="display:block">${esc(t.userName||short(t.proxyWallet))}</a>

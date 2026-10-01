@@ -1,10 +1,10 @@
-// Local dev server: serves public/ and runs the same proxy as api/[...path].js
+// Local dev server: serves public/ and runs the same proxy as api/proxy.js
 const http = require('http'), fs = require('fs'), url = require('url'), path = require('path');
-const proxy = require('../api/[...path].js');
+const proxy = require('../api/proxy.js');
 http.createServer(async (req, res) => {
   const u = url.parse(req.url, true);
   if (u.pathname.startsWith('/api/')) {
-    req.query = { ...u.query, path: u.pathname.slice(5).split('/') };
+    req.query = u.query;
     res.status = c => (res.statusCode = c, res);
     res.json = o => res.end(JSON.stringify(o));
     res.send = b => res.end(b);
