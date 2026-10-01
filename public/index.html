@@ -1,0 +1,60 @@
+<!doctype html><meta charset=utf-8><title>Whale Tracker</title>
+<style>
+body{font:14px system-ui;background:#111;color:#ddd;margin:0;padding:12px}
+input,select,button{background:#222;color:#ddd;border:1px solid #444;padding:4px 6px}
+table{border-collapse:collapse;width:100%;margin-top:8px}td,th{padding:4px 6px;border-bottom:1px solid #2a2a2a;text-align:left}
+.BUY{color:#4c4}.SELL{color:#e55}a{color:#8af;cursor:pointer;text-decoration:none}
+.cols{display:flex;gap:16px;flex-wrap:wrap}.cols>div{flex:1;min-width:420px}
+.new{background:#243}
+</style>
+<h2>🐋 Polymarket Whale Tracker</h2>
+Min trade $<input id=min type=number value=5000 style="width:80px">
+Refresh <select id=int><option value=10>10s<option value=30>30s<option value=60>60s</select>
+<label><input type=checkbox id=notify> notify</label>
+<span id=status></span>
+<div class=cols>
+<div><h3>Live big trades</h3><table id=feed></table></div>
+<div><h3>Top wallets (this session)</h3><table id=board></table>
+<h3 id=wtitle></h3><table id=wallet></table></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const seen=new Map(); // txHash+asset -> trade
+const usd=n=>'$'+Math.round(n).toLocaleString();
+const short=a=>a.slice(0,6)+'…'+a.slice(-4);
+const who=t=>t.name||t.pseudonym||short(t.proxyWallet);
+let first=true;
+async function poll(){
+  try{
+    const r=await fetch(`/api/trades?limit=500&filterType=CASH&filterAmount=${+$('min').value||0}`);
+    const d=await r.json(); const fresh=[];
+    for(const t of d){const k=t.transactionHash+t.asset+t.side+t.size;
+      if(!seen.has(k)){t.fresh=!first;seen.set(k,t);if(!first)fresh.push(t);}}
+    first=false;
+    if(fresh.length&&$('notify').checked&&Notification.permission==='granted')
+      new Notification(`🐋 ${fresh.length} whale trade(s)`,{body:`${who(fresh[0])} ${fresh[0].side} ${usd(fresh[0].size*fresh[0].price)} ${fresh[0].title}`});
+    render(); $('status').textContent=' updated '+new Date().toLocaleTimeString();
+  }catch(e){$('status').textContent=' error: '+e.message}
+}
+function render(){
+  const all=[...seen.values()].sort((a,b)=>b.timestamp-a.timestamp);
+  $('feed').innerHTML='<tr><th>Time<th>Trader<th>Side<th>USD<th>Market<th>Outcome<th>Price</tr>'+
+    all.slice(0,150).map(t=>`<tr class="${t.fresh?'new':''}"><td>${new Date(t.timestamp*1000).toLocaleTimeString()}
+    <td><a onclick="wallet('${t.proxyWallet}')">${who(t)}</a><td class=${t.side}>${t.side}<td>${usd(t.size*t.price)}
+    <td><a href="https://polymarket.com/event/${t.eventSlug}" target=_blank>${t.title}</a><td>${t.outcome}<td>${(t.price*100).toFixed(1)}¢</tr>`).join('');
+  const w={};for(const t of all){const x=w[t.proxyWallet]??={t,vol:0,n:0};x.vol+=t.size*t.price;x.n++}
+  $('board').innerHTML='<tr><th>Trader<th>Volume<th>Trades</tr>'+Object.values(w).sort((a,b)=>b.vol-a.vol).slice(0,15)
+    .map(x=>`<tr><td><a onclick="wallet('${x.t.proxyWallet}')">${who(x.t)}</a><td>${usd(x.vol)}<td>${x.n}</tr>`).join('');
+}
+async function wallet(a){
+  $('wtitle').textContent='Positions: '+short(a)+' …';
+  const p=await (await fetch(`/api/positions?user=${a}&sizeThreshold=1&limit=50&sortBy=CURRENT&sortDirection=DESC`)).json();
+  $('wtitle').innerHTML=`Positions: <a href="https://polymarket.com/profile/${a}" target=_blank>${short(a)}</a>`;
+  $('wallet').innerHTML='<tr><th>Market<th>Outcome<th>Value<th>P&L</tr>'+p.map(x=>`<tr><td>${x.title}<td>${x.outcome}
+    <td>${usd(x.currentValue)}<td class=${x.cashPnl>=0?'BUY':'SELL'}>${usd(x.cashPnl)}</tr>`).join('');
+}
+$('notify').onchange=e=>e.target.checked&&Notification.requestPermission();
+let timer;const sched=()=>{clearInterval(timer);timer=setInterval(poll,$('int').value*1000)};
+$('int').onchange=sched;$('min').onchange=()=>{seen.clear();first=true;poll()};
+poll();sched();
+</script>
