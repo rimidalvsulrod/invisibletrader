@@ -19,7 +19,7 @@ async function botPage() {
   await botRefresh();
   botStopPoll();
   botFast = setInterval(() => { if (!$('#bstate')) return botStopPoll(); if (BOTON) fetch('/api/cron').catch(() => {}); }, 5000); // checks every 5s while open
-  botPoll = setInterval(() => { if (!$('#bstate')) return botStopPoll(); if (!document.activeElement?.matches('input,select,textarea')) botRefresh(true); }, 8000);
+  botPoll = setInterval(() => { if (!$('#bstate')) return botStopPoll(); if (!document.activeElement?.matches('input,select,textarea') && !$('#dial')?.onpointermove) botRefresh(true); }, 8000);
 }
 async function botRefresh() {
   try { botRender(await bapi('state')); }
@@ -74,10 +74,10 @@ function botRender(S) {
         <input class=inp id=kid placeholder="Key ID"><textarea class=inp id=kpem placeholder="-----BEGIN PRIVATE KEY-----&#10;…&#10;-----END PRIVATE KEY-----" style="height:120px;padding:10px 14px;margin-top:8px;font:12px ui-monospace,monospace;resize:vertical"></textarea>
         <button class="btn pri" id=ksave style="width:100%;margin-top:10px">Verify & connect</button><div id=kerr class=down style="font-size:13px;margin-top:8px"></div></div>`;
 
-  const settings = `<div class="card pad"><h2>Trade size</h2><p class=mut style="font-size:13px;margin:4px 0 16px">Each copied trade uses this share of your Kalshi cash.</p>
-    <div class="row sb"><span class=mut style="font-size:13px">Per trade</span><b class=num id=pctv style="font-size:24px">${c.pct}%</b></div>
-    <input type=range id=bpct min=1 max=100 step=1 value=${c.pct} style="margin-top:12px">
-    <div class="mut num" style="font-size:13px;margin-top:10px" id=pcte>${perTrade != null ? `≈ ${usd(perTrade, 2)} per trade right now` : ''}</div>
+  const settings = `<div class="card pad"><h2>Trade size</h2><p class=mut style="font-size:13px;margin:4px 0 12px">Turn the dial: the share of your Kalshi cash each copied trade uses.</p>
+    <div class=dialbox><div class=dialtop><button class=kbtn id=kminus aria-label=Less>−</button><div class=dialval><b class=num id=pctv>${c.pct}</b><span>% per trade</span></div><button class=kbtn id=kplus aria-label=More>+</button></div>
+      <div class=dial id=dial role=slider aria-label="Percent per trade" aria-valuemin=1 aria-valuemax=100 aria-valuenow=${c.pct} tabindex=0><svg viewBox="0 0 224 224" id=dialsvg></svg><div class=face id=face><i></i></div></div>
+      <div class="dialcap num" id=pcte>${perTrade != null ? `≈ ${usd(perTrade, 2)} per trade right now` : ''}</div></div>
     <label style="display:block;margin-top:18px"><span class=lbl>Max per order ($)${S.capServer ? ` · server cap $${S.capServer}` : ''}</span><input class=inp type=number min=1 data-k=maxOrder value=${c.maxOrder}></label>
     <details style="margin-top:18px"><summary>${ic('chev', 12)} Advanced</summary><div class="grid g2" style="margin-top:14px">
       ${[['minUsd', 'Copy trades over ($)', c.minUsd], ['maxPrice', 'Max price (¢)', c.maxPrice], ['slip', 'Max price gap vs trader (¢)', c.slip], ['maxUse', 'Max % of money in copies', c.maxUse], ['thresh', 'Match strictness (%)', c.thresh]]
@@ -95,7 +95,7 @@ function botRender(S) {
 
   const logT = `<div class="card" style="overflow:hidden"><div class="row sb pad" style="padding-bottom:8px"><h2>Bot activity</h2><button class="btn sm" id=bclr>Clear</button></div><table class=tbl><tbody>${S.log.map(e => {
       const [k, l] = L[e.st] || ['n', e.st];
-      return `<tr><td style="width:1%"><span class="pill ${k}">${l}</span></td><td><div class=ell style="max-width:520px">${e.act == 'sell' ? '' : e.outcome ? `${esc(e.trader)} bought <b>${esc(e.outcome)}</b>${e.pm ? ` @ ${e.pm}¢` : ''} · ` : ''}${esc(e.title)}</div>
+      return `<tr><td style="width:1%"><span class="pill ${k}">${l}</span></td><td><div class=ell style="max-width:440px">${e.act == 'sell' ? '' : e.outcome ? `${esc(e.trader)} bought <b>${esc(e.outcome)}</b>${e.pm ? ` @ ${e.pm}¢` : ''} · ` : ''}${esc(e.title)}</div>
         <div class=mut style="font-size:12.5px;margin-top:2px">${e.tk ? `<span class=num>${esc(e.tk)}</span> · ` : ''}${esc(e.note || '')}</div></td><td class="r mut hide-m" style="font-size:12.5px;white-space:nowrap">${rel(e.t / 1000)}</td></tr>`;
     }).join('') || `<tr><td class=empty>Nothing yet — when a trader you follow buys on Polymarket, the bot's decision shows up here.</td></tr>`}</tbody></table></div>`;
 
@@ -123,11 +123,23 @@ function botRender(S) {
     try { const r = await bapi('keys', { keyId: $('#kid').value, pem: $('#kpem').value }); toast(`Connected your ${r.env == 'prod' ? 'real-money' : 'demo'} Kalshi account · cash ${usd(r.cash, 2)}`); botRefresh(); }
     catch (e) { $('#kerr').textContent = e.message; $('#ksave').disabled = false; $('#ksave').textContent = 'Verify & connect'; }
   });
-  const pr = $('#bpct');
-  if (pr) {
-    const paint = v => { $('#pctv').textContent = v + '%'; $('#pctv').style.color = v > 25 ? 'var(--warn)' : ''; pr.style.setProperty('--p', (v - 1) / 99 * 100 + '%');
+  // rotary dial: 1–100% over a 270° sweep, 50 tick marks; drag, +/- buttons, arrow keys
+  const dial = $('#dial');
+  if (dial) {
+    let v = c.pct, t;
+    const ang = x => -135 + (x - 1) / 99 * 270;
+    const ticks = () => { let h = ''; for (let k = 0; k <= 50; k++) { const a = (-135 + k * 270 / 50) * Math.PI / 180, on = k / 50 <= (v - 1) / 99 + 1e-9, r1 = 104, r2 = k % 5 ? 96 : 92;
+        h += `<line x1="${112 + r1 * Math.sin(a)}" y1="${112 - r1 * Math.cos(a)}" x2="${112 + r2 * Math.sin(a)}" y2="${112 - r2 * Math.cos(a)}" style="stroke:${on ? 'var(--ac)' : 'var(--mut2)'};opacity:${on ? 1 : .45}" stroke-width="${k % 5 ? 1.6 : 2.4}" stroke-linecap=round />`; } return h; };
+    const paint = () => { $('#pctv').textContent = v; $('#face').style.transform = `rotate(${ang(v)}deg)`; $('#dialsvg').innerHTML = ticks(); dial.setAttribute('aria-valuenow', v);
       if (A) $('#pcte').textContent = `≈ ${usd(Math.min(A.cash * v / 100, c.maxOrder, S.capServer || Infinity), 2)} per trade right now`; };
-    paint(c.pct); pr.oninput = () => paint(+pr.value); pr.onchange = () => save({ pct: +pr.value, maxUse: Math.max(c.maxUse, +pr.value) });
+    const commit = () => { clearTimeout(t); t = setTimeout(() => v !== c.pct && save({ pct: v, maxUse: Math.max(c.maxUse, v) }), 500); };
+    const setV = (x, haptic) => { const n = Math.max(1, Math.min(100, Math.round(x))); if (n !== v) { v = n; paint(); if (haptic && navigator.vibrate) navigator.vibrate(3); } };
+    const fromPoint = e => { const r = dial.getBoundingClientRect(); let a = Math.atan2(e.clientX - r.left - r.width / 2, -(e.clientY - r.top - r.height / 2)) * 180 / Math.PI; a = Math.max(-135, Math.min(135, a)); setV(1 + (a + 135) / 270 * 99, 1); };
+    dial.onpointerdown = e => { dial.setPointerCapture(e.pointerId); fromPoint(e); dial.onpointermove = fromPoint; };
+    dial.onpointerup = dial.onpointercancel = () => { dial.onpointermove = null; commit(); };
+    dial.onkeydown = e => { if (['ArrowUp', 'ArrowRight'].includes(e.key)) { setV(v + 1); commit(); e.preventDefault(); } if (['ArrowDown', 'ArrowLeft'].includes(e.key)) { setV(v - 1); commit(); e.preventDefault(); } };
+    $('#kminus').onclick = () => { setV(v - 1); commit(); }; $('#kplus').onclick = () => { setV(v + 1); commit(); };
+    paint();
   }
   $$('[data-k]').forEach(i => i.onchange = () => save({ [i.dataset.k]: +i.value }));
 }
