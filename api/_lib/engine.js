@@ -79,9 +79,9 @@ async function buy(s, t, mk) {
   if (Math.abs(ask - e.pm) > Math.max(c.slip, 10) || ask > e.pm + c.slip) return log(s, { ...e, st: 'skip', note: `Kalshi ${ask}¢ vs Polymarket ${e.pm}¢ — prices don't line up` });
   if (s.pos.some(p => p.tk === e.tk)) return log(s, { ...e, st: 'skip', note: 'already holding this market' });
   const bal = await balanceOf(s); if (!(bal > 0)) return log(s, { ...e, st: 'skip', note: 'could not read balance' });
-  let n = Math.floor(bal * c.pct / 100 * 100 / ask); if (!s.paper) n = Math.min(n, Math.floor(maxOrderUsd(c) * 100 / ask));
+  let n = Math.floor(Math.min(bal * c.pct / 100, bal * 0.97) * 100 / ask); // keep ~3% for Kalshi fees if (!s.paper) n = Math.min(n, Math.floor(maxOrderUsd(c) * 100 / ask));
   if (n < 1) return log(s, { ...e, st: 'skip', note: `${c.pct}% of balance is less than 1 contract` });
-  const inUse = s.pos.reduce((a, p) => a + p.cost, 0); if (inUse + n * ask / 100 > bal * c.maxUse / 100) return log(s, { ...e, st: 'skip', note: `would put more than ${c.maxUse}% of balance in trades` });
+  const inUse = s.pos.reduce((a, p) => a + p.cost, 0); if (inUse + n * ask / 100 > bal * Math.max(c.maxUse, c.pct) / 100) return log(s, { ...e, st: 'skip', note: `would put more than ${c.maxUse}% of balance in trades` });
   if (s.paper) return addPos(s, e, n);
   if (s.orders >= 5) return log(s, { ...e, st: 'skip', note: 'max 5 orders per run' }); s.orders++;
   const r = await K.placeOrder(s.creds, { ticker: e.tk, side: o, action: 'buy', count: n, priceCents: ask, ref: `b-${Date.now()}-${e.tk}` });

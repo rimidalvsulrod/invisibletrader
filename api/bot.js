@@ -15,7 +15,7 @@ module.exports = handler(async (req, body, q) => {
   if (op === 'cfg') {
     const c = body.cfg || {}, D = E.DEF, cur = (await E.open()).cfg;
     const cfg = { ...cur, paper: c.paper !== undefined ? !!c.paper : cur.paper, liveAck: c.liveAck !== undefined ? !!c.liveAck : cur.liveAck,
-      pct: clamp(c.pct ?? cur.pct, 0.5, 50, D.pct), minUsd: clamp(c.minUsd ?? cur.minUsd, 0, 1e7, D.minUsd), maxPrice: clamp(c.maxPrice ?? cur.maxPrice, 1, 99, D.maxPrice),
+      pct: clamp(c.pct ?? cur.pct, 0.5, 100, D.pct), minUsd: clamp(c.minUsd ?? cur.minUsd, 0, 1e7, D.minUsd), maxPrice: clamp(c.maxPrice ?? cur.maxPrice, 1, 99, D.maxPrice),
       slip: clamp(c.slip ?? cur.slip, 0, 20, D.slip), maxUse: clamp(c.maxUse ?? cur.maxUse, 1, 100, D.maxUse), thresh: clamp(c.thresh ?? cur.thresh, 50, 100, D.thresh), pbal: clamp(c.pbal ?? cur.pbal, 10, 1e7, D.pbal), maxOrder: clamp(c.maxOrder ?? cur.maxOrder, 1, 1e5, D.maxOrder) };
     await db.q("UPDATE bot SET cfg=$1 WHERE id='me'", [JSON.stringify(cfg)]); return { ok: true, cfg };
   }

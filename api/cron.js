@@ -1,9 +1,9 @@
-// Runs the trading engine. Safe to call often: it runs at most once per 40s and never twice at once.
+// Runs the trading engine. Safe to call often: it runs at most once per 4s and never twice at once.
 // Called by: the GitHub Actions schedule in .github/workflows/bot.yml, the Auto Trader page while open, or any pinger.
 // Set CRON_SECRET in Vercel only if you want to require ?key=… (optional).
 const { handler, err, same } = require('./_lib/util');
 const E = require('./_lib/engine');
 module.exports = handler(async (req, body, q) => {
   if (process.env.CRON_SECRET && !same(q.key || String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''), process.env.CRON_SECRET)) throw err(401, 'bad key');
-  return E.run(undefined, 40e3);
+  return E.run(undefined, 4e3);
 });
