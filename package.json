@@ -1,1 +1,1 @@
-{"name":"whale-tracker","version":"1.0.0","scripts":{"start":"node server.js"}}
+{"name":"invisibletrader","version":"1.0.0","private":true,"scripts":{"dev":"node dev/server.js"}}
