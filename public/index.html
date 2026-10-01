@@ -1,60 +1,111 @@
-<!doctype html><meta charset=utf-8><title>Whale Tracker</title>
+<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>InvisibleTrader</title>
 <style>
-body{font:14px system-ui;background:#111;color:#ddd;margin:0;padding:12px}
-input,select,button{background:#222;color:#ddd;border:1px solid #444;padding:4px 6px}
-table{border-collapse:collapse;width:100%;margin-top:8px}td,th{padding:4px 6px;border-bottom:1px solid #2a2a2a;text-align:left}
-.BUY{color:#4c4}.SELL{color:#e55}a{color:#8af;cursor:pointer;text-decoration:none}
-.cols{display:flex;gap:16px;flex-wrap:wrap}.cols>div{flex:1;min-width:420px}
-.new{background:#243}
+:root{--bg:#050507;--card:#0c0c12;--line:#1c1c28;--mut:#8b8ba0;--g:#10d070;--r:#ef4444;--ac:#6366f1}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f2f2f7;font:13px Inter,system-ui,sans-serif;display:flex;min-height:100vh}
+aside{width:206px;border-right:1px solid var(--line);padding:14px 10px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;flex:none}
+.logo{font-weight:700;font-size:15px;padding:4px 8px 18px}
+aside a{display:block;padding:9px 10px;border-radius:9px;color:#cfcfe0;cursor:pointer;text-decoration:none;margin-bottom:2px}
+aside a:hover,aside a.on{background:#1a1a24;color:#fff}.sec{font-size:10px;color:var(--mut);padding:14px 10px 4px}
+main{flex:1;padding:28px 32px;max-width:1180px}
+h1{font-size:34px;margin:0 0 4px;letter-spacing:-1px}h2{font-size:20px;margin:28px 0 12px;letter-spacing:-.5px}.sub{color:var(--mut);font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.grid{display:grid;gap:14px}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:1.9fr 1fr}
+.big{font-size:28px;font-weight:700;letter-spacing:-1px;margin-top:6px}.pos{color:var(--g)}.neg{color:var(--r)}.mut{color:var(--mut)}
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--line);margin:18px 0}.tabs span{padding:8px 0;color:var(--mut);cursor:pointer;font-weight:600}.tabs .on{color:#fff;border-bottom:2px solid #fff}
+table{width:100%;border-collapse:collapse}th{font-weight:500;color:var(--mut);text-align:left;padding:8px 10px;font-size:11px}td{padding:12px 10px;border-top:1px solid var(--line)}
+th.r,td.r{text-align:right}a.l{color:#8f94ff;cursor:pointer;text-decoration:none}
+.btn{background:#1a1a2a;border:1px solid #2a2a3d;color:#e8e8f5;border-radius:9px;padding:7px 14px;cursor:pointer;font:inherit}
+input,select{background:#0c0c12;border:1px solid var(--line);color:#fff;border-radius:9px;padding:8px 12px;font:inherit}
+.av{width:38px;height:38px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;vertical-align:middle;margin-right:10px;color:#000}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.pick{display:flex;gap:10px;align-items:center}.pick img{width:34px;height:34px;border-radius:8px}
+.new{background:#10d07015}.bar{display:flex;height:3px;margin:8px 0}
+@media(max-width:800px){aside{display:none}.g3,.g4,.g2{grid-template-columns:1fr}main{padding:16px}}
 </style>
-<h2>🐋 Polymarket Whale Tracker</h2>
-Min trade $<input id=min type=number value=5000 style="width:80px">
-Refresh <select id=int><option value=10>10s<option value=30>30s<option value=60>60s</select>
-<label><input type=checkbox id=notify> notify</label>
-<span id=status></span>
-<div class=cols>
-<div><h3>Live big trades</h3><table id=feed></table></div>
-<div><h3>Top wallets (this session)</h3><table id=board></table>
-<h3 id=wtitle></h3><table id=wallet></table></div>
-</div>
+<aside><div class=logo>InvisibleTrader</div>
+<a href="#/feed" data-p=feed>▤ Feed</a><a href="#/leaderboard" data-p=leaderboard>🏆 Leaderboard</a>
+<div class=sec>Search trader</div><form id=sf style="padding:0 4px"><input id=q placeholder="0x… or name" style="width:100%"></form>
+<div class=sec>Following</div><div id=fol></div></aside>
+<main id=app></main>
 <script>
-const $=id=>document.getElementById(id);
-const seen=new Map(); // txHash+asset -> trade
-const usd=n=>'$'+Math.round(n).toLocaleString();
-const short=a=>a.slice(0,6)+'…'+a.slice(-4);
-const who=t=>t.name||t.pseudonym||short(t.proxyWallet);
-let first=true;
-async function poll(){
-  try{
-    const r=await fetch(`/api/trades?limit=500&filterType=CASH&filterAmount=${+$('min').value||0}`);
-    const d=await r.json(); const fresh=[];
-    for(const t of d){const k=t.transactionHash+t.asset+t.side+t.size;
-      if(!seen.has(k)){t.fresh=!first;seen.set(k,t);if(!first)fresh.push(t);}}
-    first=false;
-    if(fresh.length&&$('notify').checked&&Notification.permission==='granted')
-      new Notification(`🐋 ${fresh.length} whale trade(s)`,{body:`${who(fresh[0])} ${fresh[0].side} ${usd(fresh[0].size*fresh[0].price)} ${fresh[0].title}`});
-    render(); $('status').textContent=' updated '+new Date().toLocaleTimeString();
-  }catch(e){$('status').textContent=' error: '+e.message}
+const $=s=>document.querySelector(s),app=$('#app');
+const usd=n=>(n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString(),sg=n=>(n>=0?'+':'-')+'$'+Math.abs(Math.round(n)).toLocaleString();
+const cls=n=>n>=0?'pos':'neg',short=a=>a.slice(0,6)+'…'+a.slice(-4);
+const COL=['#22d3ee','#f472b6','#facc15','#3b82f6','#a78bfa','#4ade80'];
+const av=(n,a)=>`<span class=av style="background:${COL[parseInt(a.slice(2,4),16)%6]}">${(n||'?')[0].toUpperCase()}</span>`;
+const api=async p=>(await fetch('/api/'+p)).json();
+let fol=JSON.parse(localStorage.fol||'{}');const saveFol=()=>{localStorage.fol=JSON.stringify(fol);renderFol()};
+const renderFol=()=>$('#fol').innerHTML=Object.entries(fol).map(([a,n])=>`<a href="#/trader/${a}">${n}</a>`).join('')||'<span class=mut style="padding:0 10px">none yet</span>';
+window.toggle=(a,n)=>{fol[a]?delete fol[a]:fol[a]=n;saveFol();route()};
+function chart(pts,h=200){ // cumulative series -> svg area
+  if(pts.length<2)return'<div class=mut>Not enough data</div>';
+  const W=700,mn=Math.min(0,...pts),mx=Math.max(...pts),rg=(mx-mn)||1,
+  xy=pts.map((v,i)=>[i/(pts.length-1)*W,h-8-(v-mn)/rg*(h-24)]),d=xy.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join('');
+  const up=pts.at(-1)>=0,c=up?'#10d070':'#ef4444';
+  return`<svg viewBox="0 0 ${W} ${h}" style="width:100%;height:${h}px"><defs><linearGradient id=gr x1=0 y1=0 x2=0 y2=1><stop offset=0 stop-color="${c}" stop-opacity=.25 /><stop offset=1 stop-color="${c}" stop-opacity=0 /></linearGradient></defs>
+  <path d="${d}L${W} ${h}L0 ${h}Z" fill=url(#gr) /><path d="${d}" fill=none stroke="${c}" stroke-width=2 /><circle cx=${xy.at(-1)[0]} cy=${xy.at(-1)[1]} r=4 fill="${c}" /></svg>`;
 }
-function render(){
-  const all=[...seen.values()].sort((a,b)=>b.timestamp-a.timestamp);
-  $('feed').innerHTML='<tr><th>Time<th>Trader<th>Side<th>USD<th>Market<th>Outcome<th>Price</tr>'+
-    all.slice(0,150).map(t=>`<tr class="${t.fresh?'new':''}"><td>${new Date(t.timestamp*1000).toLocaleTimeString()}
-    <td><a onclick="wallet('${t.proxyWallet}')">${who(t)}</a><td class=${t.side}>${t.side}<td>${usd(t.size*t.price)}
-    <td><a href="https://polymarket.com/event/${t.eventSlug}" target=_blank>${t.title}</a><td>${t.outcome}<td>${(t.price*100).toFixed(1)}¢</tr>`).join('');
-  const w={};for(const t of all){const x=w[t.proxyWallet]??={t,vol:0,n:0};x.vol+=t.size*t.price;x.n++}
-  $('board').innerHTML='<tr><th>Trader<th>Volume<th>Trades</tr>'+Object.values(w).sort((a,b)=>b.vol-a.vol).slice(0,15)
-    .map(x=>`<tr><td><a onclick="wallet('${x.t.proxyWallet}')">${who(x.t)}</a><td>${usd(x.vol)}<td>${x.n}</tr>`).join('');
+let lbCache=[];
+async function leaderboard(){
+  app.innerHTML='<h1>Leaderboard</h1><div class=sub>Top Polymarket traders</div><div class=tabs><span class=on>Rankings</span></div><div id=lb class=mut>Loading…</div>';
+  const per=localStorage.per||'ALL';
+  lbCache=await api(`v1/leaderboard?timePeriod=${per}&orderBy=PNL&limit=50`);
+  const f=(t,u)=>`<td>${fol[t.proxyWallet]?`<button class=btn onclick="toggle('${t.proxyWallet}','${esc(t.userName)}')">✕ Unfollow</button>`:`<button class=btn onclick="toggle('${t.proxyWallet}','${esc(t.userName)}')">+ Follow</button>`}</td>`;
+  $('#lb').outerHTML=`<div class="grid g3">${lbCache.slice(0,3).map(t=>`<div class=card><div class=sub>#${t.rank}</div><div style="margin:10px 0">${av(t.userName,t.proxyWallet)}<a class=l href="#/trader/${t.proxyWallet}" style="color:#fff">${esc(t.userName)}</a></div>
+  <div class="big pos">${sg(t.pnl)}</div><div class=sub>PnL · ${usd(t.vol)} volume</div></div>`).join('')}</div>
+  <h2>The rankings</h2><div class=card style="padding:6px 10px"><table><tr><th>#<th>Trader<th class=r>P&L<th class=r>Volume<th></tr>
+  ${lbCache.map(t=>`<tr><td class=mut>${t.rank}<td>${av(t.userName,t.proxyWallet)}<a class=l href="#/trader/${t.proxyWallet}" style="color:#fff">${esc(t.userName)}</a><td class="r pos">${sg(t.pnl)}<td class=r>${usd(t.vol)}${f(t)}</tr>`).join('')}</table></div>`;
 }
-async function wallet(a){
-  $('wtitle').textContent='Positions: '+short(a)+' …';
-  const p=await (await fetch(`/api/positions?user=${a}&sizeThreshold=1&limit=50&sortBy=CURRENT&sortDirection=DESC`)).json();
-  $('wtitle').innerHTML=`Positions: <a href="https://polymarket.com/profile/${a}" target=_blank>${short(a)}</a>`;
-  $('wallet').innerHTML='<tr><th>Market<th>Outcome<th>Value<th>P&L</tr>'+p.map(x=>`<tr><td>${x.title}<td>${x.outcome}
-    <td>${usd(x.currentValue)}<td class=${x.cashPnl>=0?'BUY':'SELL'}>${usd(x.cashPnl)}</tr>`).join('');
+const esc=s=>String(s||'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+async function trader(a){
+  app.innerHTML='<div class=mut>Loading trader…</div>';
+  const [closed1,closed2,closed3,act,val]=await Promise.all([0,50,100].map(o=>api(`closed-positions?user=${a}&limit=50&offset=${o}`)).concat([api(`positions?user=${a}&sizeThreshold=1&limit=50&sortBy=CURRENT&sortDirection=DESC`),api(`value?user=${a}`)]));
+  const closed=[...closed1,...closed2,...closed3].filter(Boolean).sort((x,y)=>x.timestamp-y.timestamp);
+  const name=(await api(`activity?user=${a}&limit=1`))[0]?.name||(lbCache.find(t=>t.proxyWallet===a)||{}).userName||short(a);
+  let cum=0;const pts=[0,...closed.map(c=>cum+=c.realizedPnl)];
+  const inv=closed.reduce((s,c)=>s+c.totalBought*c.avgPrice,0),wins=closed.filter(c=>c.realizedPnl>0).length;
+  const best=closed.reduce((b,c)=>c.realizedPnl>(b?.realizedPnl??-Infinity)?c:b,null);
+  const row=(c,isAct)=>`<tr><td><a class=l style="color:#fff" href="https://polymarket.com/event/${c.eventSlug}" target=_blank>${esc(c.title)}</a> <span class=mut>— ${esc(c.outcome)}</span><div class=sub>Avg ${Math.round(c.avgPrice*100)}¢</div>
+  <td class=${isAct?'':c.realizedPnl>0?'pos':'neg'}>${isAct?'Open':c.realizedPnl>0?'Won':'Lost'}<td class=r>${usd(isAct?c.currentValue:c.totalBought*c.avgPrice)}<td class="r ${cls(isAct?c.cashPnl:c.realizedPnl)}">${sg(isAct?c.cashPnl:c.realizedPnl)}</tr>`;
+  app.innerHTML=`<div class=top><div><h1>${esc(name)}</h1><div class=sub><a class=l onclick="toggle('${a}','${esc(name)}')">${fol[a]?'Unfollow':'Follow'}</a> · <a class=l href="https://polymarket.com/profile/${a}" target=_blank>${short(a)}</a></div></div></div><br>
+  <div class="grid g4"><div class=card><div class=sub>Realized P&L (last ${closed.length})</div><div class="big ${cls(cum)}">${sg(cum)}</div></div>
+  <div class=card><div class=sub>Win rate</div><div class=big>${closed.length?(wins/closed.length*100).toFixed(1):0}%</div></div>
+  <div class=card><div class=sub>ROI</div><div class="big ${cls(cum)}">${inv?(cum/inv*100).toFixed(1):0}%</div></div>
+  <div class=card><div class=sub>Portfolio value</div><div class=big>${usd(val[0]?.value||0)}</div></div></div>
+  <div class="grid g2" style="margin-top:14px"><div class=card><div class=sub>P&L over time</div>${chart(pts,220)}</div>
+  <div class=card><div class=sub>Biggest win</div><div class="big pos">${best?sg(best.realizedPnl):'-'}</div><div class=sub>${best?esc(best.title):''}</div></div></div>
+  <div class=tabs><span id=ta class=on>Active (${act.length})</span><span id=tc>Closed (${closed.length})</span></div>
+  <div class=card style="padding:6px 10px"><table id=tb></table></div>`;
+  const head='<tr><th>Market<th>Result<th class=r>Invested<th class=r>P&L</tr>';
+  const show=x=>{$('#ta').classList.toggle('on',x);$('#tc').classList.toggle('on',!x);
+    $('#tb').innerHTML=head+(x?act.map(c=>row(c,1)):closed.slice().reverse().map(c=>row(c))).join('')};
+  $('#ta').onclick=()=>show(1);$('#tc').onclick=()=>show(0);show(1);
 }
-$('notify').onchange=e=>e.target.checked&&Notification.requestPermission();
-let timer;const sched=()=>{clearInterval(timer);timer=setInterval(poll,$('int').value*1000)};
-$('int').onchange=sched;$('min').onchange=()=>{seen.clear();first=true;poll()};
-poll();sched();
+let lastSeen=new Set(),feedTimer;
+async function feed(){
+  app.innerHTML=`<h1>Feed</h1><div class=sub>Live whale trades · min $<input id=min type=number value=${localStorage.min||5000} style="width:90px;padding:3px 8px"> <label><input type=checkbox id=nt> notify</label> <span id=st></span></div><br><div class=card style="padding:6px 10px"><table id=ft></table></div>`;
+  $('#min').onchange=e=>{localStorage.min=e.target.value;lastSeen.clear();tick()};
+  $('#nt').onchange=e=>e.target.checked&&Notification.requestPermission();
+  const first=!lastSeen.size;
+  async function tick(){
+    if(!$('#ft'))return;
+    const d=await api(`trades?limit=200&filterType=CASH&filterAmount=${+$('#min').value||0}`),isFirst=!lastSeen.size;let fresh=0;
+    const rows=d.map(t=>{const k=t.transactionHash+t.asset+t.size,n=!lastSeen.has(k)&&!isFirst;lastSeen.add(k);if(n)fresh++;
+      return`<tr class="${n?'new':''}"><td class=mut>${new Date(t.timestamp*1000).toLocaleTimeString()}<td><a class=l href="#/trader/${t.proxyWallet}">${esc(t.name||t.pseudonym||short(t.proxyWallet))}</a>
+      <td class=${t.side=='BUY'?'pos':'neg'}>${t.side}<td class=r>${usd(t.size*t.price)}<td><a class=l style="color:#fff" href="https://polymarket.com/event/${t.eventSlug}" target=_blank>${esc(t.title)}</a> <span class=mut>${esc(t.outcome)}</span><td class=r>${(t.price*100).toFixed(1)}¢</tr>`}).join('');
+    $('#ft').innerHTML='<tr><th>Time<th>Trader<th>Side<th class=r>USD<th>Market<th class=r>Price</tr>'+rows;
+    $('#st').textContent=' · updated '+new Date().toLocaleTimeString();
+    if(fresh&&$('#nt').checked&&Notification.permission==='granted')new Notification(`🐋 ${fresh} new whale trade(s)`);
+  }
+  tick();clearInterval(feedTimer);feedTimer=setInterval(tick,15000);
+}
+function route(){
+  clearInterval(feedTimer);const h=location.hash.slice(2)||'feed',[p,a]=h.split('/');
+  document.querySelectorAll('aside a[data-p]').forEach(x=>x.classList.toggle('on',x.dataset.p==p));
+  ({feed,leaderboard,trader:()=>trader(a)})[p]?.();
+}
+$('#sf').onsubmit=e=>{e.preventDefault();const v=$('#q').value.trim();if(!v)return;
+  const m=/^0x[0-9a-f]{40}$/i.test(v)?v.toLowerCase():(lbCache.find(t=>t.userName.toLowerCase().includes(v.toLowerCase()))||{}).proxyWallet;
+  m?location.hash='#/trader/'+m:alert('Paste a 0x wallet address (names only match the leaderboard — open it first).')};
+addEventListener('hashchange',route);renderFol();route();
 </script>
