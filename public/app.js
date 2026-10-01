@@ -42,7 +42,7 @@ const statOf=a=>cached('st'+a,async()=>{const[c,lt]=await Promise.all([resolvedO
 /* ---------- follows (synced to server when logged in, so the bot copies them) ---------- */
 let fol=LS.get('fol',{}),OWNER=false;
 const syncFol=()=>OWNER&&fetch('/api/bot',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({op:'follows',list:Object.entries(fol).map(([wallet,name])=>({wallet,name}))})}).catch(()=>{});
-function toggleFollow(a,n){fol[a]?(delete fol[a],toast(`Unfollowed <b>${esc(n)}</b>`)):(fol[a]=n,toast(`Following <b>${esc(n)}</b>${OWNER?' — the Auto Trader will copy them':''}`));LS.set('fol',fol);syncFol();$$(`[data-f="${a}"]`).forEach(b=>b.classList.toggle('on',!!fol[a]));renderSide()}
+function toggleFollow(a,n){fol[a]?(delete fol[a],toast(`Unfollowed <b>${esc(n)}</b>`)):(fol[a]=n,toast(`Following <b>${esc(n)}</b>${OWNER?' — the Auto Trader copies their trades':''}`));LS.set('fol',fol);syncFol();$$(`[data-f="${a}"]`).forEach(b=>b.classList.toggle('on',!!fol[a]));renderSide()}
 document.addEventListener('click',e=>{const f=e.target.closest('[data-f]');if(f){if(!e.target.classList.contains('hpl'))e.preventDefault(); /* keep the haptic label's switch flip */ e.stopPropagation();toggleFollow(f.dataset.f,f.dataset.n)}});
 const folBtn=(a,n,label)=>`<button class="btn ${label?'':'ic'} fol ${fol[a]?'on':''}" data-f="${a}" data-n="${esc(n)}" title="Follow">${ic('star',15)}${label?' Follow':''}</button>`;
 
@@ -100,7 +100,7 @@ async function overview(){
   const[lb,tr]=await Promise.all([lbOf('ALL','PNL'),api('trades?limit=200&filterType=CASH&filterAmount=5000')]);if(!$('#ovs'))return;
   const trades=Array.isArray(tr)?tr:[],bigH=trades.filter(t=>Date.now()/1000-t.timestamp<3600).sort((a,b)=>b.size*b.price-a.size*a.price)[0];
   let bot=null;if(OWNER)bot=await fetch('/api/bot?op=state').then(r=>r.ok?r.json():null).catch(()=>null);
-  $('#ovs').innerHTML=`<a href="#/bot" class="card pad stat hero fade"><div class=k>${ic('bot',14)} Auto Trader</div><div class=v>${bot?(bot.enabled?'<span class=up>Running</span>':'Paused'):'Locked'}</div><div class=s>${bot?`${bot.paper?'Practice':'Real money'} · balance <span class=num>${bot.balance!=null?usd(bot.balance,2):'—'}</span> · P&L <span class="num ${ud(bot.pnl)}">${sg(bot.pnl,2)}</span>`:'Log in to control your bot'}</div></a>
+  $('#ovs').innerHTML=`<a href="#/bot" class="card pad stat fade"><div class=k>${ic('bot',14)} Auto Trader</div><div class=v>${bot?(bot.enabled?'<span class=up>Running</span>':'Paused'):'Locked'}</div><div class=s>${bot?(bot.account?`Kalshi value <span class=num>${usd(bot.account.total,2)}</span> · cash <span class=num>${usd(bot.account.cash,2)}</span>`:bot.keys?.set?'Kalshi connected':'Connect Kalshi to start'):'Log in to control your bot'}</div></a>
    <a href="#/trader/${lb[0]?.proxyWallet}" class="card pad stat fade"><div class=k>${ic('trophy',14)} #1 all-time</div><div class="v num up">${lb[0]?abbr(lb[0].pnl):'—'}</div><div class=s>${esc(lb[0]?.userName||'')}</div></a>
    <div class="card pad stat fade"><div class=k>${ic('wave',14)} Biggest trade · last hour</div><div class="v num">${bigH?abbr(bigH.size*bigH.price,0):'—'}</div><div class="s ell">${bigH?`${esc(nm(bigH.name||bigH.pseudonym,bigH.proxyWallet))} · ${esc(bigH.outcome)} · ${esc(bigH.title)}`:'No $5K+ trades in the last hour'}</div></div>`;
   $('#ovf').innerHTML=feedRows(trades.slice(0,9),true);

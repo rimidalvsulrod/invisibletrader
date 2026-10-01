@@ -1,76 +1,133 @@
-/* Auto Trader page — the engine runs on the server (api/cron.js); this page only shows state and changes settings. */
-let botPoll;const botStopPoll=()=>clearInterval(botPoll);
-const bapi=async(op,body)=>{const r=await fetch('/api/bot'+(body?'':'?op='+op),body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({op,...body})}:{});const j=await r.json().catch(()=>({error:'Bad response'}));if(!r.ok)throw Object.assign(new Error(j.error||'Request failed'),{status:r.status});return j};
-async function botPage(){
-  app.innerHTML=`<div class=sk style="height:300px"></div>`;
-  const me=await fetch('/api/auth?op=me').then(r=>r.json()).catch(()=>({setup:{}}));OWNER=!!me.owner;renderSide();
-  if(!me.setup?.db)return botSetup();
-  if(!me.setup.password)return botLogin(true);
-  if(!OWNER)return botLogin();
-  let S;try{S=await bapi('state')}catch(e){app.innerHTML=`<div class="card empty">${esc(e.message)}</div>`;return}
-  botRender(S);botStopPoll();let tick=0;const fast=setInterval(()=>{if(!$('#bstate'))return clearInterval(fast);if(BOTON)fetch('/api/cron').catch(()=>{})},5000);botPoll=setInterval(async()=>{if(!$('#bstate'))return botStopPoll();if(document.activeElement?.matches('input,select'))return;try{botRender(await bapi('state'),true)}catch(e){}},10000);
+/* Auto Trader — real money on your Kalshi account. The engine runs on the server; this page shows live Kalshi data and settings. */
+let botPoll, botFast;
+const botStopPoll = () => { clearInterval(botPoll); clearInterval(botFast); };
+const bapi = async (op, body) => {
+  const r = await fetch('/api/bot' + (body ? '' : '?op=' + op), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op, ...body }) } : {});
+  const j = await r.json().catch(() => ({ error: 'Bad response from server' }));
+  if (!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), { status: r.status });
+  return j;
+};
+const authPost = (op, data) => fetch('/api/auth', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op, ...data }) });
+
+async function botPage() {
+  app.innerHTML = sk(320);
+  const me = await fetch('/api/auth?op=me').then(r => r.json()).catch(() => ({ setup: {} }));
+  OWNER = !!me.owner; renderSide();
+  if (!me.setup?.db) return botNoDb();
+  if (!me.setup.password) return botLogin(true);
+  if (!OWNER) return botLogin(false);
+  await botRefresh();
+  botStopPoll();
+  botFast = setInterval(() => { if (!$('#bstate')) return botStopPoll(); if (BOTON) fetch('/api/cron').catch(() => {}); }, 5000); // checks every 5s while open
+  botPoll = setInterval(() => { if (!$('#bstate')) return botStopPoll(); if (!document.activeElement?.matches('input,select,textarea')) botRefresh(true); }, 8000);
 }
-function botSetup(){app.innerHTML=`<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>Almost there.</p></div></div><div class="card pad hero" style="max-width:620px">
-  <h2>Database not detected yet</h2><p class=mut style="font-size:14px;line-height:1.6;margin:8px 0 0">If you just attached Neon in Vercel, the site needs one redeploy to see it: Vercel → your project → <b>Deployments</b> → ⋯ on the latest → <b>Redeploy</b>. Then refresh this page.</p></div>`}
-function botLogin(first){app.innerHTML=`<div style="max-width:420px;margin:8vh auto 0" class="card pad hero fade"><div style="width:46px;height:46px;border-radius:13px;display:grid;place-items:center;background:var(--acbg);color:#b3a9ff">${ic('lock',22)}</div>
-  <h2 style="margin-top:16px;font-size:22px">${first?'Create your account':'Log in'}</h2><p class=mut style="margin:6px 0 18px;font-size:14px">${first?'Use your email and pick a password. This is the only account on the site.':'The Auto Trader controls real money, so it\'s locked to you.'}</p>
-  <form id=lf><input class=inp id=em type=email placeholder=Email autocomplete=username style="margin-bottom:8px" required><input class=inp id=pw type=password placeholder="${first?'New password (8+ characters)':'Password'}" autocomplete="${first?'new-password':'current-password'}">${first?'<input class=inp id=pw2 type=password placeholder="Repeat password" style="margin-top:8px" autocomplete=new-password>':''}<button class="btn pri" style="width:100%;margin-top:10px;height:42px">${first?'Create & unlock':'Unlock'}</button><div id=le class=down style="font-size:13px;margin-top:10px"></div></form></div>`;
-  $('#lf').onsubmit=async e=>{e.preventDefault();if(first&&$('#pw').value!==$('#pw2').value){$('#le').textContent="Passwords don't match";return}
-    const r=await fetch('/api/auth',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({op:first?'setup':'login',email:$('#em').value,password:$('#pw').value})});const j=await r.json().catch(()=>({}));
-    if(!r.ok){$('#le').textContent=j.error||'Login failed';return}OWNER=true;syncFol();toast('Unlocked');botPage()}}
-function botRender(S,refresh){
-  BOTON=S.enabled;const c=S.cfg,inUse=S.pos.reduce((s,p)=>s+p.cost,0),stale=S.enabled&&(!S.last||Date.now()-S.last>5*60e3),real=!c.paper;
-  const C={bought:['up','Bought'],sold:['ac','Sold'],skip:['n','Skipped'],error:['down','Error']};
-  const head=`<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>Copies the traders you follow onto your Kalshi account. Checks every 5 seconds while this page is open, and keeps running on the server when you close it.</p></div>
-    <div class=row><button class=btn id=brun>Run now</button><button class="btn danger" id=bsa ${S.pos.length?'':'disabled'}>Sell everything</button></div></div>`;
-  const status=`<div class="card pad hero" id=bstate><div class="row sb wrapf" style="gap:18px"><div class=row style="gap:16px"><button class="sw ${S.enabled?'on':''}" id=btog aria-label="Bot on/off"></button><div><div style="font-size:22px;font-weight:650;letter-spacing:-.5px">${S.enabled?'<span class=up>Running</span>':'Paused'}</div>
-     <div class=mut style="font-size:13px">${S.last?`Last run ${rel(S.last/1000)} · watching ${S.watching} trader${S.watching==1?'':'s'}`:'Has not run yet'}</div></div></div>
-     <div class=seg id=bmode><button data-m=paper class="${c.paper?'on':''}">Practice</button><button data-m=real class="${real?'on':''}">Real money</button></div></div>
-    ${stale?`<div class=note style="margin-top:16px">The bot is on but hasn't run in the last 5 minutes — the every-minute scheduler isn't set up yet. See <a href="#/help" style="text-decoration:underline">Help & setup</a> (or press Run now).</div>`:''}
-    ${S.why?`<div class=note style="margin-top:16px">${esc(S.why)}</div>`:''}
-    ${real&&S.keys.set?`<div class="row wrapf" style="margin-top:16px;gap:10px;font-size:13px"><span class="pill ${S.env=='prod'?'down':'ac'}">${S.env=='prod'?'Kalshi · real money':'Kalshi · demo account'}</span><span class=mut>Max per order $${Math.min(c.maxOrder,S.envCap||1e9)}</span>
-      ${S.env=='prod'?`<label class=row style="gap:7px;margin-left:auto"><input type=checkbox id=back ${c.liveAck?'checked':''}> I understand this uses real money</label>`:''}<button class="btn sm" id=btest>Test connection</button></div>`:''}
-    <div class="grid g4" style="margin-top:20px"><div class=stat><div class=k>${c.paper?'Practice balance':'Kalshi balance'}</div><div class="v num">${S.balance!=null?usd(S.balance,2):'—'}</div>${S.balErr?`<div class="s down">${esc(S.balErr)}</div>`:''}</div>
-     <div class=stat><div class=k>In open trades</div><div class="v num">${usd(inUse,2)}</div><div class=s>${S.pos.length} position${S.pos.length==1?'':'s'}</div></div>
-     <div class=stat><div class=k>Profit (closed)</div><div class="v num ${ud(S.pnl)}">${sg(S.pnl,2)}</div></div>
-     <div class=stat><div class=k>Copying</div><div class="v num">${S.follows.length||10}</div><div class=s>${S.follows.length?'traders you follow':'top 10 (follow traders to choose)'}</div></div></div></div>`;
-  const settings=`<div class="card pad"><h2>Trade size</h2><p class=mut style="font-size:13px;margin:4px 0 16px">Each copied trade uses this share of your balance.</p>
-     <div class="row sb"><span class=mut style="font-size:13px">Per trade</span><b class=num id=pctv style="font-size:22px">${c.pct}%</b></div><input type=range id=bpct min=1 max=100 step=1 value=${c.pct} style="margin-top:12px">
-     <div class="mut num" style="font-size:12.5px;margin-top:10px" id=pcte>${S.balance!=null?`≈ ${usd(S.balance*c.pct/100,2)} per trade`:''}</div>
-     <label style="display:block;margin-top:18px"><span class=lbl>Max per real order ($)${S.envCap?` · capped at $${S.envCap} by the server`:''}</span><input class=inp type=number min=1 data-k=maxOrder value=${c.maxOrder}></label>
-     <details style="margin-top:18px"><summary>${ic('chev',12)} Advanced</summary><div class="grid g2" style="margin-top:14px">
-      ${[['minUsd','Copy trades over ($)',c.minUsd],['maxPrice','Max price (¢)',c.maxPrice],['slip','Max price gap vs trader (¢)',c.slip],['maxUse','Max % of balance in trades',c.maxUse],['thresh','Match strictness (%)',c.thresh],['pbal','Practice balance ($)',c.pbal]].map(([k,l,v])=>`<label><span class=lbl>${l}</span><input class=inp type=number data-k=${k} value=${v}></label>`).join('')}</div>
-      <div class="row wrapf" style="margin-top:14px"><button class="btn sm" id=bclr>Clear activity</button><button class="btn sm danger" id=breset>Reset practice positions</button></div></details></div>`;
-  const keysCard=S.keys.set?`<div class="card pad"><div class="row sb"><h3>Kalshi account</h3><span class="pill ${S.keys.env=='prod'?'down':'ac'}">${S.keys.env=='prod'?'Real money':'Demo'}</span></div>
-     <div class=mut style="font-size:13px;margin-top:8px">Connected · key <span class=num>${esc(S.keys.keyId)}</span>${S.keys.source=='env'?' (from Vercel settings)':''}</div>${S.keys.source=='app'?`<div class=row style="margin-top:12px"><button class="btn sm" id=kchg>Change key</button><button class="btn sm danger" id=kdel>Remove</button></div>`:''}</div>`
-   :`<div class="card pad hero" id=kcard><h2>Connect Kalshi</h2><p class=mut style="font-size:13px;line-height:1.55;margin:6px 0 14px">On Kalshi go to <b>Account → API keys → Create</b>. Paste the Key ID and the private key file's contents below. It's checked with Kalshi, then stored encrypted.</p>
-     <input class=inp id=kid placeholder="Key ID (e.g. a952bcbe-ec3b-4b5b-…)"><textarea class=inp id=kpem placeholder="-----BEGIN PRIVATE KEY-----&#10;…&#10;-----END PRIVATE KEY-----" style="height:120px;padding:10px 13px;margin-top:8px;font:12px var(--mono);resize:vertical"></textarea>
-     <button class="btn pri" id=ksave style="width:100%;margin-top:10px">Verify & save</button><div id=kerr class=down style="font-size:13px;margin-top:8px"></div>
-     <p class=mut style="font-size:12px;margin:10px 0 0">Works with real kalshi.com keys and demo.kalshi.co keys — the app detects which.</p></div>`;
-  const cronCard=`<div class="card pad"><h3>Always on</h3><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 10px">While this page is open the bot checks every 5 seconds. When it's closed, GitHub wakes it every 30 minutes. For checks every minute 24/7, paste this link into a free job at <a href="https://cron-job.org" target=_blank style="color:#b3a9ff">cron-job.org</a> (every 1 minute):</p>
-     <div class=row><input class=inp readonly value="${location.origin}/api/cron" style="font:12px var(--mono);height:34px"><button class="btn sm" id=ccp>${ic('copy',13)}</button></div></div>`;
-  const posT=`<div class="card" style="overflow:hidden"><div class="row sb pad" style="padding-bottom:8px"><h2>Open positions</h2></div><table class=tbl><tbody>${S.pos.map(p=>`<tr><td><div class=ell style="font-weight:550;max-width:360px">${esc(p.title)}</div><div class=mut style="font-size:12px;margin-top:2px"><span class="pill ${p.side=='yes'?'up':'down'}" style="height:19px">${p.side.toUpperCase()}</span> ${p.count} × ${p.ask}¢ on <span class=num>${esc(p.tk)}</span> · copied ${esc(p.trader)}${p.paper?' · practice':''}</div></td><td class="r num">${usd(p.cost,2)}</td><td class=r style="width:1%"><button class="btn sm" data-sell="${p.id}">Sell</button></td></tr>`).join('')||`<tr><td class=empty>No open positions.</td></tr>`}</tbody></table></div>`;
-  const logT=`<div class="card" style="overflow:hidden"><div class="row sb pad" style="padding-bottom:8px"><h2>Activity</h2><span class=live>Server</span></div><table class=tbl><tbody>${S.log.map(e=>{const[k,l]=C[e.st]||['n',e.st];return`<tr><td style="width:1%"><span class="pill ${k}">${l}</span></td><td><div class=ell style="max-width:520px">${e.act=='sell'?'Sell · ':e.outcome?`${esc(e.trader)} bought <b>${esc(e.outcome)}</b>${e.pm?` @ ${e.pm}¢`:''} · `:''}${esc(e.title)}</div><div class=mut style="font-size:12px;margin-top:2px">${e.tk?`<span class=num>${esc(e.tk)}</span> ${e.side?e.side.toUpperCase():''} ${e.ask?e.ask+'¢':''}${e.count?' × '+e.count:''} · `:''}${esc(e.note||'')}</div></td><td class="r mut hide-m" style="font-size:12.5px;white-space:nowrap">${rel(e.t/1000)}</td></tr>`}).join('')||`<tr><td class=empty>Nothing yet. Turn the bot on — it reacts to new trades from the people you follow.</td></tr>`}</tbody></table></div>`;
-  const open=$('details')?.open;
-  app.innerHTML=head+status+`<div class=split style="margin-top:16px"><div class=grid>${posT}${logT}</div><div class=grid>${keysCard}${settings}${cronCard}<div class="card pad"><h3>How it lines up markets</h3><p class=mut style="font-size:13px;line-height:1.6;margin:8px 0 0">Signals come from Polymarket, orders go to Kalshi. A trade happens only when the Kalshi market asks the same question (same numbers, dates and wording like above/below/not), resolves within 3 days of the Polymarket one, and its price is close to what the trader paid. Everything else is logged as "Skipped" with the reason.</p></div></div></div>`;
-  if(open)$('details').open=true;
-  const save=async cfg=>{try{await bapi('cfg',{cfg});botRender(await bapi('state'))}catch(e){toast(esc(e.message))}};
-  $('#btog').onclick=async()=>{try{await bapi(S.enabled?'stop':'start',{});toast(S.enabled?'Bot paused':'Bot started');botRender(await bapi('state'));renderSide()}catch(e){toast(esc(e.message))}};
-  $$('#bmode button').forEach(b=>b.onclick=()=>{const p=b.dataset.m=='paper';if(!p&&!S.keys.set){toast('Connect your Kalshi account first');$('#kid')?.focus();return}if(!p&&!confirm(`Place real orders on your Kalshi ${S.keys.env=='prod'?'REAL-MONEY':'demo'} account?`))return;save({paper:p})});
-  let kenv='demo';$$('#kenv button').forEach(b=>b.onclick=()=>{kenv=b.dataset.e;$$('#kenv button').forEach(x=>x.classList.toggle('on',x==b))});
-  $('#ksave')&&($('#ksave').onclick=async()=>{$('#ksave').disabled=true;$('#ksave').textContent='Checking with Kalshi…';$('#kerr').textContent='';
-    try{const r=await bapi('keys',{keyId:$('#kid').value,pem:$('#kpem').value});toast(`Connected your ${r.env=='prod'?'real-money Kalshi':'Kalshi demo'} account · balance ${usd(r.balance,2)}. The bot stays in Practice until you switch to Real money.`);botRender(await bapi('state'))}
-    catch(e){$('#kerr').textContent=e.message;$('#ksave').disabled=false;$('#ksave').textContent='Verify & save'}});
-  $('#kdel')&&($('#kdel').onclick=async()=>{if(confirm('Remove your Kalshi key? The bot switches to practice mode.')){await bapi('keysdel',{});botRender(await bapi('state'))}});
-  $('#kchg')&&($('#kchg').onclick=async()=>{if(confirm('Replace your Kalshi key? (The current one is removed first.)')){await bapi('keysdel',{});botRender(await bapi('state'))}});
-  $('#ccp').onclick=()=>{navigator.clipboard?.writeText(location.origin+'/api/cron');toast('Link copied')};
-  const pr=$('#bpct');const warn=v=>{$('#pctv').style.color=v>25?'var(--warn)':''};warn(c.pct);pr.style.setProperty('--p',(c.pct-1)/99*100+'%');pr.oninput=()=>{$('#pctv').textContent=pr.value+'%';warn(+pr.value);pr.style.setProperty('--p',(pr.value-1)/99*100+'%');if(S.balance!=null)$('#pcte').textContent=`≈ ${usd(S.balance*pr.value/100,2)} per trade`};pr.onchange=()=>save({pct:+pr.value,maxUse:Math.max(c.maxUse,+pr.value)});
-  $$('[data-k]').forEach(i=>i.onchange=()=>save({[i.dataset.k]:+i.value}));
-  $('#back')&&($('#back').onchange=e=>save({liveAck:e.target.checked}));
-  $('#btest')&&($('#btest').onclick=async()=>{try{const r=await bapi('test',{});toast(`Kalshi ${r.env=='prod'?'real':'demo'} account connected · balance ${usd(r.balance,2)}`)}catch(e){toast(`<span class=down>${esc(e.message)}</span>`)}});
-  $('#brun').onclick=async()=>{$('#brun').disabled=true;try{const r=await bapi('runnow',{});toast(r.ran?`Checked ${r.trades||0} new trade(s)`:'Bot is paused — turn it on first');botRender(await bapi('state'))}catch(e){toast(esc(e.message))}};
-  $('#bsa').onclick=async()=>{if(!confirm('Sell every open position now?'))return;try{await bapi('sell',{id:'all'});toast('Sell orders sent');botRender(await bapi('state'))}catch(e){toast(esc(e.message))}};
-  $$('[data-sell]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await bapi('sell',{id:b.dataset.sell});botRender(await bapi('state'))}catch(e){toast(esc(e.message))}});
-  $('#bclr').onclick=async()=>{await bapi('clearlog',{});botRender(await bapi('state'))};
-  $('#breset').onclick=async()=>{if(confirm('Clear all positions and profit history? (Use only for practice.)')){await bapi('reset',{});botRender(await bapi('state'))}};
+async function botRefresh() {
+  try { botRender(await bapi('state')); }
+  catch (e) { if (e.status === 401) return botLogin(false); app.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; }
+}
+function botNoDb() {
+  app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1></div></div><div class="card pad" style="max-width:620px"><h2>Database not detected</h2>
+    <p class=mut style="font-size:14px;line-height:1.6;margin:8px 0 0">The site can't see its database yet. In Vercel open your project → <b>Deployments</b> → ⋯ on the latest → <b>Redeploy</b>, then refresh this page.</p></div>`;
+}
+function botLogin(first) {
+  app.innerHTML = `<div style="max-width:420px;margin:8vh auto 0" class="card pad fade"><div style="width:46px;height:46px;border-radius:13px;display:grid;place-items:center;background:var(--acbg);color:var(--ac)">${ic('lock', 22)}</div>
+    <h2 style="margin-top:16px;font-size:22px">${first ? 'Create your account' : 'Log in'}</h2>
+    <p class=mut style="margin:6px 0 18px;font-size:14px">${first ? 'Use your email and pick a password. This is the only account on the site.' : 'The Auto Trader trades real money on your Kalshi account.'}</p>
+    <form id=lf><input class=inp id=em type=email placeholder=Email autocomplete=username required style="margin-bottom:8px">
+      <input class=inp id=pw type=password placeholder="${first ? 'New password (8+ characters)' : 'Password'}" autocomplete="${first ? 'new-password' : 'current-password'}" required>
+      ${first ? '<input class=inp id=pw2 type=password placeholder="Repeat password" autocomplete=new-password style="margin-top:8px" required>' : ''}
+      <button class="btn pri" style="width:100%;margin-top:12px;height:46px">${first ? 'Create account' : 'Log in'}</button><div id=le class=down style="font-size:13px;margin-top:10px"></div></form></div>`;
+  $('#lf').onsubmit = async e => {
+    e.preventDefault();
+    if (first && $('#pw').value !== $('#pw2').value) { $('#le').textContent = "Passwords don't match"; return; }
+    const r = await authPost(first ? 'setup' : 'login', { email: $('#em').value, password: $('#pw').value }), j = await r.json().catch(() => ({}));
+    if (!r.ok) { $('#le').textContent = j.error || 'Login failed'; return; }
+    OWNER = true; syncFol(); toast('Logged in'); botPage();
+  };
+}
+
+function botRender(S) {
+  BOTON = S.enabled; renderSide();
+  const c = S.cfg, A = S.account, connected = S.keys.set, real = S.keys.env === 'prod';
+  const perTrade = A ? Math.min(A.cash * c.pct / 100, c.maxOrder, S.capServer || Infinity) : null;
+  const stale = S.enabled && (!S.last || Date.now() - S.last > 5 * 60e3);
+  const L = { bought: ['up', 'Bought'], sold: ['ac', 'Sold'], closed: ['n', 'Closed'], skip: ['n', 'Skipped'], error: ['down', 'Error'] };
+  const keepOpen = $('details')?.open;
+
+  const status = `<div class="card pad" id=bstate>
+    <div class="row sb wrapf" style="gap:16px"><div class=row style="gap:16px"><button class="sw ${S.enabled ? 'on' : ''}" id=btog aria-label="Bot on/off" ${connected ? '' : 'disabled'}></button>
+      <div><div style="font-size:22px;font-weight:650;letter-spacing:-.5px">${S.enabled ? '<span class=up>Running</span>' : 'Paused'}</div>
+      <div class=mut style="font-size:13px">${S.last ? `Last check ${rel(S.last / 1000)} · copying ${S.watching} trader${S.watching == 1 ? '' : 's'}` : connected ? 'Turn on to start copying' : 'Connect Kalshi to start'}</div></div></div>
+      ${connected ? `<span class="pill ${real ? 'down' : 'ac'}" style="height:26px;padding:0 12px">${real ? 'Kalshi · real money' : 'Kalshi · demo account'}</span>` : ''}</div>
+    ${stale ? `<div class=note style="margin-top:16px">The bot is on but hasn't checked in 5 minutes. Keep this page open, or add the link under "Always on" to cron-job.org.</div>` : ''}
+    ${S.disabledServer ? `<div class=note style="margin-top:16px">Trading is switched off on the server (TRADING_DISABLED).</div>` : ''}
+    ${S.accountError ? `<div class=note style="margin-top:16px">Kalshi: ${esc(S.accountError)}</div>` : ''}
+    ${A ? `<div class="grid g3" style="margin-top:20px"><div class=stat><div class=k>Cash</div><div class="v num">${usd(A.cash, 2)}</div><div class=s>available on Kalshi</div></div>
+      <div class=stat><div class=k>In positions</div><div class="v num">${usd(A.positionsValue, 2)}</div><div class=s>${S.positions.length} market${S.positions.length == 1 ? '' : 's'} · at current bids</div></div>
+      <div class=stat><div class=k>Account value</div><div class="v num">${usd(A.total, 2)}</div><div class=s>cash + positions</div></div></div>` : ''}</div>`;
+
+  const keysCard = connected
+    ? `<div class="card pad"><div class="row sb"><h3>Kalshi account</h3><span class="pill ${real ? 'down' : 'ac'}">${real ? 'Real money' : 'Demo'}</span></div>
+        <div class=mut style="font-size:13px;margin-top:8px">Connected · key <span class=num>${esc(S.keys.keyId)}</span>${S.keys.source == 'env' ? ' (set in Vercel)' : ''}</div>
+        ${S.keys.source == 'app' ? `<button class="btn sm danger" id=kdel style="margin-top:12px">Disconnect</button>` : ''}</div>`
+    : `<div class="card pad" id=kcard><h2>Connect Kalshi</h2><p class=mut style="font-size:13px;line-height:1.55;margin:6px 0 14px">On Kalshi open <b>Account → API keys → Create</b>, then paste the Key ID and the private key below. It's verified with Kalshi and stored encrypted.</p>
+        <input class=inp id=kid placeholder="Key ID"><textarea class=inp id=kpem placeholder="-----BEGIN PRIVATE KEY-----&#10;…&#10;-----END PRIVATE KEY-----" style="height:120px;padding:10px 14px;margin-top:8px;font:12px ui-monospace,monospace;resize:vertical"></textarea>
+        <button class="btn pri" id=ksave style="width:100%;margin-top:10px">Verify & connect</button><div id=kerr class=down style="font-size:13px;margin-top:8px"></div></div>`;
+
+  const settings = `<div class="card pad"><h2>Trade size</h2><p class=mut style="font-size:13px;margin:4px 0 16px">Each copied trade uses this share of your Kalshi cash.</p>
+    <div class="row sb"><span class=mut style="font-size:13px">Per trade</span><b class=num id=pctv style="font-size:24px">${c.pct}%</b></div>
+    <input type=range id=bpct min=1 max=100 step=1 value=${c.pct} style="margin-top:12px">
+    <div class="mut num" style="font-size:13px;margin-top:10px" id=pcte>${perTrade != null ? `≈ ${usd(perTrade, 2)} per trade right now` : ''}</div>
+    <label style="display:block;margin-top:18px"><span class=lbl>Max per order ($)${S.capServer ? ` · server cap $${S.capServer}` : ''}</span><input class=inp type=number min=1 data-k=maxOrder value=${c.maxOrder}></label>
+    <details style="margin-top:18px"><summary>${ic('chev', 12)} Advanced</summary><div class="grid g2" style="margin-top:14px">
+      ${[['minUsd', 'Copy trades over ($)', c.minUsd], ['maxPrice', 'Max price (¢)', c.maxPrice], ['slip', 'Max price gap vs trader (¢)', c.slip], ['maxUse', 'Max % of money in copies', c.maxUse], ['thresh', 'Match strictness (%)', c.thresh]]
+        .map(([k, l, v]) => `<label><span class=lbl>${l}</span><input class=inp type=number data-k=${k} value=${v}></label>`).join('')}</div></details></div>`;
+
+  const posT = `<div class="card" style="overflow:hidden"><div class="row sb pad" style="padding-bottom:8px"><h2>Positions</h2>${S.positions.some(p => p.copied) ? `<button class="btn sm danger" id=bsa>Sell all copies</button>` : ''}</div>
+    <table class=tbl><tbody>${S.positions.map(p => `<tr><td><div class=ell style="font-weight:550;max-width:380px">${esc(p.title)}${p.sub ? ` <span class=mut>· ${esc(p.sub)}</span>` : ''}</div>
+      <div class=mut style="font-size:12.5px;margin-top:3px"><span class="pill ${p.side == 'yes' ? 'up' : 'down'}" style="height:19px">${p.side.toUpperCase()}</span> ${fmt(p.count)} contracts · cost ${usd(p.cost, 2)}${p.copied ? ` · <span style="color:var(--ac)">copied ${esc(p.copied.trader)}</span>` : ''}${p.status && p.status != 'active' ? ` · ${esc(p.status)}` : ''}</div></td>
+      <td class="r num">${p.value != null ? usd(p.value, 2) : '—'}<div class="${p.pnl != null ? ud(p.pnl) : 'mut'}" style="font-size:12px">${p.pnl != null ? sg(p.pnl, 2) : ''}</div></td>
+      <td class=r style="width:1%"><button class="btn sm" data-sell="${esc(p.tk)}">Sell</button></td></tr>`).join('') || `<tr><td class=empty>${connected ? 'No open positions on Kalshi.' : 'Connect Kalshi to see your positions.'}</td></tr>`}</tbody></table></div>`;
+
+  const fillsT = S.fills.length ? `<div class="card" style="overflow:hidden"><div class="pad" style="padding-bottom:8px"><h2>Recent Kalshi fills</h2></div><table class=tbl><tbody>${S.fills.map(f => `<tr>
+      <td style="width:1%"><span class="pill ${f.action == 'buy' ? 'up' : 'ac'}">${f.action == 'buy' ? 'Bought' : 'Sold'}</span></td><td><div class="num ell" style="max-width:360px">${esc(f.tk)}</div><div class=mut style="font-size:12.5px">${(f.side || '').toUpperCase()} · ${fmt(f.count)} × ${Math.round(f.price * 100)}¢${f.fee ? ` · fee ${usd(f.fee, 2)}` : ''}</div></td>
+      <td class="r mut" style="font-size:12.5px;white-space:nowrap">${rel(f.t / 1000)}</td></tr>`).join('')}</tbody></table></div>` : '';
+
+  const logT = `<div class="card" style="overflow:hidden"><div class="row sb pad" style="padding-bottom:8px"><h2>Bot activity</h2><button class="btn sm" id=bclr>Clear</button></div><table class=tbl><tbody>${S.log.map(e => {
+      const [k, l] = L[e.st] || ['n', e.st];
+      return `<tr><td style="width:1%"><span class="pill ${k}">${l}</span></td><td><div class=ell style="max-width:520px">${e.act == 'sell' ? '' : e.outcome ? `${esc(e.trader)} bought <b>${esc(e.outcome)}</b>${e.pm ? ` @ ${e.pm}¢` : ''} · ` : ''}${esc(e.title)}</div>
+        <div class=mut style="font-size:12.5px;margin-top:2px">${e.tk ? `<span class=num>${esc(e.tk)}</span> · ` : ''}${esc(e.note || '')}</div></td><td class="r mut hide-m" style="font-size:12.5px;white-space:nowrap">${rel(e.t / 1000)}</td></tr>`;
+    }).join('') || `<tr><td class=empty>Nothing yet — when a trader you follow buys on Polymarket, the bot's decision shows up here.</td></tr>`}</tbody></table></div>`;
+
+  const cronCard = `<div class="card pad"><h3>Always on</h3><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 10px">While this page is open the bot checks every 5 seconds. With it closed, GitHub wakes it every 30 minutes. For checks every minute around the clock, paste this link into a free job at <a href="https://cron-job.org" target=_blank style="color:var(--lnk)">cron-job.org</a>:</p>
+    <div class=row><input class=inp readonly value="${location.origin}/api/cron" style="font:12px ui-monospace,monospace;height:36px"><button class="btn sm ic" id=ccp>${ic('copy', 13)}</button></div></div>`;
+
+  app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>Copies the Polymarket traders you follow onto your Kalshi account.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
+    ${status}<div class=split style="margin-top:20px"><div class=grid>${connected ? posT + fillsT : ''}${logT}</div><div class=grid>${keysCard}${connected ? settings : ''}${cronCard}</div></div>`;
+  if (keepOpen && $('details')) $('details').open = true;
+
+  const act = async (fn, okMsg) => { try { const r = await fn(); if (okMsg) toast(typeof okMsg == 'function' ? okMsg(r) : okMsg); } catch (e) { toast(`<span class=down>${esc(e.message)}</span>`); } botRefresh(); };
+  const save = cfg => act(() => bapi('cfg', { cfg }));
+  $('#btog') && ($('#btog').onclick = () => {
+    if (!S.enabled && !confirm(`Start copying trades with REAL money on your Kalshi ${real ? '' : 'demo '}account?\n\nEach trade uses ${c.pct}% of your cash (max $${c.maxOrder}).`)) return;
+    act(() => bapi(S.enabled ? 'stop' : 'start', {}), S.enabled ? 'Bot paused' : 'Bot started');
+  });
+  $('#brun') && ($('#brun').onclick = () => act(() => bapi('runnow', {}), r => r.ran ? `Checked — ${r.trades || 0} new trade(s)` : 'Turn the bot on first'));
+  $('#bsa') && ($('#bsa').onclick = () => confirm('Sell every position the bot copied, at the current bid?') && act(() => bapi('sell', { ticker: 'all' }), 'Sell orders sent'));
+  $$('[data-sell]').forEach(b => b.onclick = () => confirm(`Sell your whole ${b.dataset.sell} position at the current bid?`) && act(() => bapi('sell', { ticker: b.dataset.sell }), 'Sell order sent'));
+  $('#bclr').onclick = () => act(() => bapi('clearlog', {}));
+  $('#ccp').onclick = () => { navigator.clipboard?.writeText(location.origin + '/api/cron'); toast('Link copied'); };
+  $('#kdel') && ($('#kdel').onclick = () => confirm('Disconnect your Kalshi account? The bot stops.') && act(() => bapi('keysdel', {}), 'Disconnected'));
+  $('#ksave') && ($('#ksave').onclick = async () => {
+    $('#ksave').disabled = true; $('#ksave').textContent = 'Checking with Kalshi…'; $('#kerr').textContent = '';
+    try { const r = await bapi('keys', { keyId: $('#kid').value, pem: $('#kpem').value }); toast(`Connected your ${r.env == 'prod' ? 'real-money' : 'demo'} Kalshi account · cash ${usd(r.cash, 2)}`); botRefresh(); }
+    catch (e) { $('#kerr').textContent = e.message; $('#ksave').disabled = false; $('#ksave').textContent = 'Verify & connect'; }
+  });
+  const pr = $('#bpct');
+  if (pr) {
+    const paint = v => { $('#pctv').textContent = v + '%'; $('#pctv').style.color = v > 25 ? 'var(--warn)' : ''; pr.style.setProperty('--p', (v - 1) / 99 * 100 + '%');
+      if (A) $('#pcte').textContent = `≈ ${usd(Math.min(A.cash * v / 100, c.maxOrder, S.capServer || Infinity), 2)} per trade right now`; };
+    paint(c.pct); pr.oninput = () => paint(+pr.value); pr.onchange = () => save({ pct: +pr.value, maxUse: Math.max(c.maxUse, +pr.value) });
+  }
+  $$('[data-k]').forEach(i => i.onchange = () => save({ [i.dataset.k]: +i.value }));
 }
