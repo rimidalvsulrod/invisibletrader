@@ -49,7 +49,7 @@ function botLogin(first) {
 function botRender(S) {
   BOTON = S.enabled; renderSide();
   const c = S.cfg, A = S.account, connected = S.keys.set, real = S.keys.env === 'prod';
-  const perTrade = A ? Math.min(A.cash * c.pct / 100, c.maxOrder, S.capServer || Infinity) : null;
+  const perTrade = A ? Math.min(A.cash * c.pct / 100, S.capServer || Infinity) : null;
   const stale = S.enabled && (!S.last || Date.now() - S.last > 5 * 60e3);
   const L = { bought: ['up', 'Bought'], sold: ['ac', 'Sold'], closed: ['n', 'Closed'], skip: ['n', 'Skipped'], error: ['down', 'Error'] };
   const keepOpen = $('details')?.open;
@@ -78,7 +78,6 @@ function botRender(S) {
     <div class=dialbox><div class=dialtop><button class=kbtn id=kminus aria-label=Less>−</button><div class=dialval><b class=num id=pctv>${c.pct}</b><span>% per trade</span></div><button class=kbtn id=kplus aria-label=More>+</button></div>
       <div class=dial id=dial role=slider aria-label="Percent per trade" aria-valuemin=1 aria-valuemax=100 aria-valuenow=${c.pct} tabindex=0><svg viewBox="0 0 224 224" id=dialsvg></svg><div class=face id=face><i></i></div></div>
       <div class="dialcap num" id=pcte>${perTrade != null ? `≈ ${usd(perTrade, 2)} per trade right now` : ''}</div></div>
-    <label style="display:block;margin-top:18px"><span class=lbl>Max per order ($)${S.capServer ? ` · server cap $${S.capServer}` : ''}</span><input class=inp type=number min=1 data-k=maxOrder value=${c.maxOrder}></label>
     <details style="margin-top:18px"><summary>${ic('chev', 12)} Advanced</summary><div class="grid g2" style="margin-top:14px">
       ${[['minUsd', 'Copy trades over ($)', c.minUsd], ['maxPrice', 'Max price (¢)', c.maxPrice], ['slip', 'Max price gap vs trader (¢)', c.slip], ['maxUse', 'Max % of money in copies', c.maxUse], ['thresh', 'Match strictness (%)', c.thresh]]
         .map(([k, l, v]) => `<label><span class=lbl>${l}</span><input class=inp type=number data-k=${k} value=${v}></label>`).join('')}</div></details></div>`;
@@ -109,7 +108,7 @@ function botRender(S) {
   const act = async (fn, okMsg) => { try { const r = await fn(); if (okMsg) toast(typeof okMsg == 'function' ? okMsg(r) : okMsg); } catch (e) { toast(`<span class=down>${esc(e.message)}</span>`); } botRefresh(); };
   const save = cfg => act(() => bapi('cfg', { cfg }));
   $('#btog') && ($('#btog').onclick = () => {
-    if (!S.enabled && !confirm(`Start copying trades with REAL money on your Kalshi ${real ? '' : 'demo '}account?\n\nEach trade uses ${c.pct}% of your cash (max $${c.maxOrder}).`)) return;
+    if (!S.enabled && !confirm(`Start copying trades with REAL money on your Kalshi ${real ? '' : 'demo '}account?\n\nEach trade uses ${c.pct}% of your cash.`)) return;
     act(() => bapi(S.enabled ? 'stop' : 'start', {}), S.enabled ? 'Bot paused' : 'Bot started');
   });
   $('#brun') && ($('#brun').onclick = () => act(() => bapi('runnow', {}), r => r.ran ? `Checked — ${r.trades || 0} new trade(s)` : 'Turn the bot on first'));
@@ -131,7 +130,7 @@ function botRender(S) {
     const ticks = () => { let h = ''; for (let k = 0; k <= 50; k++) { const a = (-135 + k * 270 / 50) * Math.PI / 180, on = k / 50 <= (v - 1) / 99 + 1e-9, r1 = 104, r2 = k % 5 ? 96 : 92;
         h += `<line x1="${112 + r1 * Math.sin(a)}" y1="${112 - r1 * Math.cos(a)}" x2="${112 + r2 * Math.sin(a)}" y2="${112 - r2 * Math.cos(a)}" style="stroke:${on ? 'var(--ac)' : 'var(--mut2)'};opacity:${on ? 1 : .45}" stroke-width="${k % 5 ? 1.6 : 2.4}" stroke-linecap=round />`; } return h; };
     const paint = () => { $('#pctv').textContent = v; $('#face').style.transform = `rotate(${ang(v)}deg)`; $('#dialsvg').innerHTML = ticks(); dial.setAttribute('aria-valuenow', v);
-      if (A) $('#pcte').textContent = `≈ ${usd(Math.min(A.cash * v / 100, c.maxOrder, S.capServer || Infinity), 2)} per trade right now`; };
+      if (A) $('#pcte').textContent = `≈ ${usd(Math.min(A.cash * v / 100, S.capServer || Infinity), 2)} per trade right now`; };
     const commit = () => { clearTimeout(t); t = setTimeout(() => v !== c.pct && save({ pct: v, maxUse: Math.max(c.maxUse, v) }), 500); };
     const setV = (x, haptic) => { const n = Math.max(1, Math.min(100, Math.round(x))); if (n !== v) { v = n; paint(); if (haptic && navigator.vibrate) navigator.vibrate(3); } };
     const fromPoint = e => { const r = dial.getBoundingClientRect(); let a = Math.atan2(e.clientX - r.left - r.width / 2, -(e.clientY - r.top - r.height / 2)) * 180 / Math.PI; a = Math.max(-135, Math.min(135, a)); setV(1 + (a + 135) / 270 * 99, 1); };

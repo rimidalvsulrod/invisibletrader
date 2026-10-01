@@ -8,7 +8,7 @@
 // Orders are immediate-or-cancel limit orders (nothing rests on the book); sells are reduce-only.
 const crypto = require('crypto');
 const db = require('./db'), K = require('./kalshi'), S = require('./settings');
-const DEF = { pct: 5, maxOrder: 25, minUsd: 1000, maxPrice: 85, slip: 3, maxUse: 100, thresh: 75 };
+const DEF = { pct: 5, minUsd: 1000, maxPrice: 85, slip: 3, maxUse: 100, thresh: 75 };
 const STOP = new Set('will the a an of in on at to be by for and or is are with from vs than this that win wins won'.split(' '));
 const DIR = new Set('above below over under more less fewer higher lower before after not least most exceed exceeds'.split(' '));
 const tok = s => String(s || '').toLowerCase().replace(/[^a-z0-9.]+/g, ' ').split(' ').filter(w => w && !STOP.has(w) && (w.length > 1 || /\d/.test(w)));
@@ -20,7 +20,7 @@ const J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (e) { return d
 const DAY = 864e5, MKC = {}, PMC = new Map();
 // Kalshi taker fee: round_up(0.07 × contracts × P × (1−P)) to the next cent
 const fee = (n, c) => Math.ceil(0.07 * n * (c / 100) * (1 - c / 100) * 100 - 1e-9) / 100;
-const orderCap = cfg => Math.min(cfg.maxOrder || 25, Number(process.env.MAX_ORDER_USD) || Infinity); // env var, if set, is a hard ceiling
+const orderCap = () => Number(process.env.MAX_ORDER_USD) || Infinity; // optional server-side ceiling (MAX_ORDER_USD); none by default
 
 async function kalshiMarkets(env) {
   const c = MKC[env]; if (c && Date.now() - c.t < 3e5) return c.data;
@@ -92,8 +92,8 @@ async function buy(s, t, mk, acct) {
   if (ask > c.maxPrice) return log(s, { ...e, st: 'skip', note: `Kalshi price ${ask}¢ is above your max ${c.maxPrice}¢` });
   if (ask > e.pm + c.slip) return log(s, { ...e, st: 'skip', note: `Kalshi ${ask}¢ vs the trader's ${e.pm}¢ — more than ${c.slip}¢ worse` });
   if (s.copies.some(p => p.tk === e.tk) || held(acct, e.tk, 'yes') + held(acct, e.tk, 'no') > 0) return log(s, { ...e, st: 'skip', note: 'you already hold this market' });
-  // size: % of your Kalshi cash, capped by max-per-order, fee included, never more than the cash you have
-  const budget = Math.min(acct.cash * c.pct / 100, orderCap(c), acct.cash - 0.01);
+  // size: % of your Kalshi cash, fee included, never more than the cash you have
+  const budget = Math.min(acct.cash * c.pct / 100, orderCap(), acct.cash - 0.01);
   let n = Math.floor(budget * 100 / ask); while (n > 0 && n * ask / 100 + fee(n, ask) > budget) n--;
   if (n < 1) return log(s, { ...e, st: 'skip', note: `${c.pct}% of your $${acct.cash.toFixed(2)} cash is less than 1 contract at ${ask}¢` });
   const exposure = s.copies.reduce((a, p) => a + p.cost, 0); if (exposure + n * ask / 100 > (acct.cash + exposure) * c.maxUse / 100) return log(s, { ...e, st: 'skip', note: `would put more than ${c.maxUse}% of your money in copied trades` });

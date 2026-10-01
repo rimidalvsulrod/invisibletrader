@@ -51,7 +51,7 @@ module.exports = handler(async (req, body, q) => {
     case 'cfg': {
       const c = body.cfg || {}, cur = (await E.open()).cfg, D = E.DEF;
       const cfg = {
-        pct: clamp(c.pct ?? cur.pct, 0.5, 100, D.pct), maxOrder: clamp(c.maxOrder ?? cur.maxOrder, 1, 1e6, D.maxOrder),
+        pct: clamp(c.pct ?? cur.pct, 0.5, 100, D.pct),
         minUsd: clamp(c.minUsd ?? cur.minUsd, 0, 1e7, D.minUsd), maxPrice: clamp(c.maxPrice ?? cur.maxPrice, 1, 99, D.maxPrice),
         slip: clamp(c.slip ?? cur.slip, 0, 20, D.slip), maxUse: clamp(c.maxUse ?? cur.maxUse, 1, 100, D.maxUse), thresh: clamp(c.thresh ?? cur.thresh, 50, 100, D.thresh),
       };
