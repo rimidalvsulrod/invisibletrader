@@ -47,7 +47,7 @@ const loadExperts=()=>EXP??=(async()=>{
 const statOf=a=>cached('st'+a,async()=>{const[tr,c]=await Promise.all([api(`traded?user=${a}`),resolvedOf(a,1)]);const n=tr.traded||c.length,wr=c.length?c.filter(x=>x.realizedPnl>0).length/c.length:0;return{n,wr,wins:Math.round(n*wr)}});
 
 /* ---------- shell ---------- */
-const NAV=[['search','search','Search'],['ai','ai','AI Analyzer'],['profits','bolt','Profits'],['feed','feed','Feed'],['leaderboard','trophy','Leaderboard']];
+const NAV=[['search','search','Search'],['ai','ai','AI Analyzer'],['profits','bolt','Profits'],['bot','bot','Auto Trader'],['feed','feed','Feed'],['leaderboard','trophy','Leaderboard']];
 const uname=()=>LS.get('uname','Guest');
 function renderNav(){const p=(location.hash.slice(2)||'profits').split('/')[0],a=(h,i,t,k)=>`<a class="nv ${p==k?'on':''}" href="#/${k}">${ic(i)}${t}</a>`;
   $('#nav').innerHTML=NAV.map(([k,i,t])=>a(0,i,t,k)).join('')+`<div class=sec>Personal</div>`+a(0,'journal','Journal','journal')+
@@ -224,5 +224,5 @@ async function feed(term){
   tick();clearInterval(ft);ft=setInterval(tick,T?5000:15000);
 }
 function route(){clearInterval(ft);app.classList.remove('p');renderNav();const[p,a]=(location.hash.slice(2)||'profits').split('/');
-  ({profits,feed:()=>feed(0),terminal:()=>feed(1),leaderboard,search:searchPage,ai:aiPage,journal:journalPage,help:helpPage,trader:()=>trader(a)})[p]?.();window.scrollTo(0,0)}
+  ({profits,bot:botPage,feed:()=>feed(0),terminal:()=>feed(1),leaderboard,search:searchPage,ai:aiPage,journal:journalPage,help:helpPage,trader:()=>trader(a)})[p]?.();window.scrollTo(0,0)}
 addEventListener('hashchange',()=>route());route();

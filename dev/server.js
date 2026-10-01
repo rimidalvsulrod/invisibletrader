@@ -1,14 +1,16 @@
 // Local dev server: serves public/ and runs the same proxy as api/proxy.js
 const http = require('http'), fs = require('fs'), url = require('url'), path = require('path');
-const proxy = require('../api/proxy.js');
 http.createServer(async (req, res) => {
   const u = url.parse(req.url, true);
   if (u.pathname.startsWith('/api/')) {
-    req.query = u.query;
+    const name = u.pathname.slice(5).replace(/[^a-z]/g, '');
+    if (!fs.existsSync(path.join(__dirname, '..', 'api', name + '.js'))) { res.writeHead(404); return res.end('no such api'); }
+    let raw = ''; for await (const ch of req) raw += ch;
+    req.query = u.query; try { req.body = raw ? JSON.parse(raw) : {}; } catch (e) { req.body = {}; }
     res.status = c => (res.statusCode = c, res);
-    res.json = o => res.end(JSON.stringify(o));
+    res.json = o => (res.setHeader('content-type', 'application/json'), res.end(JSON.stringify(o)));
     res.send = b => res.end(b);
-    return proxy(req, res);
+    return require('../api/' + name + '.js')(req, res);
   }
   const f = path.join(__dirname, '..', 'public', u.pathname === '/' ? 'index.html' : u.pathname);
   if (!f.startsWith(path.join(__dirname, '..', 'public')) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end('not found'); }
