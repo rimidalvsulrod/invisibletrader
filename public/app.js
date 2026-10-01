@@ -266,3 +266,25 @@ addEventListener('hashchange',route);
 fetch('/api/auth?op=me').then(r=>r.json()).then(m=>{OWNER=!!m.owner;if(OWNER){fetch('/api/bot?op=state').then(r=>r.ok?r.json():null).then(s=>{if(!s)return;BOTON=s.enabled;
   if(s.follows?.length&&!Object.keys(fol).length){s.follows.forEach(f=>fol[f.wallet]=f.name||short(f.wallet));LS.set('fol',fol)}else syncFol();renderSide()}).catch(()=>{})}renderSide()}).catch(()=>{});
 route();
+
+/* ---------- tap haptics (ported from kalshilarper) ----------
+   The only haptic a web page can reach on iPhone is the tick iOS plays when a real tap flips an
+   <input type="checkbox" switch>; iOS 26 ignores flips made from script. So when a finger comes down on a
+   control, a transparent <label> for a hidden switch is slipped under it: the tap lands on the label, which
+   flips the switch with the tap's own trust (tick), and the click is passed on to the control underneath.
+   Elsewhere navigator.vibrate stands in. */
+const HAPTIC_TARGETS='button, a[href], [role=button], .clk, .pi, .chip, .sw, [data-f], [data-sell], summary';
+const IS_IOS=/iP(hone|od|ad)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+(function setupHaptics(){
+  if(!IS_IOS){document.addEventListener('click',e=>{if(e.isTrusted&&typeof navigator.vibrate==='function'&&e.target.closest?.(HAPTIC_TARGETS))navigator.vibrate(8)},true);return}
+  const toggle=document.createElement('input');toggle.type='checkbox';toggle.id='hapticSwitch';toggle.tabIndex=-1;toggle.className='haptic-switch';toggle.setAttribute('switch','');toggle.setAttribute('aria-hidden','true');
+  const pad=document.createElement('label');pad.htmlFor='hapticSwitch';pad.className='haptic-pad';pad.hidden=true;document.body.append(toggle,pad);
+  let hideTimer=0;const hide=()=>{pad.hidden=true};
+  document.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch'||e.target===pad)return;const el=e.target.closest?.(HAPTIC_TARGETS);if(!el||el.disabled)return;
+    pad.style.left=e.clientX-24+'px';pad.style.top=e.clientY-24+'px';pad.hidden=false;clearTimeout(hideTimer);hideTimer=setTimeout(hide,1500)},true);
+  document.addEventListener('pointercancel',hide,true); // the touch became a scroll
+  pad.addEventListener('click',e=>{hide();const under=document.elementFromPoint(e.clientX,e.clientY);
+    under?.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window,clientX:e.clientX,clientY:e.clientY}));
+    // the label's default action then flips the switch, which plays the tick
+  });
+})();

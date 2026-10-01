@@ -132,3 +132,6 @@ code{font:500 13px ui-monospace,SFMono-Regular,monospace;background:rgba(var(--t
 :root[data-theme=light] #tabbar,:root[data-theme=light] .palbox,:root[data-theme=light] aside.open{box-shadow:0 10px 40px rgba(120,135,160,.35)}
 .thm{border:0;background:none;color:var(--mut);cursor:pointer;display:flex;align-items:center;gap:12px;height:42px;padding:0 14px;border-radius:13px;font-size:15px;font-weight:500;width:100%}.thm:hover{color:var(--text)}
 .tbtn{width:42px;height:42px;border-radius:50%;border:0;background:var(--bg);box-shadow:var(--raise-sm);color:var(--mut);display:grid;place-items:center;cursor:pointer;flex:none}
+/* haptics (app.js setupHaptics): the hidden switch the tap flips, and the transparent label slipped under the finger on iOS */
+.haptic-switch{position:fixed;top:0;left:0;width:1px;height:1px;margin:0;opacity:0;pointer-events:none}
+.haptic-pad{position:fixed;width:48px;height:48px;z-index:2147483647}.haptic-pad[hidden]{display:none}
