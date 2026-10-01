@@ -1,8 +1,10 @@
-# 24/7 runner for the Auto Trader. Each run lasts ~2h10m and a new one starts every hour, so runs overlap
-# and there is no gap even when GitHub's scheduler is late. Overlap is safe: the engine's database lock lets
-# only one check run at a time. Public repos get unlimited free Actions minutes.
-#   With the DATABASE_URL secret set: runs the engine here, checking every 2 seconds.
-#   Without it: falls back to calling the site's /api/cron every 10 seconds.
+# 24/7 runner for the Auto Trader.
+# Each run lasts ~5h50m and starts its own replacement ~10 min before it ends (GitHub's schedule is too unreliable to
+# depend on). The hourly schedule is only a watchdog: it starts a runner if none is active. If two ever overlap, the
+# older one stops handing over, and the engine's database lock keeps checks one at a time.
+#   With the DATABASE_URL secret: runs the engine here, checking every 2 seconds.
+#   Without it: calls the site's /api/cron every 10 seconds.
+# Public repos get unlimited free Actions minutes.
 name: auto-trader
 on:
   schedule: [{ cron: '7 * * * *' }]
@@ -10,11 +12,17 @@ on:
   push:
     branches: [main]
     paths: ['.github/workflows/bot.yml', 'runner.js']
+permissions:
+  actions: write
+  contents: read
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 140
+    timeout-minutes: 358
     env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_MINUTES: 350
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
       KALSHI_KEY_ID: ${{ secrets.KALSHI_KEY_ID }}
@@ -23,19 +31,29 @@ jobs:
       MAX_ORDER_USD: ${{ secrets.MAX_ORDER_USD }}
       TRADING_DISABLED: ${{ secrets.TRADING_DISABLED }}
     steps:
-      - uses: actions/checkout@v4
-        if: env.DATABASE_URL != ''
-      - uses: actions/setup-node@v4
-        if: env.DATABASE_URL != ''
-        with: { node-version: 22 }
-      - name: Check for trades every 2 seconds
-        if: env.DATABASE_URL != ''
-        run: npm ci --omit=dev --no-audit --no-fund && node runner.js
-      - name: Check for trades every 10 seconds (add the DATABASE_URL secret for 2s checks)
-        if: env.DATABASE_URL == ''
+      - name: Watchdog — skip if a runner is already active
+        id: dog
         run: |
-          end=$((SECONDS + 7800))
-          while [ $SECONDS -lt $end ]; do
-            curl -sS -m 50 -o /dev/null -w "%{http_code} " "https://invisibletrader.vercel.app/api/cron" || true
-            sleep 10
-          done
+          others=$(gh run list -w bot.yml -L 20 --json databaseId,status -q "[.[] | select(.status != \"completed\" and .databaseId != ${{ github.run_id }})] | length")
+          if [ "${{ github.event_name }}" = schedule ] && [ "$others" != 0 ]; then echo "runner already active"; echo skip=1 >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v4
+        if: steps.dog.outputs.skip != '1'
+      - uses: actions/setup-node@v4
+        if: steps.dog.outputs.skip != '1' && env.DATABASE_URL != ''
+        with: { node-version: 22 }
+      - name: Check for trades (every 2s with DATABASE_URL, else every 10s via the site)
+        if: steps.dog.outputs.skip != '1'
+        run: |
+          me=$(gh run view ${{ github.run_id }} --json createdAt -q .createdAt)
+          ( sleep $(( (RUN_MINUTES - 10) * 60 ))
+            newer=$(gh run list -w bot.yml -L 20 --json status,createdAt -q "[.[] | select(.status != \"completed\" and .createdAt > \"$me\")] | length")
+            if [ "$newer" = 0 ]; then gh workflow run bot.yml && echo "handed over to a new run"; else echo "a newer run is active; not handing over"; fi ) &
+          if [ -n "$DATABASE_URL" ]; then
+            npm ci --omit=dev --no-audit --no-fund && node runner.js
+          else
+            end=$((SECONDS + RUN_MINUTES * 60))
+            while [ $SECONDS -lt $end ]; do
+              curl -sS -m 50 -o /dev/null -w "%{http_code} " "https://invisibletrader.vercel.app/api/cron" || true
+              sleep 10
+            done
+          fi
