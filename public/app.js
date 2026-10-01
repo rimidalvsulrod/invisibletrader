@@ -34,9 +34,14 @@ function lineChart(el,vals,o={}){
 
 /* ---------- data ---------- */
 const CACHE={};const cached=(k,f)=>CACHE[k]??=f();
-const closedOf=(a,pages=3)=>cached('c'+a+pages,async()=>(await Promise.all([...Array(pages)].map((_,i)=>api(`closed-positions?user=${a}&limit=50&offset=${i*50}`)))).flat().filter(x=>x&&x.title).sort((x,y)=>x.timestamp-y.timestamp));
-const lostOf=a=>cached('l'+a,async()=>{const r=await api(`positions?user=${a}&sizeThreshold=0&limit=100&sortBy=CURRENT&sortDirection=ASC`);return(Array.isArray(r)?r:[]).filter(p=>p.curPrice<=.01&&p.initialValue>1&&p.endDate).map(p=>({...p,totalBought:p.initialValue/Math.max(p.avgPrice,.01),realizedPnl:p.cashPnl<0?p.cashPnl:-p.initialValue,timestamp:Date.parse(p.endDate)/1000,lost:true})).filter(p=>p.timestamp&&p.timestamp<Date.now()/1000)});
-const resolvedOf=(a,pages=3)=>cached('r'+a+pages,async()=>{const[c,l]=await Promise.all([closedOf(a,pages),lostOf(a)]),seen=new Set(c.map(x=>x.conditionId+x.outcomeIndex));return[...c,...l.filter(x=>!seen.has(x.conditionId+x.outcomeIndex))].sort((x,y)=>x.timestamp-y.timestamp)});
+const closedOf=(a,pages=3)=>cached('c'+a+pages,async()=>(await Promise.all([...Array(pages)].map((_,i)=>api(`closed-positions?user=${a}&limit=50&offset=${i*50}&sortBy=TIMESTAMP&sortDirection=DESC`)))).flat().filter(x=>x&&x.title).sort((x,y)=>x.timestamp-y.timestamp));
+// Accurate recent sample: closed positions (newest first) + resolved-but-unredeemed positions (Polymarket's closed list omits
+// losers that were never redeemed, which would inflate win rates). Merged by resolution time, newest N.
+const resolvedOf=(a,pages=4)=>cached('r'+a+pages,async()=>{
+  const[c,r]=await Promise.all([closedOf(a,pages),Promise.all([...Array(pages>2?2:1)].map((_,i)=>api(`positions?user=${a}&redeemable=true&sizeThreshold=0&limit=200&offset=${i*200}&sortBy=RESOLVING&sortDirection=DESC`))).then(x=>x.flat().filter(p=>p&&p.title&&p.endDate))]);
+  const seen=new Set(c.map(x=>x.conditionId+x.outcomeIndex));
+  const extra=r.filter(p=>!seen.has(p.conditionId+p.outcomeIndex)).map(p=>({...p,totalBought:p.size,realizedPnl:p.cashPnl,timestamp:Date.parse(p.endDate)/1000})).filter(p=>p.timestamp&&p.timestamp<Date.now()/1000);
+  return[...c,...extra].sort((x,y)=>y.timestamp-x.timestamp).slice(0,pages*50).reverse()});
 const openOf=a=>cached('o'+a,async()=>{const r=await api(`positions?user=${a}&sizeThreshold=1&limit=100&sortBy=CURRENT&sortDirection=DESC`);return Array.isArray(r)?r:[]});
 const lbOf=(per,ord,off=0)=>cached(`lb${per}${ord}${off}`,async()=>{const r=await api(`v1/leaderboard?timePeriod=${per}&orderBy=${ord}&limit=50&offset=${off}`);return Array.isArray(r)?r:[]});
 let EXP;
@@ -44,7 +49,7 @@ const loadExperts=()=>EXP??=(async()=>{
   const [a,m]=await Promise.all([lbOf('ALL','PNL'),lbOf('MONTH','PNL')]);
   const seen=new Set(),lb=[...a.slice(0,10),...m.slice(0,12)].filter(t=>t.proxyWallet&&!seen.has(t.proxyWallet)&&seen.add(t.proxyWallet));
   return Promise.all(lb.map(async t=>{const[closed,open]=await Promise.all([resolvedOf(t.proxyWallet,2),openOf(t.proxyWallet)]);return{...t,closed,open,wr:closed.length?closed.filter(c=>c.realizedPnl>0).length/closed.length:0}}))})();
-const statOf=a=>cached('st'+a,async()=>{const[tr,c]=await Promise.all([api(`traded?user=${a}`),resolvedOf(a,1)]);const n=tr.traded||c.length,wr=c.length?c.filter(x=>x.realizedPnl>0).length/c.length:0;return{n,wr,wins:Math.round(n*wr)}});
+const statOf=a=>cached('st'+a,async()=>{const[tr,c]=await Promise.all([api(`traded?user=${a}`),resolvedOf(a,2)]);const w=c.filter(x=>x.realizedPnl>0).length,sample=c.length;return{n:tr.traded||sample,sample,wr:sample?w/sample:0,wins:w}});
 
 /* ---------- shell ---------- */
 const NAV=[['search','search','Search'],['ai','ai','AI Analyzer'],['profits','bolt','Profits'],['bot','bot','Auto Trader'],['feed','feed','Feed'],['leaderboard','trophy','Leaderboard']];
@@ -67,20 +72,20 @@ async function leaderboard(){
   const base=ord=='WR'?'PNL':ord;let lb=[...await lbOf('ALL',base,0),...await lbOf('ALL',base,50)];if(!$('#lb'))return;
   if(ord=='WR'&&lb.length){let done=0,i=0;const el=$('#lb');const w=async()=>{while(i<lb.length){const t=lb[i++];await statOf(t.proxyWallet);if($('#lb')===el)el.textContent=`Calculating win rates… ${++done}/${lb.length}`}};
     await Promise.all([...Array(8)].map(w));if($('#lb')!==el)return;
-    const S=await Promise.all(lb.map(t=>statOf(t.proxyWallet)));lb=lb.map((t,k)=>({...t,_s:S[k]})).filter(t=>t._s.n>=20).sort((a,b)=>b._s.wr-a._s.wr||b._s.n-a._s.n).map((t,k)=>({...t,rank:String(k+1)}))}if(!lb.length){$('#lb').textContent='Could not load data from Polymarket — try reloading.';return}
+    const S=await Promise.all(lb.map(t=>statOf(t.proxyWallet)));lb=lb.map((t,k)=>({...t,_s:S[k]})).filter(t=>t._s.sample>=20).sort((a,b)=>b._s.wr-a._s.wr||b._s.n-a._s.n).map((t,k)=>({...t,rank:String(k+1)}))}if(!lb.length){$('#lb').textContent='Could not load data from Polymarket — try reloading.';return}
   const sv=ord=='VOL'?'vol':'pnl';
   $('#lb').outerHTML=`<div class=top3>${lb.slice(0,3).map(t=>`<div class="t3 ${fol[t.proxyWallet]?'f':''}"><div class="row sb ac" style="font-weight:700;font-size:10.5px;color:#e8e8f4;line-height:14px"><span>#${t.rank}</span><a href="#/trader/${t.proxyWallet}" style="margin-right:4px;color:#b4b4c2">${ic('arrow',15)}</a></div>
    <div style="margin-top:14px">${av(t.profileImage,t.proxyWallet)}</div><a href="#/trader/${t.proxyWallet}" class=nm style="display:block">${esc(t.userName||short(t.proxyWallet))}</a>
    <div class="pn ${cls(t[sv])}">${sg(t[sv])}</div><div class=sub style="font-size:8.5px;margin-top:6px">${ord=='VOL'?'Volume':'Resolved P&L'}</div>
    <div data-s="${t.proxyWallet}" style="margin-top:13px;height:34px;line-height:17px"><span style="font-size:13px;font-weight:700">—</span> <span class=mut style="font-size:9px">win rate</span><div class=mut style="font-size:9px">…</div></div>
    <div style="position:absolute;left:16px;right:16px;bottom:16px">${fb(t,'w')}</div></div>`).join('')}</div>
-   <div class="row sb ac" style="margin:28px 0 0"><h2 style="font-size:18px">The rankings</h2><span class=sub style="margin:0">${lb.length} of 1,272 eligible traders</span></div>
+   <div class="row sb ac" style="margin:28px 0 0"><h2 style="font-size:18px">The rankings</h2><span class=sub style="margin:0">Top ${lb.length} by ${ord=='VOL'?'volume':'P&L'}</span></div>
    <div class=row style="margin-top:24px;padding-bottom:10px;font-size:9px;color:#b9b9c6;border-bottom:1px solid var(--line);align-items:center"><span style="flex:1">Trader</span><span style="width:130px;text-align:right">Resolved P&L</span><span style="width:80px;text-align:right;margin-left:16px">Win rate</span><span style="width:86px;margin-left:16px"></span></div>
    ${lb.map(t=>`<div class=lr data-r="${t.proxyWallet}"><span class=rk>${t.rank}</span>${av(t.profileImage,t.proxyWallet)}<div class=nm><a href="#/trader/${t.proxyWallet}">${esc(t.userName||short(t.proxyWallet))}</a><span data-sub>${usd(t.vol)} volume</span></div>
    <span class=pl>${sg(t[sv])}</span><div class=wr data-w><b>—</b><span>&nbsp;</span></div><span class=bt>${fb(t,'w')}</span></div>`).join('')}`;
   const io=new IntersectionObserver(es=>es.forEach(async e=>{if(!e.isIntersecting)return;io.unobserve(e.target);const a=e.target.dataset.r||e.target.dataset.s,s=await statOf(a);
-    if(e.target.dataset.r){e.target.querySelector('[data-sub]').textContent=`${s.n.toLocaleString()} resolved positions`;e.target.querySelector('[data-w]').innerHTML=`<b>${Math.round(s.wr*100)}%</b><span>${s.wins.toLocaleString()} wins</span>`}
-    else e.target.innerHTML=`<span style="font-size:13px;font-weight:700">${Math.round(s.wr*100)}%</span> <span class=mut style="font-size:9px">win rate</span><div class=mut style="font-size:9px">${s.n.toLocaleString()} resolved</div>`}),{rootMargin:'200px'});
+    if(e.target.dataset.r){e.target.querySelector('[data-sub]').textContent=`${s.n.toLocaleString()} markets traded`;e.target.querySelector('[data-w]').innerHTML=s.sample<20?`<b>—</b><span>too few to rate</span>`:`<b>${Math.round(s.wr*100)}%</b><span>${s.wins} of last ${s.sample}</span>`}
+    else e.target.innerHTML=s.sample<20?`<span style="font-size:13px;font-weight:700">—</span> <span class=mut style="font-size:9px">win rate</span><div class=mut style="font-size:9px">too few trades to rate</div>`:`<span style="font-size:13px;font-weight:700">${Math.round(s.wr*100)}%</span> <span class=mut style="font-size:9px">win rate</span><div class=mut style="font-size:9px">${s.wins} of last ${s.sample} trades</div>`}),{rootMargin:'200px'});
   document.querySelectorAll('[data-r],[data-s]').forEach(x=>io.observe(x));
 }
 
@@ -116,7 +121,7 @@ function bot(picks,open){
   const run=()=>{const s=+$('#s1').value,f=+$('#s2').value/100;$('#s1').style.setProperty('--p',((s-10)/990*100)+'%');$('#s2').style.setProperty('--p',((f*100-1)/24*100)+'%');$('#v1').textContent='$'+s;$('#v2').textContent=f*100+'%';
     let b=s;const v=[s,...picks.map(c=>b*=1+f*ret(c))];
     $('#fl').textContent=`If you restaked ${f*100}% of the bankroll every pick`;
-    $('#real').textContent=`Real sequence, real resolved picks since ${dt(picks[0].timestamp)}. ${f*100}% of bankroll restaked each time, not a flat amount.`;
+    $('#real').textContent=`Real sequence, real resolved picks since ${dt(picks[0].timestamp)}. ${f*100}% of bankroll restaked each time, not a flat amount. Built from each top trader's most recent resolved positions — an estimate, not a guarantee.`;
     const show=i=>{const t=usd(v[v.length-1]);$('#bigv').textContent=t;$('#bigv').style.fontSize=t.length>16?'26px':t.length>12?'36px':'44px';$('#pk').textContent='Pick #'+(i||picks.length);$('#hd').textContent=dt(picks[(i||picks.length)-1].timestamp);$('#hv2').textContent=sg(v[i||v.length-1]-s)};
     show(0);lineChart($('#ch'),v,{h:180,T:26,B:15,L:56,R:22,la:'c',fmt:x=>sg(x-s),onHover:i=>show(i===v.length-1?0:i)})};
   $('#s1').oninput=$('#s2').oninput=run;run();
@@ -139,27 +144,27 @@ function pickGrid(el,list,title,subt,inner){
 /* ---------- trader ---------- */
 async function trader(a){
   app.innerHTML='<div class=sub>Loading trader…</div>';
-  const [closed,act,act1,val]=await Promise.all([resolvedOf(a,3),openOf(a),api(`activity?user=${a}&limit=1`),api(`value?user=${a}`)]);
-  const lb=await lbOf('ALL','PNL'),me=lb.find(t=>t.proxyWallet==a);
+  const [closed,act,act1,offR,trR]=await Promise.all([resolvedOf(a,4),openOf(a),api(`activity?user=${a}&limit=1`),api(`v1/leaderboard?timePeriod=ALL&orderBy=PNL&user=${a}`),api(`traded?user=${a}`)]);
+  const me=Array.isArray(offR)?offR[0]:null,official=me&&me.pnl!=null?me.pnl:null,traded=trR&&trR.traded;
   const name=me?.userName||act1[0]?.name||act1[0]?.pseudonym||short(a);
-  let cum=0;const v=[0,...closed.map(c=>cum+=c.realizedPnl)],inv=closed.reduce((s,c)=>s+c.totalBought*c.avgPrice,0),wins=closed.filter(c=>c.realizedPnl>0).length;
+  let cum=0;const cs=closed.map(c=>cum+=c.realizedPnl),net=official??cum,v=[official!=null?official-cum:0,...cs.map(x=>official!=null?official-cum+x:x)],N=closed.length,inv=closed.reduce((s,c)=>s+c.totalBought*c.avgPrice,0),wins=closed.filter(c=>c.realizedPnl>0).length;
   const best=closed.reduce((b,c)=>c.realizedPnl>(b?.realizedPnl??-1e18)?c:b,null),last4=closed.slice(-4),lw=last4.filter(c=>c.realizedPnl>0).length;
   const cats={};closed.forEach(c=>{const k=classify(c.title),o=cats[k]??={n:0,w:0,p:0};o.n++;o.w+=c.realizedPnl>0;o.p+=c.realizedPnl});
   const ex=await loadExperts(),mine=new Set(closed.map(c=>c.conditionId)),sim=ex.filter(e=>e.proxyWallet!=a).map(e=>({e,o:e.closed.filter(c=>mine.has(c.conditionId)).length})).filter(x=>x.o).sort((x,y)=>y.o-x.o).slice(0,5);
   const isF=!!fol[a];
   app.classList.add('p');
   app.innerHTML=`<h1>${esc(name)}</h1><div class=row style="gap:12px;margin-top:11px;font-size:11px;align-items:center;height:16px"><a class=mut style="cursor:pointer" data-follow="${a}|${esc(name)}">${isF?'Unfollow':'Follow'}</a><a class=l id=shr style="display:flex;gap:5px;align-items:center">${ic('share',11)} Share profile card</a></div>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:19px"><div class=tile><div class=sub>Net P&L</div><b class=${cls(cum)}>${sg(cum)}</b></div><div class=tile><div class=sub>Win Rate</div><b>${closed.length?(wins/closed.length*100).toFixed(1):0}%</b></div>
-  <div class=tile><div class=sub>ROI</div><b class=${cls(cum)}>${inv?(cum/inv>=0?'+':'')+(cum/inv*100).toFixed(1):0}%</b></div><div class=tile><div class=sub>Resolved Trades</div><b>${closed.length}</b></div></div>
-  <div class=pg2><div><div class=sub style="margin:2px 0 9px;font-size:9.5px;color:#d6d6e2;line-height:12px">P&L over time</div><div class="cd" style="border-radius:18px;height:220px"><div id=ch class=chart style="height:218px"></div></div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:19px"><div class=tile><div class=sub>Net P&L${official!=null?' · all time':' · last '+N}</div><b class=${cls(net)}>${sg(net)}</b></div><div class=tile><div class=sub>Win Rate · last ${N}</div><b>${closed.length?(wins/closed.length*100).toFixed(1):0}%</b></div>
+  <div class=tile><div class=sub>ROI · last ${N}</div><b class=${cls(cum)}>${inv?(cum/inv>=0?'+':'')+(cum/inv*100).toFixed(1):0}%</b></div><div class=tile><div class=sub>Markets traded</div><b>${(traded??closed.length).toLocaleString()}</b></div></div>
+  <div class=pg2><div><div class=sub style="margin:2px 0 9px;font-size:9.5px;color:#d6d6e2;line-height:12px">P&L over time${official!=null?' (all-time total, recent trades plotted)':''}</div><div class="cd" style="border-radius:18px;height:220px"><div id=ch class=chart style="height:218px"></div></div>
    <div class="row ac" style="margin-top:26px;gap:10px;height:30px"><div class=row style="gap:14px;margin-right:4px;font-size:12px;font-weight:600"><span id=ta style="cursor:pointer;padding-bottom:6px">Active (${act.length})</span><span id=tc style="cursor:pointer;padding-bottom:6px">Closed</span></div>
    <input id=ps class=fld style="flex:1;height:30px;border-radius:8px;background:#0d0d11;font-size:11px" placeholder="Search positions"><button class="fld" id=so style="height:30px;border-radius:8px;background:#0d0d11">${ic('sort',11)} Profit/Loss</button></div>
    <div class=tw style="margin-top:17px;border-radius:12px"><table id=tb style="table-layout:fixed"></table></div></div>
-  <div><div class=cd style="border-radius:18px;padding:15px 16px;min-height:85px;font-size:9.5px"><div class="row sb" style="line-height:14px"><span>Biggest Win</span><b class=pos>${best?sg(best.realizedPnl):'-'}</b></div><div class=sub style="font-size:8px;margin:1px 0 9px;color:#9a9aa6">${best?esc(best.title)+' — '+esc(best.outcome):''}</div><div class="row sb" style="line-height:14px"><span>Recent Form</span><b>${lw}-${last4.length-lw} (last ${last4.length})</b></div></div>
-   <div class=sub style="margin:19px 0 8px;font-size:9.5px;color:#d6d6e2">Where they win</div><div class=tw style="border-radius:14px"><table><tr><th>Category<th class=r>Trades<th class=r>Win Rate<th class=r>Profit</tr>${Object.entries(cats).sort((x,y)=>y[1].n-x[1].n).map(([k,o])=>`<tr style="height:27px"><td>${k}<td class=r>${o.n}<td class=r>${(o.w/o.n*100).toFixed(1)}%<td class="r ${cls(o.p)}">${abbr(o.p)}</tr>`).join('')}</table></div>
+  <div><div class=cd style="border-radius:18px;padding:15px 16px;min-height:85px;font-size:9.5px"><div class="row sb" style="line-height:14px"><span>Biggest Win (recent)</span><b class=pos>${best?sg(best.realizedPnl):'-'}</b></div><div class=sub style="font-size:8px;margin:1px 0 9px;color:#9a9aa6">${best?esc(best.title)+' — '+esc(best.outcome):''}</div><div class="row sb" style="line-height:14px"><span>Recent Form</span><b>${lw}-${last4.length-lw} (last ${last4.length})</b></div></div>
+   <div class=sub style="margin:19px 0 8px;font-size:9.5px;color:#d6d6e2">Where they win · last ${N}</div><div class=tw style="border-radius:14px"><table><tr><th>Category<th class=r>Trades<th class=r>Win Rate<th class=r>Profit</tr>${Object.entries(cats).sort((x,y)=>y[1].n-x[1].n).map(([k,o])=>`<tr style="height:27px"><td>${k}<td class=r>${o.n}<td class=r>${(o.w/o.n*100).toFixed(1)}%<td class="r ${cls(o.p)}">${abbr(o.p)}</tr>`).join('')}</table></div>
    <div class=sub style="margin:19px 0 8px;font-size:9.5px;color:#d6d6e2">Similar top traders</div><div class=tw style="border-radius:14px"><table><tr><th>Trader<th class=r>Overlap<th class=r>Net P&L</tr>${sim.map(s=>`<tr style="height:28px"><td><a class=l href="#/trader/${s.e.proxyWallet}">${esc(s.e.userName||short(s.e.proxyWallet))}</a><span class=circ data-follow="${s.e.proxyWallet}|${esc(s.e.userName)}" style="${fol[s.e.proxyWallet]?'background:#0f8a4b;color:#fff':''}">${fol[s.e.proxyWallet]?ic('check',9):'+'}</span><td class=r>${s.o}<td class="r ${cls(s.e.pnl)}">${abbr(s.e.pnl)}</tr>`).join('')||'<tr style="height:28px"><td colspan=3 class=mut>No overlap with top traders</tr>'}</table></div></div></div>`;
   $('#shr').onclick=()=>{navigator.clipboard?.writeText(location.href);$('#shr').lastChild.textContent=' Link copied'};
-  lineChart($('#ch'),v,{h:218,T:53,B:44,L:66,R:sg(cum).length*11.2+22,la:'l',tf:8.5,fmt:x=>sg(x),endLabel:sg(cum),endH:11,color:cum>=0?'#00d26a':'#f0475a'});
+  lineChart($('#ch'),v,{h:218,T:53,B:44,L:66,R:sg(net).length*11.2+22,la:'l',tf:8.5,fmt:x=>sg(x),endLabel:sg(net),endH:11,color:net>=0?'#00d26a':'#f0475a'});
   let mode=act.length?'a':'c',desc=true;
   const cell=(c,isA)=>{const traded=isA?c.initialValue:c.totalBought*c.avgPrice,pnl=isA?c.cashPnl:c.realizedPnl,amt=traded+pnl;
     return`<tr class=tr><td style="padding-left:13px"><a href="https://polymarket.com/event/${c.eventSlug}" target=_blank style="font-weight:500;font-size:10.5px;line-height:14px">${esc(c.title)} <span class=mut style="font-weight:400">— ${esc(c.outcome)}</span></a><div class=mut style="font-size:8px;margin-top:3px">Avg ${Math.round(c.avgPrice*100)}¢${isA?'':' · '+ago(c.timestamp)}</div>

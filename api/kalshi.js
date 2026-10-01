@@ -36,6 +36,11 @@ module.exports = async (req, res) => {
       res.setHeader('cache-control', 's-maxage=60, stale-while-revalidate=300');
       return res.status(r.status).send(await r.text());
     }
+    if (op === 'market') { // fresh prices for one market, no credentials needed
+      if (!/^[A-Za-z0-9._-]{3,80}$/.test(String(q.ticker))) return res.status(400).json({ error: 'bad ticker' });
+      const r = await fetch(`${BASES[q.env === 'demo' ? 'demo' : 'prod']}/markets/${q.ticker}`);
+      return res.status(r.status).send(await r.text());
+    }
     if (!c.secret) return res.status(503).json({ error: 'BOT_SECRET is not set on the server' });
     if (!same(req.headers['x-bot-secret'] || '', c.secret)) return res.status(401).json({ error: 'bad bot secret' });
     const configured = !!(c.keyId && c.pem);
@@ -49,16 +54,20 @@ module.exports = async (req, res) => {
     if (op === 'order') {
       if (c.disabled) return res.status(403).json({ error: 'trading disabled (TRADING_DISABLED)' });
       if (c.env === 'prod' && !c.allowLive) return res.status(403).json({ error: 'live trading not allowed (set KALSHI_ALLOW_LIVE=yes)' });
-      const { ticker, side, count, price_cents, ref } = body;
+      const { ticker, side, count, price_cents, ref } = body, action = body.action === 'sell' ? 'sell' : 'buy';
       if (!/^[A-Za-z0-9._-]{3,80}$/.test(String(ticker))) return res.status(400).json({ error: 'bad ticker' });
       if (side !== 'yes' && side !== 'no') return res.status(400).json({ error: 'side must be yes|no' });
       if (!Number.isInteger(count) || count < 1 || count > 1000) return res.status(400).json({ error: 'count must be 1..1000' });
       if (!Number.isInteger(price_cents) || price_cents < 1 || price_cents > 99) return res.status(400).json({ error: 'price_cents must be 1..99' });
       const cost = count * price_cents / 100;
-      if (cost > c.maxUsd) return res.status(400).json({ error: `order $${cost.toFixed(2)} exceeds MAX_ORDER_USD $${c.maxUsd}` });
-      // V2 single-book quoting: bid = buy YES at p; ask = sell YES at p == buy NO at 1-p. IOC so nothing rests.
-      const order = { ticker, client_order_id: String(ref || crypto.randomUUID()).slice(0, 64), side: side === 'yes' ? 'bid' : 'ask',
-        count: count.toFixed(2), price: dollars(side === 'yes' ? price_cents : 100 - price_cents), time_in_force: 'immediate_or_cancel', self_trade_prevention_type: 'taker_at_cross' };
+      if (action === 'buy' && cost > c.maxUsd) return res.status(400).json({ error: `order $${cost.toFixed(2)} exceeds MAX_ORDER_USD $${c.maxUsd}` });
+      // V2 single-book quoting (YES leg): bid = buy YES at p; ask = sell YES at p. Buy NO at q == ask @ 1-q; sell NO at q == bid @ 1-q.
+      // Immediate-or-cancel so nothing rests; sells are reduce_only so they can never open a new position.
+      const yesLeg = side === 'yes' ? price_cents : 100 - price_cents;
+      const book = (action === 'buy') === (side === 'yes') ? 'bid' : 'ask';
+      const order = { ticker, client_order_id: String(ref || crypto.randomUUID()).slice(0, 64), side: book,
+        count: count.toFixed(2), price: dollars(yesLeg), time_in_force: 'immediate_or_cancel', self_trade_prevention_type: 'taker_at_cross' };
+      if (action === 'sell') order.reduce_only = true;
       const r = await kalshi(c, 'POST', '/portfolio/events/orders', order);
       return res.status(r.status).json({ ...r.json, _sent: order, _env: c.env, _cost: cost });
     }
