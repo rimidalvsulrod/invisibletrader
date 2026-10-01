@@ -1,111 +1,236 @@
-<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>InvisibleTrader</title>
+<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>InvisibleTrader</title>
+<link rel=preconnect href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel=stylesheet>
 <style>
-:root{--bg:#050507;--card:#0c0c12;--line:#1c1c28;--mut:#8b8ba0;--g:#10d070;--r:#ef4444;--ac:#6366f1}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f2f2f7;font:13px Inter,system-ui,sans-serif;display:flex;min-height:100vh}
-aside{width:206px;border-right:1px solid var(--line);padding:14px 10px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;flex:none}
-.logo{font-weight:700;font-size:15px;padding:4px 8px 18px}
-aside a{display:block;padding:9px 10px;border-radius:9px;color:#cfcfe0;cursor:pointer;text-decoration:none;margin-bottom:2px}
-aside a:hover,aside a.on{background:#1a1a24;color:#fff}.sec{font-size:10px;color:var(--mut);padding:14px 10px 4px}
-main{flex:1;padding:28px 32px;max-width:1180px}
-h1{font-size:34px;margin:0 0 4px;letter-spacing:-1px}h2{font-size:20px;margin:28px 0 12px;letter-spacing:-.5px}.sub{color:var(--mut);font-size:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
-.grid{display:grid;gap:14px}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:1.9fr 1fr}
-.big{font-size:28px;font-weight:700;letter-spacing:-1px;margin-top:6px}.pos{color:var(--g)}.neg{color:var(--r)}.mut{color:var(--mut)}
-.tabs{display:flex;gap:18px;border-bottom:1px solid var(--line);margin:18px 0}.tabs span{padding:8px 0;color:var(--mut);cursor:pointer;font-weight:600}.tabs .on{color:#fff;border-bottom:2px solid #fff}
-table{width:100%;border-collapse:collapse}th{font-weight:500;color:var(--mut);text-align:left;padding:8px 10px;font-size:11px}td{padding:12px 10px;border-top:1px solid var(--line)}
-th.r,td.r{text-align:right}a.l{color:#8f94ff;cursor:pointer;text-decoration:none}
-.btn{background:#1a1a2a;border:1px solid #2a2a3d;color:#e8e8f5;border-radius:9px;padding:7px 14px;cursor:pointer;font:inherit}
-input,select{background:#0c0c12;border:1px solid var(--line);color:#fff;border-radius:9px;padding:8px 12px;font:inherit}
-.av{width:38px;height:38px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;vertical-align:middle;margin-right:10px;color:#000}
-.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
-.pick{display:flex;gap:10px;align-items:center}.pick img{width:34px;height:34px;border-radius:8px}
-.new{background:#10d07015}.bar{display:flex;height:3px;margin:8px 0}
-@media(max-width:800px){aside{display:none}.g3,.g4,.g2{grid-template-columns:1fr}main{padding:16px}}
-</style>
-<aside><div class=logo>InvisibleTrader</div>
-<a href="#/feed" data-p=feed>▤ Feed</a><a href="#/leaderboard" data-p=leaderboard>🏆 Leaderboard</a>
-<div class=sec>Search trader</div><form id=sf style="padding:0 4px"><input id=q placeholder="0x… or name" style="width:100%"></form>
-<div class=sec>Following</div><div id=fol></div></aside>
-<main id=app></main>
+:root{--bg:#050507;--card:#0b0b11;--card2:#0f0f17;--line:#1b1b26;--mut:#8a8a9c;--g:#0fd978;--r:#f0475a;--ac:#6366f1;--bl:#6f7fff}
+*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:#f4f4f8;font:12px/1.35 Inter,system-ui,sans-serif;display:flex;min-height:100vh;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+aside{width:206px;flex:none;border-right:1px solid var(--line);position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
+.brand{height:52px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 12px 0 18px;font-weight:700;font-size:13px;letter-spacing:-.2px}
+.brand i{width:22px;height:22px;border:1px solid var(--line);border-radius:6px;display:grid;place-items:center;font-style:normal;color:var(--mut);font-size:10px}
+nav{padding:16px 11px}nav a{display:flex;gap:8px;align-items:center;height:32px;padding:0 9px;border-radius:9px;color:#e6e6f0;cursor:pointer;text-decoration:none;margin-bottom:3px;font-weight:500}
+nav a svg{width:14px;height:14px;color:#a9a9bb;flex:none}nav a.on{background:#17171f}nav a:hover{background:#12121a}
+.sec{font-size:9px;font-weight:600;color:var(--mut);padding:18px 9px 6px;letter-spacing:.2px}
+main{flex:1;padding:22px 32px 80px;min-width:0}.in{max-width:896px}
+h1{font-size:31px;font-weight:700;letter-spacing:-1.4px;margin:0 0 6px;line-height:1.1}h2{font-size:18px;font-weight:700;letter-spacing:-.6px;margin:0}
+.sub{color:var(--mut);font-size:11px}.mut{color:var(--mut)}.pos{color:var(--g)}.neg{color:var(--r)}
+.tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin:28px 0 20px}.tabs span{padding:10px 2px 12px;color:var(--mut);cursor:pointer;font-weight:600;font-size:13px;margin-bottom:-1px}.tabs .on{color:#fff;border-bottom:1.5px solid #fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:22px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px}.tile .sub{font-size:10px;font-weight:500;color:#cfcfdd}.tile b{display:block;font-size:22px;letter-spacing:-.8px;margin-top:10px}
+.row{display:flex;gap:16px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.btn{background:#14141e;border:1px solid #262634;border-radius:10px;height:34px;padding:0 14px;cursor:pointer;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:hover{background:#1a1a27}.btn.w{width:100%}
+input[type=text],input[type=number],select{background:#0b0b11;border:1px solid var(--line);border-radius:10px;height:34px;padding:0 12px;outline:none}
+select{padding-right:8px;font-weight:600}
+table{width:100%;border-collapse:collapse}th{font-weight:600;color:#c4c4d2;text-align:left;padding:10px 12px;font-size:10px;background:#0f0f16}td{padding:12px;border-top:1px solid var(--line);vertical-align:middle}
+th.r,td.r{text-align:right}.tw{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card)}
+a.l{color:#7d86ff;cursor:pointer;text-decoration:none}a.w{color:#fff;text-decoration:none}
+.av{width:38px;height:38px;border-radius:50%;flex:none;overflow:hidden;display:block}.av img{width:100%;height:100%;object-fit:cover}
+.ey{font-size:9px;font-weight:700;color:var(--g);letter-spacing:.4px;display:flex;gap:6px;align-items:center}
+.lab{font-size:9px;font-weight:700;color:#d6d6e4;letter-spacing:.3px;margin-bottom:8px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:128px;height:3px;border-radius:3px;background:#2a2a3a;outline:none;display:block}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:var(--ac);border:2px solid #1b1b3f;cursor:pointer}
+.pc{padding:16px 18px 18px}.pc .tp{display:flex;justify-content:space-between;color:#bdbdcc;font-size:10px}.pc .tt{display:flex;gap:12px;align-items:center;margin:16px 0 14px;font-size:14px;font-weight:700;letter-spacing:-.3px;line-height:1.25;min-height:54px}
+.pc .tt img{width:40px;height:40px;border-radius:8px;object-fit:cover;flex:none;background:#1a1a24}
+.pc .sp{display:flex;align-items:center;gap:6px;height:76px}.pc .sp .pct{font-size:24px;font-weight:600;color:var(--bl);letter-spacing:-1px;white-space:nowrap}.pc .sp .pct small{font-size:15px}
+.ft{display:flex;justify-content:space-between;font-size:10px;color:#bdbdcc;margin:6px 0 14px}
+.st{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:12px;margin-bottom:12px}.st b{display:block;font-size:13px;letter-spacing:-.3px}.st span{font-size:9px;color:var(--mut)}
+.bet{display:flex;height:38px;border-radius:10px;align-items:center;justify-content:center;gap:6px;color:#14301f;font-weight:600;text-decoration:none}.bet.y{background:#b8f6cf}.bet.n{background:#f5b9c1;color:#3a1418}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}.seg span{padding:0 12px;height:34px;display:flex;align-items:center;cursor:pointer;color:#cfcfdd;font-weight:500}.seg .on{background:#15151e;color:#fff;font-weight:600}
+.circ{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;background:#1a1a26;color:var(--mut);cursor:pointer;font-size:10px;margin-left:6px}
+.chart{position:relative}.chart svg{display:block;overflow:visible}.endl{position:absolute;font-weight:700;letter-spacing:-.8px;white-space:nowrap}
+@media(max-width:860px){aside{display:none}.g4,.g3{grid-template-columns:1fr 1fr}main{padding:16px}.row{flex-direction:column}}
+</style></head><body>
+<aside><div class=brand>InvisibleTrader.com<i>‹</i></div><nav id=nav></nav></aside>
+<main><div class=in id=app></div></main>
 <script>
 const $=s=>document.querySelector(s),app=$('#app');
-const usd=n=>(n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString(),sg=n=>(n>=0?'+':'-')+'$'+Math.abs(Math.round(n)).toLocaleString();
-const cls=n=>n>=0?'pos':'neg',short=a=>a.slice(0,6)+'…'+a.slice(-4);
-const COL=['#22d3ee','#f472b6','#facc15','#3b82f6','#a78bfa','#4ade80'];
-const av=(n,a)=>`<span class=av style="background:${COL[parseInt(a.slice(2,4),16)%6]}">${(n||'?')[0].toUpperCase()}</span>`;
-const api=async p=>(await fetch('/api/'+p)).json();
-let fol=JSON.parse(localStorage.fol||'{}');const saveFol=()=>{localStorage.fol=JSON.stringify(fol);renderFol()};
-const renderFol=()=>$('#fol').innerHTML=Object.entries(fol).map(([a,n])=>`<a href="#/trader/${a}">${n}</a>`).join('')||'<span class=mut style="padding:0 10px">none yet</span>';
-window.toggle=(a,n)=>{fol[a]?delete fol[a]:fol[a]=n;saveFol();route()};
-function chart(pts,h=200){ // cumulative series -> svg area
-  if(pts.length<2)return'<div class=mut>Not enough data</div>';
-  const W=700,mn=Math.min(0,...pts),mx=Math.max(...pts),rg=(mx-mn)||1,
-  xy=pts.map((v,i)=>[i/(pts.length-1)*W,h-8-(v-mn)/rg*(h-24)]),d=xy.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join('');
-  const up=pts.at(-1)>=0,c=up?'#10d070':'#ef4444';
-  return`<svg viewBox="0 0 ${W} ${h}" style="width:100%;height:${h}px"><defs><linearGradient id=gr x1=0 y1=0 x2=0 y2=1><stop offset=0 stop-color="${c}" stop-opacity=.25 /><stop offset=1 stop-color="${c}" stop-opacity=0 /></linearGradient></defs>
-  <path d="${d}L${W} ${h}L0 ${h}Z" fill=url(#gr) /><path d="${d}" fill=none stroke="${c}" stroke-width=2 /><circle cx=${xy.at(-1)[0]} cy=${xy.at(-1)[1]} r=4 fill="${c}" /></svg>`;
+const IC={search:'<circle cx=7 cy=7 r=5 /><path d="M11 11l3 3" />',bolt:'<path d="M2 12l4-4 3 3 5-6" /><path d="M2 14h12" />',feed:'<path d="M4 2h6l3 3v9H4z" /><path d="M10 2v3h3" />',trophy:'<path d="M5 2h6v4a3 3 0 01-6 0zM3 3h2v2a2 2 0 01-2-2zM13 3h-2v2a2 2 0 002-2zM8 9v3M5 14h6" />',arrow:'<path d="M5 11l6-6M6 5h5v5" />',users:'<circle cx=6 cy=6 r=2.3 /><path d="M2 13c0-2.5 2-4 4-4s4 1.5 4 4M11 4a2.2 2.2 0 010 4M12 9.5c1.5.4 2.5 1.7 2.5 3.5" />',plus:'<path d="M8 3v10M3 8h10" />',x:'<path d="M4 4l8 8M12 4l-8 8" />',down:'<path d="M4 6l4 4 4-4" />',share:'<circle cx=4 cy=8 r=1.8 /><circle cx=12 cy=4 r=1.8 /><circle cx=12 cy=12 r=1.8 /><path d="M5.6 7l4.8-2M5.6 9l4.8 2" />',bot:'<rect x=3 y=5 width=10 height=8 rx=2 /><path d="M8 2v3M6 9h.01M10 9h.01" />'};
+const ic=(n,s=14)=>`<svg width=${s} height=${s} viewBox="0 0 16 16" fill=none stroke=currentColor stroke-width=1.4 stroke-linecap=round stroke-linejoin=round>${IC[n]}</svg>`;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+const big=n=>Math.abs(n)>=1e15?Math.abs(n).toExponential(2).replace('e+','e'):Math.abs(Math.round(n)).toLocaleString('en-US');
+const usd=n=>(n<0?'-':'')+'$'+big(n);
+const sg=n=>(n<0?'-':'+')+'$'+big(n);
+const abbr=n=>{const a=Math.abs(n),s=n<0?'-':'+';return a>=1e6?s+'$'+(a/1e6).toFixed(1)+'m':a>=1e3?s+'$'+(a/1e3).toFixed(1)+'k':s+'$'+Math.round(a)};
+const short=a=>a.slice(0,6)+'…'+a.slice(-4),cls=n=>n>=0?'pos':'neg';
+const dt=ts=>new Date(ts*1000).toLocaleDateString('en',{month:'short',day:'numeric'});
+const ago=ts=>{const d=(Date.now()/1000-ts)/86400;return d<1?'today':d<60?Math.floor(d)+'d ago':Math.floor(d/30)+'mo ago'};
+const COL=['#22b8d9','#ec4899','#eab308','#3b82f6','#22c55e','#a855f7'];
+const av=(img,a)=>img?`<span class=av><img src="${esc(img)}"></span>`:`<span class=av><svg viewBox="0 0 40 40"><circle cx=20 cy=20 r=20 fill="${COL[parseInt(a.slice(2,4),16)%6]}" /><rect x=7 y=14 width=26 height=13 rx=6.5 fill=#fff /><rect x=10 y=17 width=20 height=7 rx=3.5 fill=#1a2bd0 /></svg></span>`;
+const api=async p=>{try{const r=await fetch('/api/'+p);return await r.json()}catch(e){return[]}};
+const classify=t=>/bitcoin|btc|ethereum|\beth\b|solana|crypto|xrp|token|fdv|airdrop/i.test(t)?'Crypto':/elect|president|minister|trump|biden|senate|congress|vote|party|governor|mayor|ceasefire|shutdown|tariff|war\b/i.test(t)?'Politics':/win on|\bvs\.?\b|\bfc\b|nba|nfl|mlb|nhl|ufc|open\b|cup|league|champion|ballon|match|game|series|bowl|prix|\bf1\b|trophy|title/i.test(t)?'Sports':'Other';
+let fol=(()=>{try{return JSON.parse(localStorage.fol||'{}')}catch(e){return{}}})();
+const saveFol=()=>{try{localStorage.fol=JSON.stringify(fol)}catch(e){}};
+document.addEventListener('click',e=>{const f=e.target.closest('[data-follow]');if(!f)return;const[a,n]=f.dataset.follow.split('|');fol[a]?delete fol[a]:fol[a]=n;saveFol();renderNav();route(true)});
+
+/* ---------- chart ---------- */
+function lineChart(el,vals,o={}){
+  const w=el.clientWidth||600,h=o.h||200,L=o.labels?64:2,R=o.right??16,col=o.color||'#0fd978',n=vals.length;
+  if(n<2){el.innerHTML='';return}
+  let mn=Math.min(...vals),mx=Math.max(...vals);if(o.zero)mn=Math.min(mn,0);const rg=(mx-mn)||1,T=10,B=10;
+  const X=i=>L+i/(n-1)*(w-L-R),Y=v=>T+(1-(v-mn)/rg)*(h-T-B);
+  const d=vals.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join('');
+  const ticks=o.labels?[0,1,2,3].map(k=>mn+rg*k/3):[];
+  el.innerHTML=`<svg width=${w} height=${h}>${ticks.map(v=>`<text x=0 y=${Y(v)+3} fill=#8a8a9c font-size=8 font-family="Inter,system-ui,sans-serif">${o.fmt?o.fmt(v):v}</text>`).join('')}
+  <path d="${d}" fill=none stroke="${col}" stroke-width=${o.sw||1.5} stroke-linejoin=round /><g id=hv><circle cx=${X(n-1)} cy=${Y(vals[n-1])} r=7 fill="${col}" opacity=.2 /><circle cx=${X(n-1)} cy=${Y(vals[n-1])} r=3.5 fill="${col}" /></g></svg>${o.endLabel?`<div class=endl style="left:${X(n-1)+12}px;top:${Math.max(0,Y(vals[n-1])-12)}px;color:${col};font-size:${o.endSize||22}px">${o.endLabel}</div>`:''}`;
+  if(o.onHover){el.onmousemove=e=>{const r=el.getBoundingClientRect(),i=Math.max(0,Math.min(n-1,Math.round((e.clientX-r.left-L)/(w-L-R)*(n-1))));
+    el.querySelector('#hv').innerHTML=`<circle cx=${X(i)} cy=${Y(vals[i])} r=7 fill="${col}" opacity=.2 /><circle cx=${X(i)} cy=${Y(vals[i])} r=3.5 fill="${col}" />`;o.onHover(i)};
+    el.onmouseleave=()=>{o.onHover(n-1);lineChart(el,vals,o)}}
 }
-let lbCache=[];
+
+/* ---------- data ---------- */
+let EXP;
+function loadExperts(){return EXP??=(async()=>{
+  const [a,m]=await Promise.all([api('v1/leaderboard?timePeriod=ALL&orderBy=PNL&limit=10'),api('v1/leaderboard?timePeriod=MONTH&orderBy=PNL&limit=12')]);
+  const seen=new Set(),lb=[...a,...m].filter(t=>t.proxyWallet&&!seen.has(t.proxyWallet)&&seen.add(t.proxyWallet));
+  return Promise.all(lb.map(async t=>{
+    const [c1,c2,open]=await Promise.all([0,50].map(o=>api(`closed-positions?user=${t.proxyWallet}&limit=50&offset=${o}`)).concat([api(`positions?user=${t.proxyWallet}&sizeThreshold=1&limit=100`)]));
+    const closed=[...c1,...c2].filter(x=>x&&x.title);
+    return{...t,closed,open:(Array.isArray(open)?open:[]),wr:closed.length?closed.filter(c=>c.realizedPnl>0).length/closed.length:0};
+  }))})()}
+async function search(q){return(await api(`gamma/public-search?q=${encodeURIComponent(q)}&search_profiles=true&search_tags=false&limit_per_type=8`)).profiles||[]}
+
+/* ---------- nav ---------- */
+function renderNav(){const p=(location.hash.slice(2)||'profits').split('/')[0];
+  $('#nav').innerHTML=[['search','search','Search'],['profits','bolt','Profits'],['feed','feed','Feed'],['leaderboard','trophy','Leaderboard']].map(([r,i,t])=>`<a href="#/${r}" class="${p==r?'on':''}">${ic(i)}${t}</a>`).join('')
+  +`<div class=sec>Following</div>`+(Object.entries(fol).map(([a,n])=>`<a href="#/trader/${a}">${ic('users')}${esc(n).slice(0,16)}</a>`).join('')||'<div class=sub style="padding:0 9px">No one yet</div>')}
+
+/* ---------- profits ---------- */
+async function profits(){
+  const tab=localStorage.ptab||'bot';
+  app.innerHTML=`<h1>Profits</h1><div class=sub>A backtested, rules-based strategy built on every tracked trader.</div>
+  <div class=tabs><span data-t=bot class="${tab=='bot'?'on':''}">Profit Bot</span><span data-t=all class="${tab=='all'?'on':''}">All markets</span></div><div id=pb class=sub>Loading top traders…</div>`;
+  app.querySelectorAll('.tabs span').forEach(s=>s.onclick=()=>{localStorage.ptab=s.dataset.t;profits()});
+  const ex=await loadExperts();if(!$('#pb'))return;
+  const seen=new Set(),picks=ex.flatMap(e=>e.closed.map(c=>({...c,wr:e.wr}))).filter(c=>c.avgPrice>=.4&&c.avgPrice<=.9&&c.totalBought*c.avgPrice>=300).sort((a,b)=>a.timestamp-b.timestamp)
+    .filter(c=>{const k=c.conditionId+c.outcomeIndex;return seen.has(k)?0:(seen.add(k),1)});
+  const open={};
+  ex.forEach(e=>e.open.forEach(p=>{if(p.curPrice<.03||p.curPrice>.97||p.redeemable)return;const k=p.conditionId+p.outcomeIndex,o=open[k]??={...p,n:0,inv:0,pnl:0,wr:0};o.n++;o.inv+=p.initialValue;o.pnl+=p.cashPnl;o.wr=Math.max(o.wr,e.wr)}));
+  if(tab=='bot'){const all=Object.values(open),multi=all.filter(o=>o.n>=2);bot(picks,multi.length>=3?multi:all)}else{$('#pb').outerHTML='<div id=pb></div>';pickGrid(Object.values(open),'All markets','Every open position held by the top traders.',1)}
+  app.querySelectorAll('.tabs span').forEach(s=>s.onclick=()=>{localStorage.ptab=s.dataset.t;profits()});
+}
+function bot(picks,open){
+  const wins=picks.filter(c=>c.realizedPnl>0).length,losses=picks.length-wins;
+  const ret=c=>c.realizedPnl>0?1/c.avgPrice-1:-1;
+  $('#pb').outerHTML=`<div class=card style="padding:28px 24px 22px"><div class=row style="justify-content:space-between;align-items:flex-start"><div><div class=ey>${ic('bot',10)} PROFIT BOT</div>
+   <div class=row style="gap:30px;margin-top:14px"><div><div class=lab>STARTING AMOUNT</div><div class=row style="gap:20px;align-items:center"><input id=s1 type=range min=10 max=1000 step=10 value=50><b id=v1>$50</b></div></div>
+   <div><div class=lab>RESTAKE PER PICK</div><div class=row style="gap:30px;align-items:center"><input id=s2 type=range min=1 max=25 value=15><b id=v2>15%</b></div></div></div></div><span class=circ style="width:26px;height:26px;margin:0">?</span></div>
+   <div id=fl class=sub style="margin-top:14px;color:#cfcfdd;font-size:11px"></div><div class=row style="justify-content:space-between;align-items:flex-end"><div id=bigv style="white-space:nowrap;overflow:hidden;font-size:48px;font-weight:700;letter-spacing:-2px;color:var(--g);line-height:1.1"></div>
+   <div style="text-align:right;flex:none;margin-left:16px"><div id=pk style="font-size:17px;font-weight:700;letter-spacing:-.5px"></div><div class=sub style="font-size:9px">the bot's latest resolved pick</div></div></div>
+   <div id=real class=sub style="font-size:9px;margin:22px 0 10px;color:#cfcfdd"></div>
+   <div class=row style="justify-content:space-between;align-items:center"><div id=hd style="font-size:20px;font-weight:700;letter-spacing:-.6px"></div><div id=hv2 class=pos style="font-size:20px;font-weight:700;letter-spacing:-.6px"></div></div>
+   <div id=ch class=chart style="margin:14px 0 16px"></div>
+   <div class=row style="border-top:1px solid var(--line);padding-top:18px;justify-content:space-between"><div style="width:30%"><div class=sub style="color:#cfcfdd">Win rate</div><b style="font-size:18px;letter-spacing:-.6px;display:block;margin-top:8px">${(wins/picks.length*100).toFixed(1)}%</b></div>
+   <div style="width:30%"><div class=sub style="color:#cfcfdd">Avg return per pick</div><b class=pos style="font-size:18px;letter-spacing:-.6px;display:block;margin-top:8px">+${(picks.reduce((s,c)=>s+ret(c),0)/picks.length*100).toFixed(1)}%</b></div>
+   <div style="width:30%"><div class=sub style="color:#cfcfdd">Avg entry price</div><b style="font-size:18px;letter-spacing:-.6px;display:block;margin-top:8px">${Math.round(picks.reduce((s,c)=>s+c.avgPrice,0)/picks.length*100)}¢</b></div></div></div>
+  <div class=row style="justify-content:space-between;margin-top:20px;font-size:10px"><span><b style="font-size:12px">${wins}</b> <span class=mut>won</span></span><span><b style="font-size:12px">${losses}</b> <span class=mut>lost</span></span></div>
+  <div style="display:flex;gap:0;margin-top:8px"><div style="flex:${wins};height:3px;background:var(--g)"></div><div style="flex:${losses};height:3px;background:#c24558"></div></div><div id=pg></div>`;
+  const run=()=>{
+    const s=+$('#s1').value,f=+$('#s2').value/100;$('#v1').textContent='$'+s;$('#v2').textContent=f*100+'%';
+    let b=s;const v=[s,...picks.map(c=>b*=1+f*ret(c))];
+    $('#fl').textContent=`If you restaked ${f*100}% of the bankroll every pick`;
+    $('#real').textContent=`Real sequence, real resolved picks since ${dt(picks[0].timestamp)}. ${f*100}% of bankroll restaked each time, not a flat amount. Polymarket's API may under-report losing positions, so win rate is optimistic.`;
+    const show=i=>{const t=usd(v[v.length-1]);$('#bigv').textContent=t;$('#bigv').style.fontSize=t.length>16?'26px':t.length>12?'36px':'48px';$('#pk').textContent='Pick #'+(i||picks.length);$('#hd').textContent=i?dt(picks[i-1].timestamp):dt(picks.at(-1).timestamp);$('#hv2').textContent=sg(v[i||v.length-1]-s)};
+    show(0);lineChart($('#ch'),v,{h:190,labels:true,fmt:x=>sg(x-s),right:30,onHover:i=>show(i===v.length-1?0:i)});
+  };
+  $('#s1').oninput=$('#s2').oninput=run;run();
+  pickGridInto($('#pg'),open,'Picks for today','Open markets where the rules are satisfied right now.');
+}
+function pickGrid(list,t,s){const d=document.createElement('div');$('#pb').replaceWith(d);pickGridInto(d,list,t,s)}
+function pickGridInto(el,list,title,subt){
+  let sort=localStorage.psort||'n';
+  const draw=()=>{
+    const arr=[...list].sort((a,b)=>sort=='n'?b.n-a.n||b.inv-a.inv:b.pnl/b.inv-a.pnl/a.inv).slice(0,12);
+    el.innerHTML=`<div class=row style="justify-content:space-between;align-items:flex-end;margin:36px 0 16px"><div><h2>${title}</h2><div class=sub style="margin-top:6px">${subt}</div></div>
+     <div class=row style="gap:8px"><div class=seg><span data-s=n class="${sort=='n'?'on':''}">Most experts</span><span data-s=p class="${sort=='p'?'on':''}">Most profitable</span></div><select><option>Ongoing</select></div></div>
+     <div class=g3>${arr.map((p,i)=>{const yes=/^yes$/i.test(p.outcome),no=/^no$/i.test(p.outcome);return`<div class="card pc"><div class=tp><span>${classify(p.title)}</span><a class="w" style="color:#bdbdcc" href="https://polymarket.com/event/${p.eventSlug}" target=_blank>View market ${ic('arrow',10)}</a></div>
+      <div class=tt><img src="${esc(p.icon)}"><span>${esc(p.title)}</span></div><div class=sp><div class=chart id=sp${i} style="flex:1"></div><div class=pct>${(p.curPrice*100).toFixed(1)}<small>%</small></div></div>
+      <div class=ft><span>Polymarket</span><span>All time</span></div><div class=st><div><b>${Math.round(p.wr*100)}%</b><span>top trader win rate</span></div><div><b class=pos>${usd(p.inv)}</b><span>invested</span></div><div><b>${ic('users',11)} ${p.n}</b><span>experts</span></div></div>
+      <a class="bet ${no?'n':'y'}" href="https://polymarket.com/event/${p.eventSlug}" target=_blank>Bet ${esc(p.outcome).toUpperCase()} ${ic('arrow',12)}</a></div>`}).join('')}</div>`;
+    el.querySelectorAll('.seg span').forEach(s=>s.onclick=()=>{sort=localStorage.psort=s.dataset.s;draw()});
+    arr.forEach(async(p,i)=>{const h=(await api(`clob/prices-history?market=${p.asset}&interval=max&fidelity=720`)).history;const c=$('#sp'+i);if(h&&c)lineChart(c,h.map(x=>x.p),{h:70,color:'#6f7fff',right:6,sw:1.3})});
+  };draw();
+}
+
+/* ---------- leaderboard ---------- */
 async function leaderboard(){
-  app.innerHTML='<h1>Leaderboard</h1><div class=sub>Top Polymarket traders</div><div class=tabs><span class=on>Rankings</span></div><div id=lb class=mut>Loading…</div>';
-  const per=localStorage.per||'ALL';
-  lbCache=await api(`v1/leaderboard?timePeriod=${per}&orderBy=PNL&limit=50`);
-  const f=(t,u)=>`<td>${fol[t.proxyWallet]?`<button class=btn onclick="toggle('${t.proxyWallet}','${esc(t.userName)}')">✕ Unfollow</button>`:`<button class=btn onclick="toggle('${t.proxyWallet}','${esc(t.userName)}')">+ Follow</button>`}</td>`;
-  $('#lb').outerHTML=`<div class="grid g3">${lbCache.slice(0,3).map(t=>`<div class=card><div class=sub>#${t.rank}</div><div style="margin:10px 0">${av(t.userName,t.proxyWallet)}<a class=l href="#/trader/${t.proxyWallet}" style="color:#fff">${esc(t.userName)}</a></div>
-  <div class="big pos">${sg(t.pnl)}</div><div class=sub>PnL · ${usd(t.vol)} volume</div></div>`).join('')}</div>
-  <h2>The rankings</h2><div class=card style="padding:6px 10px"><table><tr><th>#<th>Trader<th class=r>P&L<th class=r>Volume<th></tr>
-  ${lbCache.map(t=>`<tr><td class=mut>${t.rank}<td>${av(t.userName,t.proxyWallet)}<a class=l href="#/trader/${t.proxyWallet}" style="color:#fff">${esc(t.userName)}</a><td class="r pos">${sg(t.pnl)}<td class=r>${usd(t.vol)}${f(t)}</tr>`).join('')}</table></div>`;
+  const ord=localStorage.ord||'PNL',tab=localStorage.ltab||'rank';
+  app.innerHTML=`<div class=row style="justify-content:space-between;align-items:flex-start"><div><h1>Leaderboard</h1><div class=sub>All tracked history</div></div><select id=ord><option value=PNL>Highest P&L<option value=VOL>Highest volume</select></div>
+  <div class=tabs><span data-t=rank class="${tab=='rank'?'on':''}">Rankings</span><span data-t=wins class="${tab=='wins'?'on':''}">Recent wins</span></div><div id=lb class=sub>Loading…</div>`;
+  $('#ord').value=ord;$('#ord').onchange=e=>{localStorage.ord=e.target.value;leaderboard()};
+  app.querySelectorAll('.tabs span').forEach(s=>s.onclick=()=>{localStorage.ltab=s.dataset.t;leaderboard()});
+  const fb=t=>`<button class=btn data-follow="${t.proxyWallet}|${esc(t.userName)}" style="${fol[t.proxyWallet]?'':'background:#1a1a2e'}">${fol[t.proxyWallet]?ic('x',11)+' Unfollow':ic('plus',11)+' Follow'}</button>`;
+  if(tab=='wins'){const ex=await loadExperts(),w=ex.flatMap(e=>e.closed.filter(c=>c.realizedPnl>0).map(c=>({...c,u:e}))).sort((a,b)=>b.timestamp-a.timestamp).slice(0,30);
+    $('#lb').outerHTML=`<div class=tw><table><tr><th>Trader<th>Market<th class=r>Profit<th class=r>When</tr>${w.map(c=>`<tr><td><a class=w href="#/trader/${c.u.proxyWallet}">${esc(c.u.userName)}</a><td>${esc(c.title)} <span class=mut>— ${esc(c.outcome)}</span><td class="r pos">${sg(c.realizedPnl)}<td class="r mut">${ago(c.timestamp)}</tr>`).join('')}</table></div>`;return}
+  const lb=await api(`v1/leaderboard?timePeriod=ALL&orderBy=${ord}&limit=50`);if(!$('#lb'))return;
+  $('#lb').outerHTML=`<div class=g3>${lb.slice(0,3).map(t=>`<div class=card style="padding:20px 18px"><div class=row style="justify-content:space-between;font-weight:700;color:#cfcfdd;font-size:10px"><span>#${t.rank}</span><a class=w href="#/trader/${t.proxyWallet}" style="color:#8a8a9c">${ic('arrow',12)}</a></div>
+   <div style="margin:18px 0 14px">${av(t.profileImage,t.proxyWallet)}</div><a class=w href="#/trader/${t.proxyWallet}" style="font-size:13px;font-weight:600">${esc(t.userName||short(t.proxyWallet))}</a>
+   <div class=pos style="font-size:28px;font-weight:700;letter-spacing:-1.2px;margin:16px 0 4px">${sg(t.pnl)}</div><div class=sub style="font-size:9px;margin-bottom:16px">Resolved P&L · ${abbr(t.vol).slice(1)} volume</div>${fb(t).replace('class=btn','class="btn w"')}</div>`).join('')}</div>
+   <div class=row style="justify-content:space-between;align-items:flex-end;margin:34px 0 14px"><h2>The rankings</h2><span class=sub style="color:#7d86ff">Top ${lb.length} traders</span></div>
+   <div class=row style="padding:0 0 10px;font-size:10px;color:#cfcfdd;justify-content:space-between"><span>Trader</span><span style="margin-right:128px">Resolved P&L</span></div>
+   ${lb.map(t=>`<div class=row style="align-items:center;padding:14px 0;border-top:1px solid var(--line);gap:12px"><span class=sub style="width:14px">${t.rank}</span>${av(t.profileImage,t.proxyWallet).replace('class=av','class=av style="width:36px;height:36px"')}
+   <div style="flex:1"><a class=w href="#/trader/${t.proxyWallet}" style="font-weight:600;font-size:12px">${esc(t.userName||short(t.proxyWallet))}</a><div class=sub style="font-size:10px">${usd(t.vol)} volume</div></div>
+   <b class=pos style="font-size:14px;letter-spacing:-.4px;margin-right:36px">${sg(t.pnl)}</b>${fb(t)}</div>`).join('')}`;
 }
-const esc=s=>String(s||'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+
+/* ---------- trader ---------- */
 async function trader(a){
-  app.innerHTML='<div class=mut>Loading trader…</div>';
-  const [closed1,closed2,closed3,act,val]=await Promise.all([0,50,100].map(o=>api(`closed-positions?user=${a}&limit=50&offset=${o}`)).concat([api(`positions?user=${a}&sizeThreshold=1&limit=50&sortBy=CURRENT&sortDirection=DESC`),api(`value?user=${a}`)]));
-  const closed=[...closed1,...closed2,...closed3].filter(Boolean).sort((x,y)=>x.timestamp-y.timestamp);
-  const name=(await api(`activity?user=${a}&limit=1`))[0]?.name||(lbCache.find(t=>t.proxyWallet===a)||{}).userName||short(a);
-  let cum=0;const pts=[0,...closed.map(c=>cum+=c.realizedPnl)];
-  const inv=closed.reduce((s,c)=>s+c.totalBought*c.avgPrice,0),wins=closed.filter(c=>c.realizedPnl>0).length;
-  const best=closed.reduce((b,c)=>c.realizedPnl>(b?.realizedPnl??-Infinity)?c:b,null);
-  const row=(c,isAct)=>`<tr><td><a class=l style="color:#fff" href="https://polymarket.com/event/${c.eventSlug}" target=_blank>${esc(c.title)}</a> <span class=mut>— ${esc(c.outcome)}</span><div class=sub>Avg ${Math.round(c.avgPrice*100)}¢</div>
-  <td class=${isAct?'':c.realizedPnl>0?'pos':'neg'}>${isAct?'Open':c.realizedPnl>0?'Won':'Lost'}<td class=r>${usd(isAct?c.currentValue:c.totalBought*c.avgPrice)}<td class="r ${cls(isAct?c.cashPnl:c.realizedPnl)}">${sg(isAct?c.cashPnl:c.realizedPnl)}</tr>`;
-  app.innerHTML=`<div class=top><div><h1>${esc(name)}</h1><div class=sub><a class=l onclick="toggle('${a}','${esc(name)}')">${fol[a]?'Unfollow':'Follow'}</a> · <a class=l href="https://polymarket.com/profile/${a}" target=_blank>${short(a)}</a></div></div></div><br>
-  <div class="grid g4"><div class=card><div class=sub>Realized P&L (last ${closed.length})</div><div class="big ${cls(cum)}">${sg(cum)}</div></div>
-  <div class=card><div class=sub>Win rate</div><div class=big>${closed.length?(wins/closed.length*100).toFixed(1):0}%</div></div>
-  <div class=card><div class=sub>ROI</div><div class="big ${cls(cum)}">${inv?(cum/inv*100).toFixed(1):0}%</div></div>
-  <div class=card><div class=sub>Portfolio value</div><div class=big>${usd(val[0]?.value||0)}</div></div></div>
-  <div class="grid g2" style="margin-top:14px"><div class=card><div class=sub>P&L over time</div>${chart(pts,220)}</div>
-  <div class=card><div class=sub>Biggest win</div><div class="big pos">${best?sg(best.realizedPnl):'-'}</div><div class=sub>${best?esc(best.title):''}</div></div></div>
-  <div class=tabs><span id=ta class=on>Active (${act.length})</span><span id=tc>Closed (${closed.length})</span></div>
-  <div class=card style="padding:6px 10px"><table id=tb></table></div>`;
-  const head='<tr><th>Market<th>Result<th class=r>Invested<th class=r>P&L</tr>';
-  const show=x=>{$('#ta').classList.toggle('on',x);$('#tc').classList.toggle('on',!x);
-    $('#tb').innerHTML=head+(x?act.map(c=>row(c,1)):closed.slice().reverse().map(c=>row(c))).join('')};
-  $('#ta').onclick=()=>show(1);$('#tc').onclick=()=>show(0);show(1);
+  app.innerHTML='<div class=sub>Loading trader…</div>';
+  const [c1,c2,c3,act,act1]=await Promise.all([0,50,100].map(o=>api(`closed-positions?user=${a}&limit=50&offset=${o}`)).concat([api(`positions?user=${a}&sizeThreshold=1&limit=50&sortBy=CURRENT&sortDirection=DESC`),api(`activity?user=${a}&limit=1`)]));
+  const closed=[...c1,...c2,...c3].filter(x=>x&&x.title).sort((x,y)=>x.timestamp-y.timestamp),actv=Array.isArray(act)?act:[];
+  const ex=await loadExperts(),me=ex.find(e=>e.proxyWallet==a);
+  const name=me?.userName||act1[0]?.name||act1[0]?.pseudonym||short(a);
+  let cum=0;const v=[0,...closed.map(c=>cum+=c.realizedPnl)],inv=closed.reduce((s,c)=>s+c.totalBought*c.avgPrice,0),wins=closed.filter(c=>c.realizedPnl>0).length;
+  const best=closed.reduce((b,c)=>c.realizedPnl>(b?.realizedPnl??-1e18)?c:b,null),last4=closed.slice(-4),lw=last4.filter(c=>c.realizedPnl>0).length;
+  const cats={};closed.forEach(c=>{const k=classify(c.title),o=cats[k]??={n:0,w:0,p:0};o.n++;o.w+=c.realizedPnl>0;o.p+=c.realizedPnl});
+  const mine=new Set(closed.map(c=>c.conditionId)),sim=ex.filter(e=>e.proxyWallet!=a).map(e=>({e,o:e.closed.filter(c=>mine.has(c.conditionId)).length})).filter(x=>x.o).sort((x,y)=>y.o-x.o).slice(0,5);
+  const isF=!!fol[a];
+  app.innerHTML=`<h1 style="font-size:34px;margin-top:2px">${esc(name)}</h1><div class=sub style="margin-bottom:22px"><a class=mut style="cursor:pointer" data-follow="${a}|${esc(name)}">${isF?'Unfollow':'Follow'}</a> &nbsp;<a class=l id=shr style="font-size:11px">${ic('share',11)} Share profile card</a> &nbsp;·&nbsp; <a class=l href="https://polymarket.com/profile/${a}" target=_blank>${short(a)}</a></div>
+  <div class=g4><div class=tile><div class=sub>Net P&L</div><b class=${cls(cum)}>${sg(cum)}</b></div><div class=tile><div class=sub>Win Rate</div><b>${closed.length?(wins/closed.length*100).toFixed(1):0}%</b></div>
+  <div class=tile><div class=sub>ROI</div><b class=${cls(cum)}>${inv?(cum/inv*100>=0?'+':'')+(cum/inv*100).toFixed(1):0}%</b></div><div class=tile><div class=sub>Resolved Trades</div><b>${closed.length}</b></div></div>
+  <div style="display:grid;grid-template-columns:1fr 288px;gap:20px;margin-top:22px;align-items:start" class=row2><div><div class=sub style="margin-bottom:10px;font-size:10px;color:#cfcfdd">P&L over time</div><div class=card style="padding:14px 8px 8px"><div id=ch class=chart></div></div></div>
+  <div><div class=card style="padding:14px 16px;border-radius:18px;font-size:10px"><div class=row style="justify-content:space-between"><span>Biggest Win</span><b class=pos>${best?sg(best.realizedPnl):'-'}</b></div><div class=sub style="font-size:9px;margin:2px 0 8px">${best?esc(best.title)+' — '+esc(best.outcome):''}</div>
+   <div class=row style="justify-content:space-between"><span>Recent Form</span><b style="font-size:11px">${lw}-${last4.length-lw} (last ${last4.length})</b></div></div>
+   <div class=sub style="margin:20px 0 8px;color:#cfcfdd">Where they win</div><div class=tw><table style="font-size:10px"><tr><th>Category<th class=r>Trades<th class=r>Win Rate<th class=r>Profit</tr>${Object.entries(cats).sort((x,y)=>y[1].n-x[1].n).map(([k,o])=>`<tr><td>${k}<td class=r>${o.n}<td class=r>${(o.w/o.n*100).toFixed(1)}%<td class="r ${cls(o.p)}">${abbr(o.p)}</tr>`).join('')}</table></div>
+   <div class=sub style="margin:20px 0 8px;color:#cfcfdd">Similar top traders</div><div class=tw><table style="font-size:10px"><tr><th>Trader<th class=r>Overlap<th class=r>Net P&L</tr>${sim.map(s=>`<tr><td><a class=l href="#/trader/${s.e.proxyWallet}">${esc(s.e.userName||short(s.e.proxyWallet))}</a><span class=circ data-follow="${s.e.proxyWallet}|${esc(s.e.userName)}">${fol[s.e.proxyWallet]?'✓':'+'}</span><td class=r>${s.o}<td class="r ${cls(s.e.pnl)}">${abbr(s.e.pnl)}</tr>`).join('')||'<tr><td colspan=3 class=mut>No overlap with top traders</tr>'}</table></div></div></div>
+  <div class=row style="margin:34px 0 14px;align-items:center;gap:12px"><div class=row style="gap:18px;margin-right:6px"><b id=ta style="font-size:13px;cursor:pointer;color:#cfcfdd">Active (${actv.length})</b><b id=tc style="font-size:13px;cursor:pointer">Closed</b></div><input id=ps type=text placeholder="Search positions" style="flex:1"><button class=btn id=so>${ic('down',12)} Profit/Loss</button></div>
+  <div class=tw><table id=tb></table></div>`;
+  $('#shr').onclick=()=>{navigator.clipboard?.writeText(location.href);$('#shr').textContent='Link copied'};
+  lineChart($('#ch'),v,{h:190,labels:true,fmt:x=>sg(x),right:185,zero:1,endLabel:sg(cum),color:cum>=0?'#0fd978':'#f0475a'});
+  let mode=actv.length?'a':'c',desc=true;
+  const cell=(c,isA)=>{const traded=isA?c.initialValue:c.totalBought*c.avgPrice,pnl=isA?c.cashPnl:c.realizedPnl,amt=traded+pnl;
+    return`<tr><td style="max-width:260px"><a class=w href="https://polymarket.com/event/${c.eventSlug}" target=_blank style="font-weight:500">${esc(c.title)}</a> <span class=mut>— ${esc(c.outcome)}</span><div class=sub style="font-size:9px;margin-top:3px">Avg ${Math.round(c.avgPrice*100)}¢${isA?'':' · '+ago(c.timestamp)}</div>
+    <td class=${isA?'mut':pnl>0?'pos':'neg'}>${isA?'Open':pnl>0?'Won':'Lost'}<td class=r>${usd(traded)}<td class=r><div style="font-weight:600">${usd(amt)}</div><div class=${cls(pnl)} style="font-size:9px">${sg(pnl)} (${pnl>=0?'+':''}${traded?(pnl/traded*100).toFixed(1):0}%)</div></tr>`};
+  const draw=()=>{const q=$('#ps').value.toLowerCase(),isA=mode=='a';let L=(isA?actv:closed).filter(c=>c.title.toLowerCase().includes(q));
+    L=[...L].sort((x,y)=>{const f=c=>isA?c.cashPnl:c.realizedPnl;return desc?f(y)-f(x):f(x)-f(y)});
+    $('#ta').style.cssText+=`;color:${isA?'#fff':'#8a8a9c'}`;$('#tc').style.color=isA?'#8a8a9c':'#fff';
+    $('#tb').innerHTML=`<tr><th>Market<th>Result<th class=r>Total Traded<th class=r>Amount</tr>`+(L.map(c=>cell(c,isA)).join('')||'<tr><td colspan=4 class=mut>Nothing here</tr>')};
+  $('#ta').onclick=()=>{mode='a';draw()};$('#tc').onclick=()=>{mode='c';draw()};$('#ps').oninput=draw;$('#so').onclick=()=>{desc=!desc;draw()};draw();
 }
-let lastSeen=new Set(),feedTimer;
+
+/* ---------- search ---------- */
+function searchPage(){
+  app.innerHTML=`<h1>Search</h1><div class=sub>Find any Polymarket trader by name or wallet address.</div><form id=sf class=row style="margin:24px 0;gap:10px"><input id=q type=text placeholder="Name or 0x… address" style="flex:1;height:40px" autofocus><button class=btn style="height:40px">Search</button></form><div id=sr></div>`;
+  $('#sf').onsubmit=async e=>{e.preventDefault();const v=$('#q').value.trim();if(!v)return;
+    if(/^0x[0-9a-f]{40}$/i.test(v)){location.hash='#/trader/'+v.toLowerCase();return}
+    $('#sr').innerHTML='<span class=sub>Searching…</span>';const r=await search(v);
+    $('#sr').innerHTML=r.length?`<div class=tw><table>${r.map(p=>`<tr><td><a class=w style="font-weight:600" href="#/trader/${p.proxyWallet}">${esc(p.name||p.pseudonym)}</a><td class="r mut">${short(p.proxyWallet)}</tr>`).join('')}</table></div>`:'<span class=sub>No traders found.</span>'}}
+
+/* ---------- feed ---------- */
+let seenT=new Set(),ft;
 async function feed(){
-  app.innerHTML=`<h1>Feed</h1><div class=sub>Live whale trades · min $<input id=min type=number value=${localStorage.min||5000} style="width:90px;padding:3px 8px"> <label><input type=checkbox id=nt> notify</label> <span id=st></span></div><br><div class=card style="padding:6px 10px"><table id=ft></table></div>`;
-  $('#min').onchange=e=>{localStorage.min=e.target.value;lastSeen.clear();tick()};
-  $('#nt').onchange=e=>e.target.checked&&Notification.requestPermission();
-  const first=!lastSeen.size;
-  async function tick(){
-    if(!$('#ft'))return;
-    const d=await api(`trades?limit=200&filterType=CASH&filterAmount=${+$('#min').value||0}`),isFirst=!lastSeen.size;let fresh=0;
-    const rows=d.map(t=>{const k=t.transactionHash+t.asset+t.size,n=!lastSeen.has(k)&&!isFirst;lastSeen.add(k);if(n)fresh++;
-      return`<tr class="${n?'new':''}"><td class=mut>${new Date(t.timestamp*1000).toLocaleTimeString()}<td><a class=l href="#/trader/${t.proxyWallet}">${esc(t.name||t.pseudonym||short(t.proxyWallet))}</a>
-      <td class=${t.side=='BUY'?'pos':'neg'}>${t.side}<td class=r>${usd(t.size*t.price)}<td><a class=l style="color:#fff" href="https://polymarket.com/event/${t.eventSlug}" target=_blank>${esc(t.title)}</a> <span class=mut>${esc(t.outcome)}</span><td class=r>${(t.price*100).toFixed(1)}¢</tr>`}).join('');
-    $('#ft').innerHTML='<tr><th>Time<th>Trader<th>Side<th class=r>USD<th>Market<th class=r>Price</tr>'+rows;
-    $('#st').textContent=' · updated '+new Date().toLocaleTimeString();
-    if(fresh&&$('#nt').checked&&Notification.permission==='granted')new Notification(`🐋 ${fresh} new whale trade(s)`);
-  }
-  tick();clearInterval(feedTimer);feedTimer=setInterval(tick,15000);
+  app.innerHTML=`<h1>Feed</h1><div class=sub>Live whale trades · refreshes every 15s</div><div class=row style="margin:20px 0;align-items:center;gap:12px"><span class=sub>Min trade size $</span><input id=min type=number value=${localStorage.min||5000} style="width:100px"><label class=sub><input type=checkbox id=nt> Notify</label><span class=sub id=st></span></div><div class=tw><table id=ft></table></div>`;
+  $('#min').onchange=e=>{localStorage.min=e.target.value;seenT.clear();tick()};$('#nt').onchange=e=>e.target.checked&&Notification.requestPermission();
+  async function tick(){if(!$('#ft'))return;const d=await api(`trades?limit=200&filterType=CASH&filterAmount=${+$('#min').value||0}`);if(!Array.isArray(d))return;
+    const first=!seenT.size;let fresh=0;
+    const rows=d.map(t=>{const k=t.transactionHash+t.asset+t.size,n=!first&&!seenT.has(k);seenT.add(k);if(n)fresh++;
+      return`<tr style="${n?'background:#0fd9781a':''}"><td class=mut>${new Date(t.timestamp*1000).toLocaleTimeString()}<td><a class=l href="#/trader/${t.proxyWallet}">${esc(t.name||t.pseudonym||short(t.proxyWallet))}</a><td class=${t.side=='BUY'?'pos':'neg'}>${t.side}<td class=r><b>${usd(t.size*t.price)}</b>
+      <td><a class=w href="https://polymarket.com/event/${t.eventSlug}" target=_blank>${esc(t.title)}</a> <span class=mut>${esc(t.outcome)}</span><td class=r>${(t.price*100).toFixed(1)}¢</tr>`}).join('');
+    $('#ft').innerHTML='<tr><th>Time<th>Trader<th>Side<th class=r>Size<th>Market<th class=r>Price</tr>'+rows;$('#st').textContent='Updated '+new Date().toLocaleTimeString();
+    if(fresh&&$('#nt').checked&&Notification.permission==='granted')new Notification(`🐋 ${fresh} new whale trade(s)`)}
+  tick();clearInterval(ft);ft=setInterval(tick,15000);
 }
-function route(){
-  clearInterval(feedTimer);const h=location.hash.slice(2)||'feed',[p,a]=h.split('/');
-  document.querySelectorAll('aside a[data-p]').forEach(x=>x.classList.toggle('on',x.dataset.p==p));
-  ({feed,leaderboard,trader:()=>trader(a)})[p]?.();
-}
-$('#sf').onsubmit=e=>{e.preventDefault();const v=$('#q').value.trim();if(!v)return;
-  const m=/^0x[0-9a-f]{40}$/i.test(v)?v.toLowerCase():(lbCache.find(t=>t.userName.toLowerCase().includes(v.toLowerCase()))||{}).proxyWallet;
-  m?location.hash='#/trader/'+m:alert('Paste a 0x wallet address (names only match the leaderboard — open it first).')};
-addEventListener('hashchange',route);renderFol();route();
-</script>
+
+function route(keep){clearInterval(ft);renderNav();const[p,a]=(location.hash.slice(2)||'profits').split('/');
+  ({profits,feed,leaderboard,search:searchPage,trader:()=>trader(a)})[p]?.();}
+addEventListener('hashchange',()=>route());route();
+</script></body></html>
