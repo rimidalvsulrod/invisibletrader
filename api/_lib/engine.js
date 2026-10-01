@@ -139,11 +139,13 @@ async function run(ctx = runCtx(), minGap = 0) {
   try {
     if (!s.creds) { s.disable = true; log(s, { trader: 'bot', title: 'Bot paused — connect your Kalshi account first', st: 'error' }); await save(s); return { ran: true, error: 'no key' }; }
     if (process.env.TRADING_DISABLED) { s.disable = true; log(s, { trader: 'bot', title: 'Bot paused — TRADING_DISABLED is set on the server', st: 'error' }); await save(s); return { ran: true }; }
-    const acct = await account(s.creds); reconcile(s, acct);
     let addrs = (await db.q('SELECT wallet FROM follows')).map(r => r.wallet); if (!addrs.length) addrs = await ctx.top(); addrs = addrs.slice(0, 15);
     s.st.since ??= Math.floor(Date.now() / 1000) - 30; const seen = new Set(s.st.seen || []);
-    for (const id of s.st.retry || []) { s.st.retry = s.st.retry.filter(x => x !== id); const cp = s.copies.find(x => x.id === id); if (cp) await sellCopy(s, cp, acct, 'retrying sell'); }
     const trades = (await Promise.all(addrs.map(a => ctx.trades(a)))).flat().filter(t => t && t.timestamp >= s.st.since && !seen.has(t.transactionHash + t.asset + t.size + t.side)).sort((a, b) => a.timestamp - b.timestamp);
+    // checks run every ~10s; only touch Kalshi when there is something to do, or once a minute to stay in sync
+    if (!trades.length && !(s.st.retry || []).length && Date.now() - (s.st.synced || 0) < 60e3) { s.st.last = Date.now(); s.st.watching = addrs.length; await save(s); return { ran: true, trades: 0 }; }
+    const acct = await account(s.creds); reconcile(s, acct); s.st.synced = Date.now();
+    for (const id of s.st.retry || []) { s.st.retry = s.st.retry.filter(x => x !== id); const cp = s.copies.find(x => x.id === id); if (cp) await sellCopy(s, cp, acct, 'retrying sell'); }
     let mk = null;
     for (const t of trades) { if (s.disable) break; seen.add(t.transactionHash + t.asset + t.size + t.side);
       if (t.side === 'SELL') { for (const cp of s.copies.filter(p => p.asset === t.asset)) await sellCopy(s, cp, acct, `${cp.trader} sold`); }

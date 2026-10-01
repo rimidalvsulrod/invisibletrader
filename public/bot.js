@@ -59,7 +59,7 @@ function botRender(S) {
       <div><div style="font-size:22px;font-weight:650;letter-spacing:-.5px">${S.enabled ? '<span class=up>Running</span>' : 'Paused'}</div>
       <div class=mut style="font-size:13px">${S.last ? `Last check ${rel(S.last / 1000)} · copying ${S.watching} trader${S.watching == 1 ? '' : 's'}` : connected ? 'Turn on to start copying' : 'Connect Kalshi to start'}</div></div></div>
       ${connected ? `<span class="pill ${real ? 'down' : 'ac'}" style="height:26px;padding:0 12px">${real ? 'Kalshi · real money' : 'Kalshi · demo account'}</span>` : ''}</div>
-    ${stale ? `<div class=note style="margin-top:16px">The bot is on but hasn't checked in 5 minutes. Keep this page open, or add the link under "Always on" to cron-job.org.</div>` : ''}
+    ${stale ? `<div class=note style="margin-top:16px">The bot is on but hasn't checked in 5 minutes — the 24/7 runner may be restarting. It recovers on its own; tap Check now to run immediately.</div>` : ''}
     ${S.disabledServer ? `<div class=note style="margin-top:16px">Trading is switched off on the server (TRADING_DISABLED).</div>` : ''}
     ${S.accountError ? `<div class=note style="margin-top:16px">Kalshi: ${esc(S.accountError)}</div>` : ''}
     ${A ? `<div class="grid g3" style="margin-top:20px"><div class=stat><div class=k>Cash</div><div class="v num">${usd(A.cash, 2)}</div><div class=s>available on Kalshi</div></div>
@@ -98,8 +98,7 @@ function botRender(S) {
         <div class=mut style="font-size:12.5px;margin-top:2px">${e.tk ? `<span class=num>${esc(e.tk)}</span> · ` : ''}${esc(e.note || '')}</div></td><td class="r mut hide-m" style="font-size:12.5px;white-space:nowrap">${rel(e.t / 1000)}</td></tr>`;
     }).join('') || `<tr><td class=empty>Nothing yet — when a trader you follow buys on Polymarket, the bot's decision shows up here.</td></tr>`}</tbody></table></div>`;
 
-  const cronCard = `<div class="card pad"><h3>Always on</h3><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 10px">While this page is open the bot checks every 5 seconds. With it closed, GitHub wakes it every 30 minutes. For checks every minute around the clock, paste this link into a free job at <a href="https://cron-job.org" target=_blank style="color:var(--lnk)">cron-job.org</a>:</p>
-    <div class=row><input class=inp readonly value="${location.origin}/api/cron" style="font:12px ui-monospace,monospace;height:36px"><button class="btn sm ic" id=ccp>${ic('copy', 13)}</button></div></div>`;
+  const cronCard = `<div class="card pad"><div class="row sb"><h3>Always on</h3><span class=live>24/7</span></div><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 0">The bot runs on GitHub's servers around the clock, checking every ~10 seconds — your phone and this page can be closed. While this page is open it also checks every 5 seconds.</p></div>`;
 
   app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>Copies the Polymarket traders you follow onto your Kalshi account.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
     ${status}<div class=split style="margin-top:20px"><div class=grid>${connected ? posT + fillsT : ''}${logT}</div><div class=grid>${keysCard}${connected ? settings : ''}${cronCard}</div></div>`;
