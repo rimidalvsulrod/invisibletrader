@@ -28,8 +28,13 @@ async function balance(c) {
   const r = await call(c, 'GET', '/portfolio/balance'); if (!r.ok) return { ok: false, status: r.status, error: r.json.error || r.json.message || r.json.raw || 'balance request failed' };
   const d = parseFloat(r.json.balance_dollars); return { ok: true, balance: !isNaN(d) ? d : typeof r.json.balance === 'number' ? r.json.balance / 100 : null };
 }
-async function openMarkets(env) { let cur = '', all = [];
-  for (let i = 0; i < 6; i++) { const r = await fetch(`${BASES[env]}/markets?status=open&limit=1000&mve_filter=exclude${cur ? '&cursor=' + encodeURIComponent(cur) : ''}`); if (!r.ok) break; const j = await r.json(); all.push(...(j.markets || [])); cur = j.cursor; if (!cur) break; }
-  return all; }
+const pub = async u => { for (let i = 0; i < 5; i++) { const r = await fetch(u).catch(() => null);
+  if (r?.ok) return r.json(); if (r && r.status !== 429 && r.status < 500) return null; await new Promise(z => setTimeout(z, 800 * (i + 1))); } return null; };
+// every open event (Kalshi has ~13k events / 80k+ markets, too many to scan market-by-market)
+async function openEvents(env) { let cur = '', all = [];
+  for (let i = 0; i < 300; i++) { const j = await pub(`${BASES[env]}/events?status=open&limit=200${cur ? '&cursor=' + encodeURIComponent(cur) : ''}`);
+    if (!j) return { all, complete: false }; all.push(...(j.events || [])); cur = j.cursor; if (!cur) break; }
+  return { all, complete: true }; }
+const eventMarkets = async (env, ev) => (await pub(`${BASES[env]}/markets?event_ticker=${encodeURIComponent(ev)}&status=open&limit=1000`))?.markets || [];
 async function market(env, ticker) { const r = await fetch(`${BASES[env]}/markets/${encodeURIComponent(ticker)}`); return r.ok ? (await r.json()).market : null; }
-module.exports = { sign, call, orderBody, placeOrder, balance, openMarkets, market };
+module.exports = { sign, call, orderBody, placeOrder, balance, openEvents, eventMarkets, market };

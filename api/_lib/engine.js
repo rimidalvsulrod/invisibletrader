@@ -22,12 +22,29 @@ const DAY = 864e5, MKC = {}, PMC = new Map();
 const fee = (n, c) => Math.ceil(0.07 * n * (c / 100) * (1 - c / 100) * 100 - 1e-9) / 100;
 const orderCap = () => Number(process.env.MAX_ORDER_USD) || Infinity; // optional server-side ceiling (MAX_ORDER_USD); none by default
 
-async function kalshiMarkets(env) {
-  const c = MKC[env]; if (c && Date.now() - c.t < 3e5) return c.data;
-  const data = (await K.openMarkets(env)).map(m => { const ws = tok(`${m.title} ${m.yes_sub_title || ''}`);
+// index of every open Kalshi event (refreshed every 15 min; 2 min if a page failed)
+async function eventIndex(env) {
+  const c = MKC[env]; if (c && Date.now() - c.t < (c.complete ? 9e5 : 12e4)) return c;
+  const { all, complete } = await K.openEvents(env); if (!all.length) { if (c) return c; throw new Error("couldn't load Kalshi events"); }
+  const ev = all.map(e => ({ e: e.event_ticker, tk: new Set(tok(`${e.title} ${e.sub_title || ''}`)) })).filter(e => e.e && e.tk.size), df = new Map();
+  for (const e of ev) for (const w of e.tk) df.set(w, (df.get(w) || 0) + 1);
+  return MKC[env] = { t: Date.now(), complete, ev, df };
+}
+const EMC = new Map();
+async function evMarkets(env, ev) {
+  const k = env + ev, c = EMC.get(k); if (c && Date.now() - c.t < 6e4) return c.data;
+  const data = (await K.eventMarkets(env, ev)).map(m => { const ws = tok(`${m.title} ${m.yes_sub_title || ''}`);
     return { t: m.ticker, title: m.title, sub: m.yes_sub_title, ya: cents(m.yes_ask_dollars, m.yes_ask), na: cents(m.no_ask_dollars, m.no_ask), tk: new Set(ws), dir: dirs(ws),
       ends: [m.close_time, m.expected_expiration_time].map(x => Date.parse(x)).filter(x => !isNaN(x)) }; }).filter(m => m.t && m.tk.size);
-  if (data.length) MKC[env] = { t: Date.now(), data }; return data;
+  if (EMC.size > 500) EMC.clear(); EMC.set(k, { t: Date.now(), data }); return data;
+}
+// markets of the 12 events sharing the rarest words with the Polymarket question
+async function kalshiMarkets(env, title) {
+  const ix = await eventIndex(env), N = ix.ev.length, ws = [...new Set(tok(title))];
+  const top = ix.ev.map(e => { let s = 0; for (const w of ws) if (e.tk.has(w)) s += Math.log(N / ix.df.get(w)); return { e: e.e, s }; })
+    .filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 12);
+  const out = []; for (let i = 0; i < top.length; i += 4) (await Promise.all(top.slice(i, i + 4).map(x => evMarkets(env, x.e)))).forEach(m => out.push(...m));
+  return out;
 }
 async function pmEnd(conditionId) {
   if (PMC.has(conditionId)) return PMC.get(conditionId);
@@ -42,7 +59,8 @@ function match(title, mk, th, end) {
     if (s < th || !nums.every(n => m.tk.has(n)) || h / m.tk.size < .25) continue;
     if (m.dir !== d) { near ??= 'wording differs (above/below/before/after/not)'; continue; }
     if (isNaN(end) || !m.ends.length) { near ??= 'could not confirm the resolution date'; continue; }
-    if (!m.ends.some(x => Math.abs(x - end) <= 3 * DAY)) { near ??= 'resolves on a different date'; continue; }
+    // short-term markets must resolve within 3 days of each other; long-dated ones (Polymarket end dates are often loose) within 90
+    if (!m.ends.some(x => Math.abs(x - end) <= (end - Date.now() > 30 * DAY ? 90 : 3) * DAY)) { near ??= 'resolves on a different date'; continue; }
     if (!best || s > best.s) best = { m, s };
   }
   return best || { reason: near || 'not on Kalshi' };
@@ -83,9 +101,10 @@ function reconcile(s, acct) {
   }
 }
 
-async function buy(s, t, mk, acct) {
+async function buy(s, t, acct) {
   const c = s.cfg, base = { trader: t.name || t.pseudonym || t.proxyWallet.slice(0, 8), title: t.title, outcome: t.outcome, pm: Math.round(t.price * 100), usd: t.size * t.price, act: 'buy' };
   const o = String(t.outcome).toLowerCase(); if (o !== 'yes' && o !== 'no') return log(s, { ...base, st: 'skip', note: 'not a Yes/No market' });
+  const mk = await kalshiMarkets(s.creds.env, t.title).catch(() => null); if (!mk) return log(s, { ...base, st: 'skip', note: "couldn't load Kalshi's market list" });
   const b = match(t.title, mk, c.thresh / 100, await pmEnd(t.conditionId)); if (!b.m) return log(s, { ...base, st: 'skip', note: b.reason });
   const ask = o === 'yes' ? b.m.ya : b.m.na, e = { ...base, tk: b.m.t, kt: b.m.title + (b.m.sub ? ' — ' + b.m.sub : ''), side: o, ask, asset: t.asset };
   if (!ask || ask < 1 || ask > 99) return log(s, { ...e, st: 'skip', note: 'no Kalshi price right now' });
@@ -146,10 +165,9 @@ async function run(ctx = runCtx(), minGap = 0) {
     if (!trades.length && !(s.st.retry || []).length && Date.now() - (s.st.synced || 0) < 60e3) { s.st.last = Date.now(); s.st.watching = addrs.length; await save(s); return { ran: true, trades: 0 }; }
     const acct = await account(s.creds); reconcile(s, acct); s.st.synced = Date.now();
     for (const id of s.st.retry || []) { s.st.retry = s.st.retry.filter(x => x !== id); const cp = s.copies.find(x => x.id === id); if (cp) await sellCopy(s, cp, acct, 'retrying sell'); }
-    let mk = null;
     for (const t of trades) { if (s.disable) break; seen.add(t.transactionHash + t.asset + t.size + t.side);
       if (t.side === 'SELL') { for (const cp of s.copies.filter(p => p.asset === t.asset)) await sellCopy(s, cp, acct, `${cp.trader} sold`); }
-      else if (t.side === 'BUY' && t.size * t.price >= s.cfg.minUsd) { mk ??= await kalshiMarkets(s.creds.env); if (mk.length) await buy(s, t, mk, acct); } }
+      else if (t.side === 'BUY' && t.size * t.price >= s.cfg.minUsd) await buy(s, t, acct); }
     s.st.seen = [...seen].slice(-800); s.st.last = Date.now(); s.st.watching = addrs.length; await save(s); return { ran: true, trades: trades.length, logs: s.logs.length };
   } catch (e) { s.st.last = Date.now(); log(s, { trader: 'bot', title: 'Check failed: ' + String(e.message || e).slice(0, 140), st: 'error' }); await save(s).catch(() => {}); return { ran: true, error: String(e.message || e) }; }
 }
