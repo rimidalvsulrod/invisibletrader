@@ -233,3 +233,66 @@ kbd,.step b{background:var(--bg)}
 .ldot.ping{animation:lping .9s ease-out}@keyframes lping{0%{box-shadow:0 0 0 0 var(--up)}100%{box-shadow:0 0 0 9px transparent}}
 .lbars{display:flex;align-items:flex-end;gap:2px;height:30px;margin:10px 0 8px}
 .lbars i{flex:1;background:var(--up);opacity:.45;border-radius:2px}.lbars i:last-child{opacity:1}
+
+/* ======================================================================================
+   v4 "Fresh Air" plugin look: colorful hardware faceplates with corner screws, LED screens,
+   neon cyan/magenta accents, VU-style meter. Overrides the variables and surfaces above.
+   ====================================================================================== */
+:root{ /* night: indigo / violet faceplates, cyan + magenta glow */
+--bg:#171a3a;--bg2:#1d2148;--tint:200,210,255;--line:rgba(160,170,255,.1);--line2:rgba(160,170,255,.16);
+--text:#eef1ff;--mut:#a9b1e0;--mut2:#7a83bb;--ac:#2fe6ff;--ac2:#ff4fd8;--acbg:rgba(47,230,255,.14);--lnk:#5cecff;--pop:#232861;--glass:#1b1f47;--glass2:#1b1f47;
+--up:#7dff6a;--upbg:rgba(125,255,106,.13);--down:#ff5a7a;--downbg:rgba(255,90,122,.14);--warn:#ffc94a;--warnbg:rgba(255,201,74,.14);
+--sd:rgba(4,5,24,.7);--sl:rgba(130,140,255,.09);
+--plate:linear-gradient(160deg,#2a2f68 0%,#1e2256 48%,#1a1c49 100%);--screw:#c9cff5;--screwrim:#4a5190;
+--screen:linear-gradient(180deg,#080a22,#10133a);--convex:linear-gradient(145deg,#2c3170,#1b1f4c);--concave:linear-gradient(145deg,#14173c,#262b62);
+--raise:inset 0 1px 0 rgba(255,255,255,.12),inset 0 -2px 0 rgba(0,0,0,.35),0 16px 34px -10px rgba(3,4,22,.8),0 0 0 1px rgba(140,150,255,.1);
+--raise-sm:inset 0 1px 0 rgba(255,255,255,.14),inset 0 -1px 0 rgba(0,0,0,.4),0 6px 14px -4px rgba(3,4,22,.75);
+--press:inset 0 3px 8px rgba(0,0,0,.55),inset 0 -1px 0 rgba(255,255,255,.06);
+--knob:linear-gradient(145deg,#f4f6ff,#b9c0ec);--thumb:linear-gradient(145deg,#f4f6ff,#b9c0ec);
+--face:radial-gradient(circle at 34% 26%,#4b4f8a 0%,#24275a 50%,#121433 100%);--faceRing:#191c45;
+--sky:radial-gradient(900px 600px at 0% 0%,rgba(47,230,255,.16),transparent 60%),radial-gradient(900px 700px at 100% 100%,rgba(255,79,216,.16),transparent 60%),radial-gradient(700px 500px at 100% 0%,rgba(125,90,255,.18),transparent 60%),linear-gradient(160deg,#141739,#1f1647)}
+:root[data-theme=light]{ /* day: sky-blue / lavender faceplates, same neon on dark LED screens */
+--bg:#e3f2ff;--bg2:#eef7ff;--tint:40,50,120;--line:rgba(60,80,160,.12);--line2:rgba(60,80,160,.18);
+--text:#1c2350;--mut:#5a669a;--mut2:#8792c2;--ac:#0097cf;--ac2:#d5309a;--acbg:rgba(0,151,207,.12);--lnk:#007fb0;--pop:#ffffff;--glass:#e3f2ff;--glass2:#e3f2ff;
+--up:#16a34a;--upbg:rgba(22,163,74,.12);--down:#e11d48;--downbg:rgba(225,29,72,.1);--warn:#b45309;--warnbg:rgba(245,158,11,.15);
+--sd:rgba(80,110,190,.35);--sl:rgba(255,255,255,.95);
+--plate:linear-gradient(160deg,#ffffff 0%,#e9f4ff 50%,#dfe9ff 100%);--screw:#ffffff;--screwrim:#9aa8d6;
+--screen:linear-gradient(180deg,#0b0e2c,#151a48);--convex:linear-gradient(145deg,#ffffff,#d7e6fb);--concave:linear-gradient(145deg,#d3e2f8,#f4f9ff);
+--raise:inset 0 1px 0 #fff,inset 0 -2px 0 rgba(80,110,190,.15),0 16px 32px -12px rgba(70,100,180,.45),0 0 0 1px rgba(90,120,200,.14);
+--raise-sm:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(80,110,190,.2),0 6px 14px -5px rgba(70,100,180,.45);
+--press:inset 0 3px 7px rgba(70,100,180,.35),inset 0 -1px 0 #fff;
+--knob:linear-gradient(145deg,#ffffff,#d4def5);--thumb:linear-gradient(145deg,#ffffff,#d4def5);
+--face:radial-gradient(circle at 34% 26%,#4b4f8a 0%,#24275a 50%,#121433 100%);--faceRing:#191c45;
+--sky:radial-gradient(900px 600px at 0% 0%,rgba(0,190,255,.18),transparent 60%),radial-gradient(900px 700px at 100% 100%,rgba(255,90,200,.14),transparent 60%),linear-gradient(160deg,#dff1ff,#efe6ff)}
+html,body{background:var(--bg)}body{background:var(--sky) fixed}
+aside,.topbar{background:transparent}
+/* faceplates: gradient plate + four screws */
+.card{border-radius:24px;box-shadow:var(--raise);background:
+  radial-gradient(circle at 9px 9px,var(--screw) 0 1.6px,var(--screwrim) 2px 3px,transparent 3.5px),
+  radial-gradient(circle at calc(100% - 9px) 9px,var(--screw) 0 1.6px,var(--screwrim) 2px 3px,transparent 3.5px),
+  radial-gradient(circle at 9px calc(100% - 9px),var(--screw) 0 1.6px,var(--screwrim) 2px 3px,transparent 3.5px),
+  radial-gradient(circle at calc(100% - 9px) calc(100% - 9px),var(--screw) 0 1.6px,var(--screwrim) 2px 3px,transparent 3.5px),
+  var(--plate)}
+.card h2,.card h3{letter-spacing:.06em;text-transform:uppercase;font-size:13px;font-weight:700;color:var(--mut)}
+/* LED screens for the money numbers, each its own color */
+.stat{background:var(--screen);border-radius:16px;padding:14px 16px;box-shadow:inset 0 2px 8px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.08)}
+.stat .k{color:#9aa3d6}.stat .s{color:#6f78ad}
+.stat .v{color:#2fe6ff;text-shadow:0 0 14px rgba(47,230,255,.55);font-weight:500}
+.grid>.stat:nth-child(3n+2) .v,.g3>.stat:nth-child(3n+2) .v{color:#ff6be0;text-shadow:0 0 14px rgba(255,79,216,.5)}
+.grid>.stat:nth-child(3n) .v,.g3>.stat:nth-child(3n) .v{color:#9dff6a;text-shadow:0 0 14px rgba(125,255,106,.45)}
+/* buttons, switch, chips */
+.btn{background:var(--convex);box-shadow:var(--raise-sm)}.btn:active{background:var(--concave);box-shadow:var(--press)}
+.btn.pri,.sw.on{background:linear-gradient(135deg,#2fe6ff 0%,#7a5cff 55%,#ff4fd8 100%);color:#fff}
+.btn.pri{box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 8px 22px -6px rgba(122,92,255,.7)}
+.sw{background:var(--concave);box-shadow:var(--press)}.sw.on{box-shadow:inset 0 2px 6px rgba(0,0,0,.3),0 0 16px rgba(122,92,255,.55)}
+.chip.on,.seg button.on,.nv.on svg{color:var(--ac)}
+.pill.n{background:rgba(var(--tint),.12);color:var(--mut)}
+.pill.ac{background:rgba(255,79,216,.15);color:var(--ac2)}
+#tabbar{background:var(--plate)!important;box-shadow:var(--raise)!important}
+/* the dial glows like a plugin knob */
+.dial .face{box-shadow:0 0 0 6px rgba(47,230,255,.07),0 0 38px rgba(122,92,255,.35),0 14px 26px var(--sd),inset 0 2px 2px rgba(255,255,255,.22),inset 0 -4px 8px rgba(0,0,0,.4)}
+.dial .face i{background:var(--ac2);box-shadow:0 0 12px var(--ac2)}
+/* live view: LED + VU meter */
+.lv{background:var(--screen);color:#e8ecff;box-shadow:inset 0 2px 8px rgba(0,0,0,.6);border-radius:16px}.lv .mut{color:#9aa3d6}
+.ldot{background:#7dff6a;box-shadow:0 0 10px #7dff6a}.ldot.off{background:#ffc94a;box-shadow:0 0 10px #ffc94a}
+.lbars i{background:linear-gradient(to top,#7dff6a 0%,#2fe6ff 45%,#ff4fd8 100%);opacity:.5;box-shadow:0 0 6px rgba(47,230,255,.35)}.lbars i:last-child{opacity:1}
