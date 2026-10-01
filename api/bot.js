@@ -33,11 +33,13 @@ module.exports = handler(async (req, body, q) => {
   }
   if (op === 'test') { const c = await S.getCreds(); if (!c) throw err(400, 'Add your Kalshi API key first'); const b = await K.balance(c); if (!b.ok) throw err(400, `Kalshi said: ${b.error}`); return { ok: true, env: c.env, balance: b.balance }; }
   if (op === 'keys') { // paste-in Kalshi API key: verified against Kalshi before it is saved (encrypted)
-    const keyId = String(body.keyId || '').trim(), pem = S.normPem(body.pem), env = body.env === 'prod' ? 'prod' : 'demo';
+    const keyId = String(body.keyId || '').trim(), pem = S.normPem(body.pem);
     if (!/^[A-Za-z0-9-]{8,80}$/.test(keyId)) throw err(400, 'That doesn\'t look like a Kalshi API key ID');
     try { crypto.createPrivateKey(pem); } catch (e) { throw err(400, 'That private key could not be read — paste the whole file including the BEGIN/END lines'); }
-    const b = await K.balance({ keyId, pem, env });
-    if (!b.ok) throw err(400, `Kalshi rejected the key (${b.status}): ${b.error}. Check it was created on ${env === 'prod' ? 'kalshi.com' : 'demo.kalshi.co'}.`);
+    // detect whether this is a real (kalshi.com) or demo (demo.kalshi.co) key by asking both
+    let env = null, b = null, last = null;
+    for (const e of ['prod', 'demo']) { const r = await K.balance({ keyId, pem, env: e }); if (r.ok) { env = e; b = r; break; } last = r; }
+    if (!env) throw err(400, `Kalshi rejected this key (${last.status}: ${last.error}). Check the Key ID matches the private key, and that the key wasn't deleted.`);
     await S.saveCreds({ keyId, pem, env }); return { ok: true, env, balance: b.balance };
   }
   if (op === 'keysdel') { await S.clearCreds(); await db.q("UPDATE bot SET cfg=$1 WHERE id='me'", [JSON.stringify({ ...(await E.open()).cfg, paper: true })]); return { ok: true }; }
