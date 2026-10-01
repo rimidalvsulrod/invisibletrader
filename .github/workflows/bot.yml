@@ -1,24 +1,40 @@
-# 24/7 runner for the Auto Trader. Calls the site's /api/cron every ~10 seconds, around the clock.
-# A fresh run starts every hour and cancels the previous one (concurrency below), so there is no gap
-# even when GitHub's scheduler is late. Public repos get unlimited free Actions minutes.
+# 24/7 runner for the Auto Trader. Each run lasts ~2h10m and a new one starts every hour, so runs overlap
+# and there is no gap even when GitHub's scheduler is late. Overlap is safe: the engine's database lock lets
+# only one check run at a time. Public repos get unlimited free Actions minutes.
+#   With the DATABASE_URL secret set: runs the engine here, checking every 2 seconds.
+#   Without it: falls back to calling the site's /api/cron every 10 seconds.
 name: auto-trader
 on:
   schedule: [{ cron: '7 * * * *' }]
   workflow_dispatch: {}
   push:
     branches: [main]
-    paths: ['.github/workflows/bot.yml']
-concurrency:
-  group: auto-trader
-  cancel-in-progress: true
+    paths: ['.github/workflows/bot.yml', 'runner.js']
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 358
+    timeout-minutes: 140
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      KALSHI_KEY_ID: ${{ secrets.KALSHI_KEY_ID }}
+      KALSHI_PRIVATE_KEY: ${{ secrets.KALSHI_PRIVATE_KEY }}
+      KALSHI_ENV: ${{ secrets.KALSHI_ENV }}
+      MAX_ORDER_USD: ${{ secrets.MAX_ORDER_USD }}
+      TRADING_DISABLED: ${{ secrets.TRADING_DISABLED }}
     steps:
-      - name: Check for trades every 10 seconds
+      - uses: actions/checkout@v4
+        if: env.DATABASE_URL != ''
+      - uses: actions/setup-node@v4
+        if: env.DATABASE_URL != ''
+        with: { node-version: 22 }
+      - name: Check for trades every 2 seconds
+        if: env.DATABASE_URL != ''
+        run: npm ci --omit=dev --no-audit --no-fund && node runner.js
+      - name: Check for trades every 10 seconds (add the DATABASE_URL secret for 2s checks)
+        if: env.DATABASE_URL == ''
         run: |
-          end=$((SECONDS + 21300))   # ~5h55m safety stop; normally replaced by the next hourly run first
+          end=$((SECONDS + 7800))
           while [ $SECONDS -lt $end ]; do
             curl -sS -m 50 -o /dev/null -w "%{http_code} " "https://invisibletrader.vercel.app/api/cron" || true
             sleep 10
