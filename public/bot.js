@@ -1,5 +1,5 @@
 /* Auto Trader — real money on your Kalshi account. The engine runs on the server; this page shows live Kalshi data and settings. */
-let botPoll, botFast;
+let botPoll, botFast, dialOpen = false, dialTimer; // the trade-size dial starts locked
 const botStopPoll = () => { clearInterval(botPoll); clearInterval(botFast); };
 const bapi = async (op, body) => {
   const r = await fetch('/api/bot' + (body ? '' : '?op=' + op), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op, ...body }) } : {});
@@ -12,14 +12,14 @@ const authPost = (op, data) => fetch('/api/auth', { method: 'POST', headers: { '
 async function botPage() {
   app.innerHTML = sk(320);
   const me = await fetch('/api/auth?op=me').then(r => r.json()).catch(() => ({ setup: {} }));
-  OWNER = !!me.owner; renderSide();
+  const was = OWNER; OWNER = !!me.owner; if (OWNER && !was) loadFollows(); renderSide();
   if (!me.setup?.db) return botNoDb();
   if (!me.setup.password) return botLogin(true);
   if (!OWNER) return botLogin(false);
   await botRefresh();
   botStopPoll();
   botFast = setInterval(() => { if (!$('#bstate')) return botStopPoll(); if (BOTON) fetch('/api/cron').catch(() => {}); }, 5000); // checks every 5s while open
-  botPoll = setInterval(() => { if (!$('#bstate')) return botStopPoll(); if (!document.activeElement?.matches('input,select,textarea') && !$('#dial')?.onpointermove) botRefresh(true); }, 8000);
+  botPoll = setInterval(() => { if (!$('#bstate')) return botStopPoll(); if (!document.activeElement?.matches('input,select,textarea') && !dialOpen) botRefresh(true); }, 8000);
 }
 async function botRefresh() {
   try { botRender(await bapi('state')); }
@@ -42,7 +42,7 @@ function botLogin(first) {
     if (first && $('#pw').value !== $('#pw2').value) { $('#le').textContent = "Passwords don't match"; return; }
     const r = await authPost(first ? 'setup' : 'login', { email: $('#em').value, password: $('#pw').value }), j = await r.json().catch(() => ({}));
     if (!r.ok) { $('#le').textContent = j.error || 'Login failed'; return; }
-    OWNER = true; syncFol(); toast('Logged in'); botPage();
+    OWNER = true; await loadFollows(); toast('Logged in'); botPage();
   };
 }
 
@@ -75,8 +75,9 @@ function botRender(S) {
         <button class="btn pri" id=ksave style="width:100%;margin-top:10px">Verify & connect</button><div id=kerr class=down style="font-size:13px;margin-top:8px"></div></div>`;
 
   const settings = `<div class="card pad"><h2>Trade size</h2><p class=mut style="font-size:13px;margin:4px 0 12px">Turn the dial: the share of your Kalshi cash each copied trade uses.</p>
-    <div class=dialbox><div class=dialtop><button class=kbtn id=kminus aria-label=Less>−</button><div class=dialval><b class=num id=pctv>${c.pct}</b><span>% per trade</span></div><button class=kbtn id=kplus aria-label=More>+</button></div>
+    <div class="dialbox ${dialOpen ? '' : 'locked'}" id=dialbox><div class=dialtop><button class=kbtn id=kminus aria-label=Less>−</button><div class=dialval><b class=num id=pctv>${c.pct}</b><span>% per trade</span></div><button class=kbtn id=kplus aria-label=More>+</button></div>
       <div class=dial id=dial role=slider aria-label="Percent per trade" aria-valuemin=1 aria-valuemax=100 aria-valuenow=${c.pct} tabindex=0><svg viewBox="0 0 224 224" id=dialsvg></svg><div class=face id=face><i></i></div></div>
+      <div class=latchrow><span class=latchlbl id=latchlbl style="text-align:right">${dialOpen ? 'Unlocked' : 'Locked'}</span><button class="latch ${dialOpen ? 'open' : ''}" id=latch aria-label="Lock or unlock the dial"><i id=latchico>${ic(dialOpen ? 'unlock' : 'lock', 15)}</i></button><span class=latchlbl></span></div>
       <div class="dialcap num" id=pcte>${perTrade != null ? `≈ ${usd(perTrade, 2)} per trade right now` : ''}</div></div>
     <details style="margin-top:18px"><summary>${ic('chev', 12)} Advanced</summary><div class="grid g2" style="margin-top:14px">
       ${[['minUsd', 'Copy trades over ($)', c.minUsd], ['maxPrice', 'Max price (¢)', c.maxPrice], ['slip', 'Max price gap vs trader (¢)', c.slip], ['maxUse', 'Max % of money in copies', c.maxUse], ['thresh', 'Match strictness (%)', c.thresh]]
@@ -96,11 +97,11 @@ function botRender(S) {
       const [k, l] = L[e.st] || ['n', e.st];
       return `<tr><td style="width:1%"><span class="pill ${k}">${l}</span></td><td><div class=ell style="max-width:440px">${e.act == 'sell' ? '' : e.outcome ? `${esc(e.trader)} bought <b>${esc(e.outcome)}</b>${e.pm ? ` @ ${e.pm}¢` : ''} · ` : ''}${esc(e.title)}</div>
         <div class=mut style="font-size:12.5px;margin-top:2px">${e.tk ? `<span class=num>${esc(e.tk)}</span> · ` : ''}${esc(e.note || '')}</div></td><td class="r mut hide-m" style="font-size:12.5px;white-space:nowrap">${rel(e.t / 1000)}</td></tr>`;
-    }).join('') || `<tr><td class=empty>Nothing yet — when a trader you follow buys on Polymarket, the bot's decision shows up here.</td></tr>`}</tbody></table></div>`;
+    }).join('') || `<tr><td class=empty>Nothing yet — when a trader you track buys on Polymarket, the bot's decision shows up here.</td></tr>`}</tbody></table></div>`;
 
   const cronCard = `<div class="card pad"><div class="row sb"><h3>Always on</h3><span class=live>24/7</span></div><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 0">The bot runs on GitHub's servers around the clock, checking every ~10 seconds — your phone and this page can be closed. While this page is open it also checks every 5 seconds.</p></div>`;
 
-  app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>Copies the Polymarket traders you follow onto your Kalshi account.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
+  app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>Copies the Polymarket traders you track onto your Kalshi account.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
     ${status}<div class=split style="margin-top:20px"><div class=grid>${connected ? posT + fillsT : ''}${logT}</div><div class=grid>${keysCard}${connected ? settings : ''}${cronCard}</div></div>`;
   if (keepOpen && $('details')) $('details').open = true;
 
@@ -129,12 +130,16 @@ function botRender(S) {
         h += `<line x1="${112 + r1 * Math.sin(a)}" y1="${112 - r1 * Math.cos(a)}" x2="${112 + r2 * Math.sin(a)}" y2="${112 - r2 * Math.cos(a)}" style="stroke:${on ? 'var(--ac)' : 'var(--mut2)'};opacity:${on ? 1 : .45}" stroke-width="${k % 5 ? 1.6 : 2.4}" stroke-linecap=round />`; } return h; };
     const paint = () => { $('#pctv').textContent = v; $('#face').style.transform = `rotate(${ang(v)}deg)`; $('#dialsvg').innerHTML = ticks(); dial.setAttribute('aria-valuenow', v);
       if (A) $('#pcte').textContent = `≈ ${usd(Math.min(A.cash * v / 100, S.capServer || Infinity), 2)} per trade right now`; };
-    const commit = () => { clearTimeout(t); t = setTimeout(() => v !== c.pct && save({ pct: v, maxUse: Math.max(c.maxUse, v) }), 500); };
+    const locked = () => !dialOpen;
+    const relockSoon = () => { clearTimeout(dialTimer); dialTimer = setTimeout(() => setLock(false), 12000); };
+    const setLock = open => { dialOpen = open; $('#dialbox')?.classList.toggle('locked', !open); $('#latch')?.classList.toggle('open', open); if ($('#latchico')) $('#latchico').innerHTML = ic(open ? 'unlock' : 'lock', 15); if ($('#latchlbl')) $('#latchlbl').textContent = open ? 'Unlocked' : 'Locked'; if (open) relockSoon(); else clearTimeout(dialTimer); };
+    $('#latch').onclick = () => setLock(!dialOpen);
+    const commit = () => { relockSoon(); clearTimeout(t); t = setTimeout(() => v !== c.pct && save({ pct: v, maxUse: Math.max(c.maxUse, v) }), 500); };
     const setV = (x, haptic) => { const n = Math.max(1, Math.min(100, Math.round(x))); if (n !== v) { v = n; paint(); if (haptic && navigator.vibrate) navigator.vibrate(3); } };
     const fromPoint = e => { const r = dial.getBoundingClientRect(); let a = Math.atan2(e.clientX - r.left - r.width / 2, -(e.clientY - r.top - r.height / 2)) * 180 / Math.PI; a = Math.max(-135, Math.min(135, a)); setV(1 + (a + 135) / 270 * 99, 1); };
-    dial.onpointerdown = e => { dial.setPointerCapture(e.pointerId); fromPoint(e); dial.onpointermove = fromPoint; };
+    dial.onpointerdown = e => { if (locked()) { toast('Unlock the dial first'); return; } dial.setPointerCapture(e.pointerId); fromPoint(e); dial.onpointermove = fromPoint; };
     dial.onpointerup = dial.onpointercancel = () => { dial.onpointermove = null; commit(); };
-    dial.onkeydown = e => { if (['ArrowUp', 'ArrowRight'].includes(e.key)) { setV(v + 1); commit(); e.preventDefault(); } if (['ArrowDown', 'ArrowLeft'].includes(e.key)) { setV(v - 1); commit(); e.preventDefault(); } };
+    dial.onkeydown = e => { if (locked()) return; if (['ArrowUp', 'ArrowRight'].includes(e.key)) { setV(v + 1); commit(); e.preventDefault(); } if (['ArrowDown', 'ArrowLeft'].includes(e.key)) { setV(v - 1); commit(); e.preventDefault(); } };
     $('#kminus').onclick = () => { setV(v - 1); commit(); }; $('#kplus').onclick = () => { setV(v + 1); commit(); };
     paint();
   }

@@ -157,22 +157,26 @@ code{font:500 13px ui-monospace,SFMono-Regular,monospace;background:rgba(var(--t
    extruded or pressed by one light source (top-left). Physical dial, convex round buttons,
    grip-thumb toggle, thin numerals, coral accent.
    ====================================================================================== */
-:root{ /* dark: slate */
---bg:#2b3240;--bg2:#2f3746;--tint:255,255,255;--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.12);
---text:#eef1f6;--mut:#9aa4b5;--mut2:#738097;--ac:#ff6a3d;--acbg:rgba(255,106,61,.16);--lnk:#ff8a63;--glass2:#2b3240;--glass:#2b3240;--pop:#343c4c;
---sd:rgba(14,18,26,.62);--sl:rgba(255,255,255,.055);
---surf:var(--bg);--convex:linear-gradient(145deg,#323a49,#262c38);--concave:linear-gradient(145deg,#252b37,#313949);
+:root{ /* dark: midnight blue, cyan accent (dark metronome reference) */
+--bg:#2a3750;--bg2:#2e3c57;--tint:255,255,255;--line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.13);
+--text:#edf2fa;--mut:#a3b3cc;--mut2:#7b8dab;--ac:#36d1e3;--acbg:rgba(54,209,227,.15);--lnk:#5fe0ee;--glass2:#2a3750;--glass:#2a3750;--pop:#33425f;
+--up:#3fdc8a;--upbg:rgba(63,220,138,.14);--down:#ff6b6b;--downbg:rgba(255,107,107,.14);--warn:#ffb547;
+--sd:rgba(13,19,32,.6);--sl:rgba(120,150,200,.13);
+--surf:var(--bg);--convex:linear-gradient(145deg,#32415e,#243046);--concave:linear-gradient(145deg,#243046,#32415e);
 --raise:11px 11px 24px var(--sd),-9px -9px 22px var(--sl);--raise-sm:5px 5px 11px var(--sd),-4px -4px 10px var(--sl);
 --press:inset 5px 5px 11px var(--sd),inset -4px -4px 10px var(--sl);
---knob:linear-gradient(145deg,#3a4354,#262c38)}
-:root[data-theme=light]{ /* light: porcelain */
---bg:#e6e9ef;--bg2:#eceff4;--tint:0,0,0;--line:rgba(30,40,60,.08);--line2:rgba(30,40,60,.13);
---text:#232a36;--mut:#6b7486;--mut2:#939bab;--ac:#ff5b2e;--acbg:rgba(255,91,46,.12);--lnk:#e8541f;--glass2:#e6e9ef;--glass:#e6e9ef;--pop:#f4f6f9;
---sd:rgba(163,174,194,.75);--sl:#ffffff;
---surf:var(--bg);--convex:linear-gradient(145deg,#f3f5f9,#d8dde5);--concave:linear-gradient(145deg,#d9dee6,#f2f4f8);
+--knob:linear-gradient(145deg,#3a4a6a,#253148);--thumb:linear-gradient(145deg,#3d4e70,#273450);
+--face:radial-gradient(circle at 34% 28%,#43557a 0%,#2b3854 55%,#1f2a40 100%);--faceRing:#22304a}
+:root[data-theme=light]{ /* light: blush monochrome (music-player reference) with a glossy black hardware knob */
+--bg:#f2e3de;--bg2:#f6e9e5;--tint:90,40,30;--line:rgba(110,60,50,.1);--line2:rgba(110,60,50,.16);
+--text:#4e2f2a;--mut:#9a7770;--mut2:#bb9a93;--ac:#e2553a;--acbg:rgba(226,85,58,.13);--lnk:#cf4a30;--glass2:#f2e3de;--glass:#f2e3de;--pop:#fbf3f0;
+--up:#2e9a5a;--upbg:rgba(46,154,90,.12);--down:#d8433f;--downbg:rgba(216,67,63,.11);--warn:#c46a00;--warnbg:rgba(255,159,10,.15);--notec:#8a4b00;
+--sd:rgba(190,150,140,.62);--sl:rgba(255,255,255,.9);
+--surf:var(--bg);--convex:linear-gradient(145deg,#fbefeb,#e4d0ca);--concave:linear-gradient(145deg,#e4d0ca,#fbefeb);
 --raise:12px 12px 26px var(--sd),-12px -12px 26px var(--sl);--raise-sm:5px 5px 12px var(--sd),-5px -5px 12px var(--sl);
 --press:inset 5px 5px 11px var(--sd),inset -5px -5px 11px var(--sl);
---knob:linear-gradient(145deg,#ffffff,#d6dbe3)}
+--knob:linear-gradient(145deg,#fdf3f0,#e2cdc6);--thumb:linear-gradient(145deg,#fff6f3,#e6d3cd);
+--face:radial-gradient(circle at 34% 26%,#55555b 0%,#26262a 48%,#111113 100%);--faceRing:#1a1a1d}
 body{background-image:none}
 .card{background:var(--bg);box-shadow:var(--raise);border-radius:28px}
 .stat .v{font-weight:300;font-size:36px;letter-spacing:-.035em}.stat .k{font-weight:500}
@@ -197,7 +201,7 @@ kbd,.step b{background:var(--bg)}
 /* grip-thumb toggle (groove + convex thumb with grip lines) */
 .sw{width:64px;height:34px;background:var(--bg);box-shadow:var(--press)}
 .sw:after{top:4px;left:4px;width:34px;height:26px;border-radius:13px;background:var(--knob);box-shadow:3px 3px 7px var(--sd),-2px -2px 6px var(--sl);
-  background-image:repeating-linear-gradient(90deg,transparent 0 12px,rgba(var(--tint),.18) 12px 13px,transparent 13px 15px),var(--knob);background-size:22px 12px,100% 100%;background-position:6px 7px,0 0;background-repeat:no-repeat}
+  background-image:repeating-linear-gradient(90deg,transparent 0 12px,rgba(var(--tint),.18) 12px 13px,transparent 13px 15px),var(--thumb);background-size:22px 12px,100% 100%;background-position:6px 7px,0 0;background-repeat:no-repeat}
 .sw.on{background:var(--ac);box-shadow:inset 3px 3px 8px rgba(0,0,0,.28),inset -2px -2px 6px rgba(255,255,255,.15)}.sw.on:after{transform:translateX(22px)}
 /* rotary dial (Auto Trader trade size) */
 .dialbox{display:flex;flex-direction:column;align-items:center;gap:14px;padding:6px 0 4px}
@@ -206,9 +210,18 @@ kbd,.step b{background:var(--bg)}
 .kbtn{width:46px;height:46px;border-radius:50%;border:0;background:var(--bg);box-shadow:var(--raise-sm);color:var(--text);font-size:22px;font-weight:300;cursor:pointer;display:grid;place-items:center}.kbtn:active{box-shadow:var(--press)}
 .dial{position:relative;width:224px;height:224px;touch-action:none;cursor:grab}.dial:active{cursor:grabbing}
 .dial svg{position:absolute;inset:0}
-.dial .face{position:absolute;inset:34px;border-radius:50%;background:var(--knob);box-shadow:14px 14px 28px var(--sd),-12px -12px 26px var(--sl),inset 2px 2px 3px rgba(255,255,255,.18),inset -3px -3px 6px rgba(0,0,0,.12);transition:transform .08s}
-.dial .face:before{content:'';position:absolute;inset:14px;border-radius:50%;background:var(--knob);box-shadow:inset 3px 3px 8px var(--sd),inset -3px -3px 8px var(--sl);opacity:.55}
+.dial .face{position:absolute;inset:34px;border-radius:50%;background:var(--face);box-shadow:14px 14px 28px var(--sd),-12px -12px 26px var(--sl),inset 0 2px 2px rgba(255,255,255,.22),inset 0 -4px 8px rgba(0,0,0,.35);transition:transform .08s}
+.dial .face:before{content:'';position:absolute;inset:13px;border-radius:50%;background:radial-gradient(circle at 40% 30%,rgba(255,255,255,.1),rgba(255,255,255,0) 60%),var(--faceRing);box-shadow:inset 0 2px 6px rgba(0,0,0,.55),0 1px 0 rgba(255,255,255,.12)}
 .dial .face i{position:absolute;left:50%;top:18px;width:9px;height:9px;margin-left:-4.5px;border-radius:50%;background:var(--ac);box-shadow:0 0 10px var(--ac)}
 .dialcap{font-size:13px;color:var(--mut);text-align:center}
 @media(max-width:760px){.dial{width:236px;height:236px}#tabbar{box-shadow:8px 8px 22px var(--sd),-6px -6px 18px var(--sl)}}
 @media(max-width:760px){#bstate .g3{grid-template-columns:1fr 1fr;gap:16px}#bstate .g3>.stat:last-child{grid-column:1/-1}#bstate .stat .v{font-size:30px}}
+
+/* dial lock: physical slide latch — locked by default so the dial can't be bumped */
+.latchrow{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:2px}
+.latch{position:relative;width:78px;height:36px;border-radius:18px;border:0;background:var(--bg);box-shadow:var(--press);cursor:pointer;padding:0;flex:none}
+.latch i{position:absolute;top:4px;left:4px;width:36px;height:28px;border-radius:14px;background:var(--thumb);box-shadow:3px 3px 7px var(--sd),-2px -2px 6px var(--sl);display:grid;place-items:center;color:var(--mut);transition:transform .28s cubic-bezier(.3,1.35,.6,1),color .2s}
+.latch.open i{transform:translateX(34px);color:var(--ac)}
+.latchlbl{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);min-width:78px}
+.dialbox.locked .dial{cursor:not-allowed}.dialbox.locked .dial svg{opacity:.55}.dialbox.locked .kbtn{opacity:.4;pointer-events:none}
+.dialbox.locked .dial .face i{background:var(--mut2);box-shadow:none}

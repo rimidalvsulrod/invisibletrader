@@ -1,6 +1,6 @@
 /* InvisibleTrader — Polymarket data, Kalshi execution. */
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],app=$('#app');
-const P={search:'<circle cx=7 cy=7 r=4.5 /><path d="M10.5 10.5l3 3" />',home:'<path d="M2.5 7.5L8 3l5.5 4.5V13a1 1 0 01-1 1h-9a1 1 0 01-1-1z" /><path d="M6.5 14V10h3v4" />',trophy:'<path d="M5 2h6v4a3 3 0 01-6 0zM3 3h2v2a2 2 0 01-2-2zM13 3h-2v2a2 2 0 002-2zM8 9v3M5 14h6" />',wave:'<path d="M1.5 9c1.5 0 1.5-4 3-4s1.5 6 3 6 1.5-8 3-8 1.5 6 3 6" />',flask:'<path d="M6 2h4M6.5 2v4L3 13a1 1 0 00.9 1.4h8.2A1 1 0 0013 13L9.5 6V2" /><path d="M4.5 10h7" />',bot:'<rect x=3 y=5 width=10 height=8 rx=2.5 /><path d="M8 2v3M6 9h.01M10 9h.01" />',book:'<path d="M3 3.5A1.5 1.5 0 014.5 2H13v10.5H4.5A1.5 1.5 0 003 14z" /><path d="M3 14a1.5 1.5 0 001.5-1.5H13" />',spark:'<path d="M6 2l1.2 3L10 6.2 7.2 7.4 6 10.5 4.8 7.4 2 6.2 4.8 5z" /><path d="M11.5 9l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8L9 11.5l1.8-.7z" />',help:'<circle cx=8 cy=8 r=6 /><path d="M6.3 6.4c0-1 .8-1.6 1.7-1.6s1.7.6 1.7 1.5c0 1.2-1.7 1.3-1.7 2.5M8 11v.1" />',arrow:'<path d="M5 11l6-6M6 5h5v5" />',star:'<path d="M8 2l1.8 3.8 4.2.5-3.1 2.9.8 4.1L8 11.3l-3.7 2 .8-4.1L2 6.3l4.2-.5z" />',lock:'<rect x=3.5 y=7 width=9 height=7 rx=1.5 /><path d="M5.5 7V5a2.5 2.5 0 015 0v2" />',copy:'<rect x=5.5 y=5.5 width=8 height=8 rx=1.5 /><path d="M3 10.5V3.5A1 1 0 014 2.5h6.5" />',x:'<path d="M4 4l8 8M12 4l-8 8" />',chev:'<path d="M6 4l4 4-4 4" />',sun:'<circle cx=8 cy=8 r=3 /><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1" />',moon:'<path d="M13 9.5A5.5 5.5 0 016.5 3a5.5 5.5 0 106.5 6.5z" />'};
+const P={search:'<circle cx=7 cy=7 r=4.5 /><path d="M10.5 10.5l3 3" />',home:'<path d="M2.5 7.5L8 3l5.5 4.5V13a1 1 0 01-1 1h-9a1 1 0 01-1-1z" /><path d="M6.5 14V10h3v4" />',trophy:'<path d="M5 2h6v4a3 3 0 01-6 0zM3 3h2v2a2 2 0 01-2-2zM13 3h-2v2a2 2 0 002-2zM8 9v3M5 14h6" />',wave:'<path d="M1.5 9c1.5 0 1.5-4 3-4s1.5 6 3 6 1.5-8 3-8 1.5 6 3 6" />',flask:'<path d="M6 2h4M6.5 2v4L3 13a1 1 0 00.9 1.4h8.2A1 1 0 0013 13L9.5 6V2" /><path d="M4.5 10h7" />',bot:'<rect x=3 y=5 width=10 height=8 rx=2.5 /><path d="M8 2v3M6 9h.01M10 9h.01" />',book:'<path d="M3 3.5A1.5 1.5 0 014.5 2H13v10.5H4.5A1.5 1.5 0 003 14z" /><path d="M3 14a1.5 1.5 0 001.5-1.5H13" />',spark:'<path d="M6 2l1.2 3L10 6.2 7.2 7.4 6 10.5 4.8 7.4 2 6.2 4.8 5z" /><path d="M11.5 9l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8L9 11.5l1.8-.7z" />',help:'<circle cx=8 cy=8 r=6 /><path d="M6.3 6.4c0-1 .8-1.6 1.7-1.6s1.7.6 1.7 1.5c0 1.2-1.7 1.3-1.7 2.5M8 11v.1" />',arrow:'<path d="M5 11l6-6M6 5h5v5" />',star:'<path d="M8 2l1.8 3.8 4.2.5-3.1 2.9.8 4.1L8 11.3l-3.7 2 .8-4.1L2 6.3l4.2-.5z" />',lock:'<rect x=3.5 y=7 width=9 height=7 rx=1.5 /><path d="M5.5 7V5a2.5 2.5 0 015 0v2" />',unlock:'<rect x=3.5 y=7 width=9 height=7 rx=1.5 /><path d="M5.5 7V5a2.5 2.5 0 014.9-.6" />',copy:'<rect x=5.5 y=5.5 width=8 height=8 rx=1.5 /><path d="M3 10.5V3.5A1 1 0 014 2.5h6.5" />',x:'<path d="M4 4l8 8M12 4l-8 8" />',chev:'<path d="M6 4l4 4-4 4" />',sun:'<circle cx=8 cy=8 r=3 /><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1" />',moon:'<path d="M13 9.5A5.5 5.5 0 016.5 3a5.5 5.5 0 106.5 6.5z" />'};
 const ic=(n,s=16)=>`<svg width=${s} height=${s} viewBox="0 0 16 16" fill=none stroke=currentColor stroke-width=1.5 stroke-linecap=round stroke-linejoin=round>${P[n]}</svg>`;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
 const fmt=(n,d=0)=>Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -40,11 +40,28 @@ let EXP;const loadExperts=()=>EXP??=(async()=>{const[a,m]=await Promise.all([lbO
 const statOf=a=>cached('st'+a,async()=>{const[c,lt]=await Promise.all([resolvedOf(a,2),lastTradeOf(a)]);const w=c.filter(x=>x.realizedPnl>0).length,n=c.length;return{n,w,wr:n?w/n:0,avgE:n?c.reduce((s,x)=>s+x.avgPrice,0)/n:0,last:lt}});
 
 /* ---------- follows (synced to server when logged in, so the bot copies them) ---------- */
-let fol=LS.get('fol',{}),OWNER=false;
-const syncFol=()=>OWNER&&fetch('/api/bot',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({op:'follows',list:Object.entries(fol).map(([wallet,name])=>({wallet,name}))})}).catch(()=>{});
-function toggleFollow(a,n){fol[a]?(delete fol[a],toast(`Unfollowed <b>${esc(n)}</b>`)):(fol[a]=n,toast(`Following <b>${esc(n)}</b>${OWNER?' — the Auto Trader copies their trades':''}`));LS.set('fol',fol);syncFol();$$(`[data-f="${a}"]`).forEach(b=>b.classList.toggle('on',!!fol[a]));renderSide()}
+/* Tracked traders: when you're logged in, your account on the server holds the one list every device shows
+   (the Auto Trader copies exactly this list). Logged out, tracking is disabled so devices can't drift apart. */
+let fol={},OWNER=false;const OLDFOL=LS.get('fol',null)||{}; // list saved on this device by older versions
+const folPaint=()=>$$('[data-f]').forEach(b=>{const on=!!fol[b.dataset.f];b.classList.toggle('on',on);b.title=on?'Stop tracking':'Track';const t=[...b.childNodes].find(x=>x.nodeType==3&&x.textContent.trim());if(t)t.textContent=on?' Tracking':' Track'});
+const setFol=list=>{const before=Object.keys(fol).sort().join();fol={};(list||[]).forEach(f=>fol[f.wallet]=f.name||short(f.wallet));folPaint();renderSide();
+  if(location.hash.startsWith('#/journal')&&Object.keys(fol).sort().join()!==before)journal()}; // keep the Tracking page in step
+const folApi=(op,data)=>fetch('/api/bot'+(data?'':'?op='+op),data?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({op,...data})}:{}).then(r=>r.ok?r.json():Promise.reject(r));
+const loadFollows=async()=>{if(!OWNER){setFol([]);return}
+  try{if(Object.keys(OLDFOL).length&&!LS.get('folMigrated',false)){ // one-time: merge this device's old list into the account, then forget it
+      for(const[wallet,name] of Object.entries(OLDFOL))await folApi('follow',{wallet,name});LS.set('folMigrated',true);LS.set('fol',null)}
+    setFol((await folApi('followlist')).follows)}catch(e){}};
+const syncFol=loadFollows;
+async function toggleFollow(a,n){
+  if(!OWNER){toast('Log in to track traders — your list stays the same on every device');location.hash='#/bot';return}
+  const was=!!fol[a];was?delete fol[a]:fol[a]=n;folPaint();renderSide(); // instant feedback
+  try{const r=await folApi(was?'unfollow':'follow',{wallet:a,name:n});setFol(r.follows);if(location.hash.startsWith('#/journal'))journal();toast(was?`Stopped tracking <b>${esc(n)}</b>`:`Tracking <b>${esc(n)}</b> — the Auto Trader copies their trades`)}
+  catch(e){await loadFollows();toast('<span class=down>Could not save — check your connection</span>')}
+}
+// another device may have changed the list: refresh when you come back to the tab, and every 30s while it's open
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadFollows()});addEventListener('focus',()=>loadFollows());setInterval(()=>{if(!document.hidden)loadFollows()},30000);
 document.addEventListener('click',e=>{const f=e.target.closest('[data-f]');if(f){if(!e.target.classList.contains('hpl'))e.preventDefault(); /* keep the haptic label's switch flip */ e.stopPropagation();toggleFollow(f.dataset.f,f.dataset.n)}});
-const folBtn=(a,n,label)=>`<button class="btn ${label?'':'ic'} fol ${fol[a]?'on':''}" data-f="${a}" data-n="${esc(n)}" title="Follow">${ic('star',15)}${label?' Follow':''}</button>`;
+const folBtn=(a,n,label)=>`<button class="btn ${label?'':'ic'} fol ${fol[a]?'on':''}" data-f="${a}" data-n="${esc(n)}" title="${fol[a]?'Stop tracking':'Track'}">${ic('star',15)}${label?(fol[a]?' Tracking':' Track'):''}</button>`;
 
 /* ---------- charts ---------- */
 function area(el,vals,o={}){
@@ -67,21 +84,20 @@ function area(el,vals,o={}){
 }
 
 /* ---------- shell ---------- */
-const NAV=[['Discover',[['','home','Overview'],['leaderboard','trophy','Leaderboard'],['feed','wave','Whale Feed']]],['Strategy',[['backtest','flask','Profit Bot'],['bot','bot','Auto Trader']]],['You',[['journal','book','Following'],['analyze','spark','Analyzer']]]];
+const NAV=[['Discover',[['','home','Overview'],['leaderboard','trophy','Leaderboard'],['feed','wave','Whale Feed']]],['Strategy',[['backtest','flask','Profit Bot'],['bot','bot','Auto Trader']]],['You',[['journal','book','Tracking'],['analyze','spark','Analyzer']]]];
 let BOTON=false;
-function renderSide(){const p=location.hash.slice(2).split('/')[0];const fl=Object.entries(fol).slice(0,6);
+function renderSide(){const p=location.hash.slice(2).split('/')[0];const nf=Object.keys(fol).length;
   $('#side').innerHTML=`<a class=logo href="#/"><img src="/icon.svg" alt="" width=34 height=34><span><b>Invisible</b>Trader</span></a>`+
-  NAV.map(([g,items])=>`<div class=navg>${g}</div>`+items.map(([k,i,t])=>`<a class="nv ${p==k||(k==''&&!p)?'on':''}" href="#/${k}">${ic(i)}${t}${k=='bot'&&BOTON?'<span class=dot></span>':''}</a>`).join('')).join('')+
-  (fl.length?`<div class=navg>Watching</div>`+fl.map(([a,n])=>`<a class=nv href="#/trader/${a}" style="height:34px">${av(n,a,null,'sm')}<span class=ell>${esc(n)}</span></a>`).join(''):'')+
+  NAV.map(([g,items])=>`<div class=navg>${g}</div>`+items.map(([k,i,t])=>`<a class="nv ${p==k||(k==''&&!p)?'on':''}" href="#/${k}">${ic(i)}${t}${k=='bot'&&BOTON?'<span class=dot></span>':''}${k=='journal'&&nf?`<span class="pill n" style="margin-left:auto">${nf}</span>`:''}</a>`).join('')).join('')+
   `<div class=sfoot><button class=thm id=thm>${ic(document.documentElement.dataset.theme=='light'?'sun':'moon')}Appearance · ${THEMES[LS.get('theme','auto')]}</button><a class="nv ${p=='help'?'on':''}" href="#/help">${ic('help')}Help</a>${OWNER?`<a class=nv href="#" id=lo>${ic('lock')}Lock (log out)</a>`:`<a class=nv href="#/bot">${ic('lock')}Owner login</a>`}</div>`;
   $('#tabbar').innerHTML=[['','home','Home'],['leaderboard','trophy','Leaders'],['feed','wave','Feed'],['bot','bot','Bot']].map(([k,i,t])=>`<a href="#/${k}" class="${p==k||(k==''&&!p)?'on':''}">${ic(i)}${t}</a>`).join('')+`<a href="#" id=tmore>${ic('chev')}More</a>`;
   $('#thm').onclick=cycleTheme;$('#ttheme').innerHTML=ic(document.documentElement.dataset.theme=='light'?'moon':'sun',18);$('#ttheme').onclick=()=>{LS.set('theme',document.documentElement.dataset.theme=='light'?'dark':'light');applyTheme();renderSide()};
   $('#tmore').onclick=e=>{e.preventDefault();$('#side').classList.add('open')};
-  $('#lo')&&($('#lo').onclick=async e=>{e.preventDefault();await fetch('/api/auth',{method:'POST',headers:{'content-type':'application/json'},body:'{"op":"logout"}'});OWNER=false;toast('Logged out');route()})}
+  $('#lo')&&($('#lo').onclick=async e=>{e.preventDefault();await fetch('/api/auth',{method:'POST',headers:{'content-type':'application/json'},body:'{"op":"logout"}'});OWNER=false;setFol([]);toast('Logged out');route()})}
 $('#mnav').onclick=e=>{e.stopPropagation();$('#side').classList.toggle('open')};document.addEventListener('click',e=>{if($('#side').classList.contains('open')&&!e.target.closest('#side')&&!e.target.closest('#tmore'))$('#side').classList.remove('open')});
 /* command palette */
 let palT;function openPal(){$('#pal').hidden=false;$('#palq').value='';$('#palr').innerHTML=palHint();$('#palq').focus()}
-const palHint=()=>`<div class="pi mut" style="cursor:default">Type a trader's name, or paste a wallet address.</div>`+Object.entries(fol).slice(0,5).map(([a,n])=>`<a class=pi href="#/trader/${a}">${av(n,a,null,'sm')}<span class=grow>${esc(n)}</span><span class=pill n>Following</span></a>`).join('');
+const palHint=()=>`<div class="pi mut" style="cursor:default">Type a trader's name, or paste a wallet address.</div>`+Object.entries(fol).slice(0,5).map(([a,n])=>`<a class=pi href="#/trader/${a}">${av(n,a,null,'sm')}<span class=grow>${esc(n)}</span><span class=pill n>Tracking</span></a>`).join('');
 $('#cmdk').onclick=openPal;$('#pal').onclick=e=>{if(e.target.id=='pal')$('#pal').hidden=true};
 addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key=='k'){e.preventDefault();openPal()}if(e.key=='Escape')$('#pal').hidden=true;
   if(!$('#pal').hidden&&e.key=='Enter'){const f=$('#palr .pi[href]');if(f){location.hash=f.getAttribute('href');$('#pal').hidden=true}}});
@@ -178,7 +194,7 @@ async function feed(){
   const min=LS.get('fmin',10000);let side='all',only=false;
   app.innerHTML=`<div class="ph fade"><div><h1>Whale Feed</h1><p class=lead>Large Polymarket trades as they happen. Click a trader to see their record.</p></div><span class=live id=fst>Live</span></div>
    <div class="row wrapf" style="margin-bottom:14px"><div class=row id=mins>${[1000,5000,10000,50000].map(v=>`<button class="chip ${v==min?'on':''}" data-v=${v}>${abbr(v,0).replace('+','')}+</button>`).join('')}</div><div class=seg id=sides><button data-s=all class=on>All</button><button data-s=BUY>Buys</button><button data-s=SELL>Sells</button></div>
-   <button class=chip id=fo>${ic('star',13)} Following only</button><label class="row mut" style="font-size:13px;margin-left:auto;gap:6px"><input type=checkbox id=nt> Notify me</label></div><div class=card style="overflow:hidden" id=ft>${sk(300)}</div>`;
+   <button class=chip id=fo>${ic('star',13)} Tracking only</button><label class="row mut" style="font-size:13px;margin-left:auto;gap:6px"><input type=checkbox id=nt> Notify me</label></div><div class=card style="overflow:hidden" id=ft>${sk(300)}</div>`;
   let cur=min;$$('#mins .chip').forEach(b=>b.onclick=()=>{cur=+b.dataset.v;LS.set('fmin',cur);$$('#mins .chip').forEach(x=>x.classList.toggle('on',x==b));seenT.clear();tick()});
   $$('#sides button').forEach(b=>b.onclick=()=>{side=b.dataset.s;$$('#sides button').forEach(x=>x.classList.toggle('on',x==b));tick()});
   $('#fo').onclick=()=>{only=!only;$('#fo').classList.toggle('on',only);tick()};$('#nt').onchange=e=>e.target.checked&&Notification.requestPermission();
@@ -218,11 +234,11 @@ async function backtest(){
   ideas.forEach(async(p,i)=>{const h=(await api(`clob/prices-history?market=${p.asset}&interval=1m&fidelity=360`)).history,el=$('#sp'+i);if(h&&el&&h.length>1)area(el,h.map(x=>x.p),{h:64,color:'#0a84ff',sw:1.6,t:6,b:4})});
 }
 
-/* ---------- Following + notes ---------- */
+/* ---------- Tracking + notes ---------- */
 function journal(){
   const fl=Object.entries(fol),notes=LS.get('notes',[]);
-  app.innerHTML=`<div class="ph fade"><div><h1>Following</h1><p class=lead>Traders you follow${OWNER?' — your Auto Trader copies these':''}. Plus your private trade notes.</p></div></div>
-   <div class="grid g3" id=fg>${fl.map(([a,n])=>`<a href="#/trader/${a}" class="card pad fade"><div class=row>${av(n,a)}<div class=grow><div class=ell style="font-weight:600">${esc(n)}</div><div class="mut num" style="font-size:12px">${short(a)}</div></div>${folBtn(a,n)}</div><div class="row sb" style="margin-top:14px;font-size:13px" data-fs="${a}">${sk(14)}</div></a>`).join('')||`<div class="card empty" style="grid-column:1/-1">You're not following anyone yet. Tap ${ic('star',13)} on the <a href="#/leaderboard" style="color:#64b5ff">leaderboard</a>.</div>`}</div>
+  app.innerHTML=`<div class="ph fade"><div><h1>Tracking</h1><p class=lead>Traders you track${OWNER?' — your Auto Trader copies these':''}. Plus your private trade notes.</p></div></div>
+   <div class="grid g3" id=fg>${fl.map(([a,n])=>`<a href="#/trader/${a}" class="card pad fade"><div class=row>${av(n,a)}<div class=grow><div class=ell style="font-weight:600">${esc(n)}</div><div class="mut num" style="font-size:12px">${short(a)}</div></div>${folBtn(a,n)}</div><div class="row sb" style="margin-top:14px;font-size:13px" data-fs="${a}">${sk(14)}</div></a>`).join('')||`<div class="card empty" style="grid-column:1/-1">You're not tracking anyone yet. Tap ${ic('star',13)} on the <a href="#/leaderboard" style="color:#64b5ff">leaderboard</a>.</div>`}</div>
    <div class=sec><h2>Notes</h2></div><form id=nf class=row><input class=inp id=nt placeholder="Write a note…"><button class="btn pri">Add</button></form>
    <div style="margin-top:12px" class=grid>${notes.map((n,i)=>`<div class="card pad row sb" style="padding:14px 18px"><div><div>${esc(n.t)}</div><div class=mut style="font-size:12px;margin-top:4px">${new Date(n.d).toLocaleString()}</div></div><button class="btn ic sm" data-del=${i}>${ic('x',13)}</button></div>`).join('')}</div>`;
   $('#nf').onsubmit=e=>{e.preventDefault();const t=$('#nt').value.trim();if(!t)return;notes.unshift({t,d:Date.now()});LS.set('notes',notes);journal()};
@@ -253,8 +269,8 @@ function analyze(){
 /* ---------- Help & setup ---------- */
 function help(){
   app.innerHTML=`<div class="ph fade"><div><h1>Help</h1><p class=lead>Data comes live from Polymarket. Orders go to your Kalshi account.</p></div></div>
-   <div class="grid g2"><div class="card pad"><h2>Turning on the Auto Trader</h2><div style="margin-top:8px">${[['Create a password','Open <a href="#/bot" style="color:#64b5ff">Auto Trader</a> — the first visit asks you to make one.'],['Connect Kalshi','Create an API key on Kalshi (Account → API keys) and paste the Key ID + private key. Start with a demo.kalshi.co key.'],['Pick a size','Choose what % of your balance each copied trade uses, then flip the switch on.'],['Follow traders','Tap ☆ on anyone on the Leaderboard. The bot copies them (or the top 10 if you follow no one).']].map(([t,d],i)=>`<div class=step><b class=ok>${i+1}</b><div><div style="font-weight:550">${t}</div><div class=mut style="font-size:13px;margin-top:3px">${d}</div></div></div>`).join('')}</div></div>
-   <div class=grid><div class="card pad"><h3>How the bot decides</h3><div class=mut style="font-size:13.5px;line-height:1.6;margin-top:8px">When a trader you follow buys on Polymarket, the bot looks for the same question on Kalshi. It only trades if the wording matches, every number and date matches, words like above/below/before/not match, both markets resolve within 3 days of each other, and Kalshi's price is close to what the trader paid. When the trader sells, the bot sells too.</div></div>
+   <div class="grid g2"><div class="card pad"><h2>Turning on the Auto Trader</h2><div style="margin-top:8px">${[['Create a password','Open <a href="#/bot" style="color:#64b5ff">Auto Trader</a> — the first visit asks you to make one.'],['Connect Kalshi','Create an API key on Kalshi (Account → API keys) and paste the Key ID + private key. Start with a demo.kalshi.co key.'],['Pick a size','Choose what % of your balance each copied trade uses, then flip the switch on.'],['Track traders','Tap ☆ on anyone on the Leaderboard to track them. The bot copies the traders you track (or the top 10 if you track no one).']].map(([t,d],i)=>`<div class=step><b class=ok>${i+1}</b><div><div style="font-weight:550">${t}</div><div class=mut style="font-size:13px;margin-top:3px">${d}</div></div></div>`).join('')}</div></div>
+   <div class=grid><div class="card pad"><h3>How the bot decides</h3><div class=mut style="font-size:13.5px;line-height:1.6;margin-top:8px">When a trader you track buys on Polymarket, the bot looks for the same question on Kalshi. It only trades if the wording matches, every number and date matches, words like above/below/before/not match, both markets resolve within 3 days of each other, and Kalshi's price is close to what the trader paid. When the trader sells, the bot sells too.</div></div>
     <div class="card pad"><h3>Accuracy</h3><div class=mut style="font-size:13.5px;line-height:1.6;margin-top:8px">Profit and volume are Polymarket's official numbers. Win rates use each trader's most recent resolved positions, including losers they never cashed out. "Open" only shows markets that haven't resolved yet.</div></div></div></div>`;
 }
 
@@ -267,8 +283,7 @@ let lastTouchEnd=0;document.addEventListener('touchend',e=>{const n=Date.now();i
 if(navigator.standalone||matchMedia('(display-mode: standalone)').matches)document.documentElement.classList.add('standalone');
 applyTheme();matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{applyTheme();renderSide()});
 addEventListener('hashchange',route);
-fetch('/api/auth?op=me').then(r=>r.json()).then(m=>{OWNER=!!m.owner;if(OWNER){fetch('/api/bot?op=state').then(r=>r.ok?r.json():null).then(s=>{if(!s)return;BOTON=s.enabled;
-  if(s.follows?.length&&!Object.keys(fol).length){s.follows.forEach(f=>fol[f.wallet]=f.name||short(f.wallet));LS.set('fol',fol)}else syncFol();renderSide()}).catch(()=>{})}renderSide()}).catch(()=>{});
+fetch('/api/auth?op=me').then(r=>r.json()).then(m=>{OWNER=!!m.owner;if(OWNER){loadFollows();fetch('/api/bot?op=state').then(r=>r.ok?r.json():null).then(s=>{if(s){BOTON=s.enabled;renderSide()}}).catch(()=>{})}renderSide()}).catch(()=>{});
 route();
 
 /* ---------- tap haptics ----------

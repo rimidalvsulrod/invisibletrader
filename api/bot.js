@@ -14,6 +14,8 @@ async function marketInfo(env, ticker) {
   const m = await K.market(env, ticker).catch(() => null); MKT.set(env + ticker, { t: Date.now(), m }); return m;
 }
 
+const followList = () => db.q('SELECT wallet, name FROM follows ORDER BY name');
+
 async function state() {
   const s = await E.open();
   const [logs, follows] = await Promise.all([db.q('SELECT entry FROM botlog ORDER BY ts DESC LIMIT 60'), db.q('SELECT wallet, name FROM follows')]);
@@ -70,12 +72,19 @@ module.exports = handler(async (req, body, q) => {
     case 'runnow': return E.run();
     case 'sell': await E.manualSell(body.ticker === 'all' ? 'all' : String(body.ticker || '')); return { ok: true };
     case 'clearlog': await db.q('DELETE FROM botlog'); return { ok: true };
-    case 'follows': {
+    // Followed traders live on the server (one list for every device). Single add/remove ops so devices never overwrite each other.
+    case 'followlist': return { follows: await followList() };
+    case 'follow': {
+      const wallet = String(body.wallet || '').toLowerCase(); if (!/^0x[0-9a-f]{40}$/.test(wallet)) throw err(400, 'bad wallet');
+      await db.q('INSERT INTO follows (wallet, name) VALUES ($1,$2) ON CONFLICT (wallet) DO UPDATE SET name=$2', [wallet, String(body.name || '').slice(0, 60)]);
+      return { follows: await followList() };
+    }
+    case 'unfollow': await db.q('DELETE FROM follows WHERE wallet=$1', [String(body.wallet || '').toLowerCase()]); return { follows: await followList() };
+    case 'follows': { // one-time import of a device's list, only when the server list is still empty
       if (!Array.isArray(body.list)) throw err(400, 'list required');
-      const list = body.list.filter(f => /^0x[0-9a-fA-F]{40}$/.test(f.wallet)).slice(0, 100);
-      await db.q('DELETE FROM follows');
-      for (const f of list) await db.q('INSERT INTO follows (wallet, name) VALUES ($1,$2) ON CONFLICT (wallet) DO NOTHING', [f.wallet.toLowerCase(), String(f.name || '').slice(0, 60)]);
-      return { ok: true, n: list.length };
+      if ((await followList()).length) return { follows: await followList() };
+      for (const f of body.list.filter(f => /^0x[0-9a-fA-F]{40}$/.test(f.wallet)).slice(0, 100)) await db.q('INSERT INTO follows (wallet, name) VALUES ($1,$2) ON CONFLICT (wallet) DO NOTHING', [f.wallet.toLowerCase(), String(f.name || '').slice(0, 60)]);
+      return { follows: await followList() };
     }
     case 'keys': { // paste-in Kalshi API key; verified with Kalshi (real or demo detected) before it's stored encrypted
       const keyId = String(body.keyId || '').trim(), pem = S.normPem(body.pem);
