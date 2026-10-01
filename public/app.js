@@ -10,7 +10,7 @@ const short=a=>a?a.slice(0,6)+'…'+a.slice(-4):'',nm=(n,a)=>!n?short(a):/^0x[0-
 const dt=ts=>new Date(ts*1000).toLocaleDateString('en',{month:'short',day:'numeric'});
 const rel=ts=>{const s=Date.now()/1000-ts;return s<60?Math.max(1,Math.floor(s))+'s ago':s<3600?Math.floor(s/60)+'m ago':s<86400?Math.floor(s/3600)+'h ago':s<86400*60?Math.floor(s/86400)+'d ago':Math.floor(s/2592000)+'mo ago'};
 const THEMES={auto:'Auto',light:'Light',dark:'Dark'};
-const applyTheme=()=>{const t=LS.get('theme','auto'),dark=t=='dark'||(t=='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name=theme-color]')?.setAttribute('content',dark?'#171a3a':'#e3f2ff')};
+const applyTheme=()=>{const t=LS.get('theme','auto'),dark=t=='dark'||(t=='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name=theme-color]')?.setAttribute('content',dark?'#0c0e13':'#ffffff')};
 const cycleTheme=()=>{const order=['auto','light','dark'],t=LS.get('theme','auto');LS.set('theme',order[(order.indexOf(t)+1)%3]);applyTheme();renderSide();toast(`Appearance: ${THEMES[LS.get('theme','auto')]}`)};
 const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const toast=m=>{const t=document.createElement('div');t.className='toast';t.innerHTML=m;$('#toasts').append(t);setTimeout(()=>t.remove(),3200)};
