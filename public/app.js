@@ -70,7 +70,7 @@ function area(el,vals,o={}){
 const NAV=[['Discover',[['','home','Overview'],['leaderboard','trophy','Leaderboard'],['feed','wave','Whale Feed']]],['Strategy',[['backtest','flask','Profit Bot'],['bot','bot','Auto Trader']]],['You',[['journal','book','Following'],['analyze','spark','Analyzer']]]];
 let BOTON=false;
 function renderSide(){const p=location.hash.slice(2).split('/')[0];const fl=Object.entries(fol).slice(0,6);
-  $('#side').innerHTML=`<a class=logo href="#/"><i><svg width=16 height=16 viewBox="0 0 32 32"><path d="M5 16c3.5-6 7-8.5 11-8.5s7.5 2.5 11 8.5c-3.5 6-7 8.5-11 8.5S8.5 22 5 16z" fill=none stroke="#060708" stroke-width=3 /><circle cx=16 cy=16 r=3.6 fill="#060708" /></svg></i>InvisibleTrader</a>`+
+  $('#side').innerHTML=`<a class=logo href="#/"><img src="/icon.svg" alt="" width=34 height=34><span><b>Invisible</b>Trader</span></a>`+
   NAV.map(([g,items])=>`<div class=navg>${g}</div>`+items.map(([k,i,t])=>`<a class="nv ${p==k||(k==''&&!p)?'on':''}" href="#/${k}">${ic(i)}${t}${k=='bot'&&BOTON?'<span class=dot></span>':''}</a>`).join('')).join('')+
   (fl.length?`<div class=navg>Watching</div>`+fl.map(([a,n])=>`<a class=nv href="#/trader/${a}" style="height:34px">${av(n,a,null,'sm')}<span class=ell>${esc(n)}</span></a>`).join(''):'')+
   `<div class=sfoot><button class=thm id=thm>${ic(document.documentElement.dataset.theme=='light'?'sun':'moon')}Appearance · ${THEMES[LS.get('theme','auto')]}</button><a class="nv ${p=='help'?'on':''}" href="#/help">${ic('help')}Help</a>${OWNER?`<a class=nv href="#" id=lo>${ic('lock')}Lock (log out)</a>`:`<a class=nv href="#/bot">${ic('lock')}Owner login</a>`}</div>`;
