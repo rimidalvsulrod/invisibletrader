@@ -43,7 +43,7 @@ const statOf=a=>cached('st'+a,async()=>{const[c,lt]=await Promise.all([resolvedO
 let fol=LS.get('fol',{}),OWNER=false;
 const syncFol=()=>OWNER&&fetch('/api/bot',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({op:'follows',list:Object.entries(fol).map(([wallet,name])=>({wallet,name}))})}).catch(()=>{});
 function toggleFollow(a,n){fol[a]?(delete fol[a],toast(`Unfollowed <b>${esc(n)}</b>`)):(fol[a]=n,toast(`Following <b>${esc(n)}</b>${OWNER?' — the Auto Trader will copy them':''}`));LS.set('fol',fol);syncFol();$$(`[data-f="${a}"]`).forEach(b=>b.classList.toggle('on',!!fol[a]));renderSide()}
-document.addEventListener('click',e=>{const f=e.target.closest('[data-f]');if(f){e.preventDefault();e.stopPropagation();toggleFollow(f.dataset.f,f.dataset.n)}});
+document.addEventListener('click',e=>{const f=e.target.closest('[data-f]');if(f){if(!e.target.classList.contains('hpl'))e.preventDefault(); /* keep the haptic label's switch flip */ e.stopPropagation();toggleFollow(f.dataset.f,f.dataset.n)}});
 const folBtn=(a,n,label)=>`<button class="btn ${label?'':'ic'} fol ${fol[a]?'on':''}" data-f="${a}" data-n="${esc(n)}" title="Follow">${ic('star',15)}${label?' Follow':''}</button>`;
 
 /* ---------- charts ---------- */
@@ -106,7 +106,7 @@ async function overview(){
   $('#ovf').innerHTML=feedRows(trades.slice(0,9),true);
   $('#ovl').innerHTML=lb.slice(0,7).map((t,i)=>`<a class="pi fade" href="#/trader/${t.proxyWallet}" style="animation-delay:${i*30}ms"><span class="mut num" style="width:16px">${t.rank}</span>${av(t.userName,t.proxyWallet,t.profileImage,'sm')}<span class="grow ell" style="font-weight:550">${esc(nm(t.userName,t.proxyWallet))}</span><span class="num up">${abbr(t.pnl)}</span></a>`).join('');
 }
-const feedRows=(d,compact)=>`<table class=tbl><tbody>${d.map(t=>{const v=t.size*t.price;return`<tr class=clk onclick="location.hash='#/trader/${t.proxyWallet}'"><td style="width:1%">${av(t.name||t.pseudonym,t.proxyWallet,t.profileImageOptimized||t.profileImage,'sm')}</td>
+const feedRows=(d,compact)=>`<table class=tbl><tbody>${d.map(t=>{const v=t.size*t.price;return`<tr class=clk onclick="if(!event.target.closest('button,a'))location.hash='#/trader/${t.proxyWallet}'"><td style="width:1%">${av(t.name||t.pseudonym,t.proxyWallet,t.profileImageOptimized||t.profileImage,'sm')}</td>
   <td style="max-width:${compact?220:380}px"><div class=ell style="font-weight:550">${esc(nm(t.name||t.pseudonym,t.proxyWallet))} <span class="pill ${t.side=='BUY'?'up':'down'}" style="margin-left:4px">${t.side=='BUY'?'Bought':'Sold'} ${esc(t.outcome)}</span></div><div class="mut ell" style="font-size:12.5px;margin-top:2px">${esc(t.title)}</div></td>
   <td class=r><div class="num" style="font-weight:600">${abbr(v,0)}</div><div class="mut num" style="font-size:12px">@ ${(t.price*100).toFixed(1)}¢</div></td>${compact?'':`<td class="r mut hide-m" style="font-size:12.5px;white-space:nowrap">${rel(t.timestamp)}</td>`}</tr>`}).join('')||'<tr><td class=empty>No trades match.</td></tr>'}</tbody></table>`;
 
@@ -130,7 +130,7 @@ async function leaderboard(){
    <div class=row>${av(t.userName,t.proxyWallet,t.profileImage,'lg')}<div class=grow><div class="ell" style="font-weight:600;font-size:16px">${esc(nm(t.userName,t.proxyWallet))}</div><div class="mut num" style="font-size:12px">${short(t.proxyWallet)}</div></div></div>
    <div class="num pv ${isWR?'':key=='pnl'?ud(t.pnl):''}" style="font-size:32px;font-weight:600;margin-top:18px;letter-spacing:-.03em">${isWR?Math.round(t._s.wr*100)+'%':key=='pnl'?sg(t.pnl):usd(t.vol)}</div><div class="row sb" style="margin-top:10px"><span class=mut style="font-size:13px">${isWR?`win rate · ${t._s.w} of last ${t._s.n} · avg entry ${Math.round(t._s.avgE*100)}¢`:`${key=='pnl'?'Profit':'Volume'} · ${{DAY:'today',WEEK:'this week',MONTH:'this month',ALL:'all time'}[per]}`}</span>${isWR?`<span class="num up" style="font-size:13px">${abbr(t.pnl)}</span>`:`<span data-wr="${t.proxyWallet}" class=mut style="font-size:13px">…</span>`}</div></a>`).join('')}</div>
    <div class=card style="margin-top:16px;overflow:hidden"><table class=tbl><thead><tr><th style="width:48px">#</th><th>Trader</th><th class="r clk" data-sort=${key=='pnl'?'PNL':'VOL'}>${key=='pnl'?'Profit':'Volume'}${!isWR?' ▼':''}</th><th class="r hide-m clk" data-sort=${key=='pnl'?'VOL':'PNL'}>${key=='pnl'?'Volume':'Profit'}</th><th class="r hide-m clk" data-sort=WR style="${isWR?'color:var(--ac)':''}">Win rate ${isWR?(dir=='asc'?'▲':'▼'):'↕'}</th><th></th></tr></thead><tbody>
-   ${lb.map(t=>`<tr class=clk onclick="location.hash='#/trader/${t.proxyWallet}'"><td class="mut num">${t.rank}</td><td><div class=row>${av(t.userName,t.proxyWallet,t.profileImage)}<div class=grow style="min-width:0"><div class=ell style="font-weight:550;max-width:260px">${esc(nm(t.userName,t.proxyWallet))}</div><div class="mut" style="font-size:12.5px" data-la="${t.proxyWallet}">&nbsp;</div></div></div></td>
+   ${lb.map(t=>`<tr class=clk onclick="if(!event.target.closest('button,a'))location.hash='#/trader/${t.proxyWallet}'"><td class="mut num">${t.rank}</td><td><div class=row>${av(t.userName,t.proxyWallet,t.profileImage)}<div class=grow style="min-width:0"><div class=ell style="font-weight:550;max-width:260px">${esc(nm(t.userName,t.proxyWallet))}</div><div class="mut" style="font-size:12.5px" data-la="${t.proxyWallet}">&nbsp;</div></div></div></td>
    <td class="r num ${key=='pnl'?ud(t.pnl):''}" style="font-weight:600">${key=='pnl'?sg(t.pnl):abbr(t.vol,0)}</td><td class="r num mut hide-m">${key=='pnl'?abbr(t.vol,0):sg(t.pnl)}</td><td class="r hide-m" data-w="${t.proxyWallet}"><span class=mut>…</span></td><td class=r style="width:1%">${folBtn(t.proxyWallet,t.userName||short(t.proxyWallet))}</td></tr>`).join('')}</tbody></table></div>
    <p class=mut style="font-size:12.5px;margin-top:12px">Win rate = share of the trader's most recent resolved positions (up to 100) that made money, including losing positions they never cashed out. Hover a win rate to see the average entry price — buying at 99¢ wins often but earns little.</p>`;
   $$('th[data-sort]').forEach(th=>th.onclick=()=>{const v=th.dataset.sort;if(v=='WR'&&ord=='WR')LS.set('lbdir',dir=='asc'?'desc':'asc');else{LS.set('lbord',v);LS.set('lbdir','desc')}leaderboard()});
@@ -262,30 +262,38 @@ function help(){
 function route(){clearInterval(feedT);typeof botStopPoll=='function'&&botStopPoll();$('#side').classList.remove('open');renderSide();
   const[p,a]=location.hash.slice(2).split('/');window.scrollTo(0,0);
   const R={'':overview,leaderboard,feed,terminal:feed,backtest,profits:backtest,bot:botPage,journal,analyze,ai:analyze,help,search:openPal,trader:()=>trader(a)};(R[p]||overview)()}
+['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+let lastTouchEnd=0;document.addEventListener('touchend',e=>{const n=Date.now();if(n-lastTouchEnd<300&&!e.target.closest('input,textarea'))e.preventDefault();lastTouchEnd=n},{passive:false});
+if(navigator.standalone||matchMedia('(display-mode: standalone)').matches)document.documentElement.classList.add('standalone');
 applyTheme();matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{applyTheme();renderSide()});
 addEventListener('hashchange',route);
 fetch('/api/auth?op=me').then(r=>r.json()).then(m=>{OWNER=!!m.owner;if(OWNER){fetch('/api/bot?op=state').then(r=>r.ok?r.json():null).then(s=>{if(!s)return;BOTON=s.enabled;
   if(s.follows?.length&&!Object.keys(fol).length){s.follows.forEach(f=>fol[f.wallet]=f.name||short(f.wallet));LS.set('fol',fol)}else syncFol();renderSide()}).catch(()=>{})}renderSide()}).catch(()=>{});
 route();
 
-/* ---------- tap haptics (ported from kalshilarper) ----------
+/* ---------- tap haptics ----------
    The only haptic a web page can reach on iPhone is the tick iOS plays when a real tap flips an
-   <input type="checkbox" switch>; iOS 26 ignores flips made from script. So when a finger comes down on a
-   control, a transparent <label> for a hidden switch is slipped under it: the tap lands on the label, which
-   flips the switch with the tap's own trust (tick), and the click is passed on to the control underneath.
+   <input type="checkbox" switch> (flips made from script are ignored). Every tappable control gets a transparent
+   <label for=hapticSwitch> laid over it ahead of time, so the tap itself lands on the label and flips the switch
+   (tick). Nothing appears or changes under the finger during the tap — iOS swallows the first tap when content
+   changes under it, which is what caused the "tap twice" bug — and the tap's click still bubbles to the control.
+   A label is the click's activation target, so links / submit buttons / <summary> are activated by hand below.
    Elsewhere navigator.vibrate stands in. */
-const HAPTIC_TARGETS='button, a[href], [role=button], .clk, .pi, .chip, .sw, [data-f], [data-sell], summary';
+const HAPTIC_TARGETS='button, a[href], .chip, .sw, summary, tr.clk > td';
 const IS_IOS=/iP(hone|od|ad)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 (function setupHaptics(){
   if(!IS_IOS){document.addEventListener('click',e=>{if(e.isTrusted&&typeof navigator.vibrate==='function'&&e.target.closest?.(HAPTIC_TARGETS))navigator.vibrate(8)},true);return}
-  const toggle=document.createElement('input');toggle.type='checkbox';toggle.id='hapticSwitch';toggle.tabIndex=-1;toggle.className='haptic-switch';toggle.setAttribute('switch','');toggle.setAttribute('aria-hidden','true');
-  const pad=document.createElement('label');pad.htmlFor='hapticSwitch';pad.className='haptic-pad';pad.hidden=true;document.body.append(toggle,pad);
-  let hideTimer=0;const hide=()=>{pad.hidden=true};
-  document.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch'||e.target===pad)return;const el=e.target.closest?.(HAPTIC_TARGETS);if(!el||el.disabled)return;
-    pad.style.left=e.clientX-24+'px';pad.style.top=e.clientY-24+'px';pad.hidden=false;clearTimeout(hideTimer);hideTimer=setTimeout(hide,1500)},true);
-  document.addEventListener('pointercancel',hide,true); // the touch became a scroll
-  pad.addEventListener('click',e=>{hide();const under=document.elementFromPoint(e.clientX,e.clientY);
-    under?.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window,clientX:e.clientX,clientY:e.clientY}));
-    // the label's default action then flips the switch, which plays the tick
-  });
+  const sw=document.createElement('input');sw.type='checkbox';sw.id='hapticSwitch';sw.tabIndex=-1;sw.className='haptic-switch';sw.setAttribute('switch','');sw.setAttribute('aria-hidden','true');document.body.append(sw);
+  const arm=root=>{for(const el of root.querySelectorAll?root.querySelectorAll(HAPTIC_TARGETS):[]){if(el.querySelector(':scope>.hpl'))continue;
+    const l=document.createElement('label');l.htmlFor='hapticSwitch';l.className='hpl';l.setAttribute('aria-hidden','true');el.classList.add('hpt');el.append(l)}};
+  new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes){if(n.classList?.contains('hpl'))continue;const r=n.nodeType==1?(n.parentElement||n):n.parentElement;r&&arm(r)}}).observe(document.body,{childList:true,subtree:true});
+  arm(document.body);
+  document.addEventListener('click',e=>{const l=e.target;if(!l.classList?.contains('hpl'))return;const host=l.parentElement;
+    if(host.disabled){e.preventDefault();e.stopImmediatePropagation();return}
+    // the label is the activation target, so do the host's native action ourselves (its click listeners still run via bubbling)
+    queueMicrotask(()=>{if(e.defaultPrevented&&host.tagName!=='A')return;
+      if(host.tagName==='A'&&!e.defaultPrevented){const href=host.getAttribute('href');if(!href||href=='#')return;host.target=='_blank'?window.open(host.href,'_blank','noopener'):href.startsWith('#')?location.hash=href:location.href=host.href}
+      else if(host.tagName==='BUTTON'&&host.form&&(host.type||'submit')==='submit')host.form.requestSubmit();
+      else if(host.tagName==='SUMMARY')host.parentElement.open=!host.parentElement.open});
+  },true);
 })();

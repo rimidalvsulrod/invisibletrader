@@ -17,6 +17,10 @@
 --knob:radial-gradient(circle at 35% 30%,#ffffff 0%,#e9e9ee 45%,#c7c7cf 100%);
 --r:22px;--sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Geist,"Helvetica Neue",system-ui,sans-serif;--mono:var(--sans)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;background:var(--bg);color:var(--text)}
+/* app feel: no rubber-band drag, no double-tap zoom, no long-press callouts/selection on controls, no image dragging */
+html,body{overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}html{touch-action:manipulation}
+a,button,.btn,.chip,.nv,.seg,.sw,#tabbar,aside,.pi,.clk,.logo,summary,th,.pill,kbd{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+img,svg{-webkit-user-drag:none;user-drag:none}
 body{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");font:400 15px/1.47 var(--sans);letter-spacing:-.012em;-webkit-font-smoothing:antialiased;display:flex;min-height:100vh}
 a{color:inherit;text-decoration:none}button,input,select,textarea{font:inherit;color:inherit;letter-spacing:inherit}::selection{background:var(--acbg)}
 .glow{display:none}
@@ -107,8 +111,8 @@ code{font:500 13px ui-monospace,SFMono-Regular,monospace;background:rgba(var(--t
 @media(max-width:760px){
  aside{position:fixed;inset:0 auto 0 0;width:84vw;max-width:320px;transform:translateX(-105%);transition:transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .3s;padding-bottom:calc(22px + env(safe-area-inset-bottom))}aside.open{transform:none;box-shadow:20px 0 60px rgba(0,0,0,.5)}
  .mnav{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;border:0;background:var(--bg);box-shadow:var(--raise-sm);cursor:pointer;font-size:17px;flex:none;background:var(--convex)}
- .topbar{padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top))}.cmdk{height:42px}.cmdk kbd{display:none}.cmdk span{font-size:15px}
- .wrap{padding:18px 16px calc(110px + env(safe-area-inset-bottom))}
+ .topbar{padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top));background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none}.cmdk{height:42px}.cmdk kbd{display:none}.cmdk span{font-size:15px}
+ .wrap{padding:18px 16px calc(96px + max(10px,env(safe-area-inset-bottom)))}
  h1{font-size:29px}.lead{font-size:15px}.ph{margin-bottom:20px}.pad{padding:20px}.card{border-radius:20px}
  .g2,.g3{grid-template-columns:1fr}.g4{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.grid{gap:14px}
  .stat .v{font-size:24px}.g4 .stat .s{font-size:11.5px}
@@ -116,11 +120,16 @@ code{font:500 13px ui-monospace,SFMono-Regular,monospace;background:rgba(var(--t
  .seg{max-width:100%;overflow-x:auto;scrollbar-width:none}.seg::-webkit-scrollbar{display:none}.seg button{height:34px;padding:0 13px;flex:none}
  .row.wrapf{gap:8px}.sec{margin:30px 0 12px}
  .btn{height:44px}.btn.sm{height:36px}
- #toasts{left:16px;right:16px;bottom:calc(92px + env(safe-area-inset-bottom))}.toast{max-width:none}
+ .inp,.palbox input,textarea,select{font-size:16px!important}
+ input,textarea{-webkit-user-select:text;user-select:text}
+ main{min-height:100dvh}
+ aside{padding-top:calc(22px + env(safe-area-inset-top))}
+ #toasts{left:16px;right:16px;bottom:calc(84px + max(10px,env(safe-area-inset-bottom) - 14px))}.toast{max-width:none}
  .pods{display:flex!important;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;margin:0 -16px;padding:4px 16px 18px;scrollbar-width:none}.pods::-webkit-scrollbar{display:none}.pods>.pod{flex:0 0 78%;scroll-snap-align:start;padding:20px}.pods .av.lg{width:48px;height:48px;font-size:19px}.pods .pod .pv{font-size:26px!important}
- #tabbar{display:flex;position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:30;height:66px;border-radius:24px;background:var(--glass2);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);box-shadow:0 10px 40px rgba(0,0,0,.55),inset 0 1px 0 rgba(var(--tint),.06);padding:0 6px}
- #tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--mut2);font-size:10.5px;font-weight:500;border-radius:18px}
- #tabbar a svg{width:23px;height:23px}#tabbar a.on{color:var(--ac)}
+ /* floating tab bar: equal inset on all sides, corners concentric with the iPhone's screen corners (~47pt radius - 10pt inset) */
+ #tabbar{display:flex;position:fixed;left:10px;right:10px;bottom:max(10px,calc(env(safe-area-inset-bottom) - 14px));z-index:30;height:64px;border-radius:37px;background:var(--glass2);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);box-shadow:0 10px 34px rgba(0,0,0,.45),inset 0 1px 0 rgba(var(--tint),.08),inset 0 0 0 .5px rgba(var(--tint),.08);padding:0 8px}
+ #tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--mut2);font-size:10.5px;font-weight:600;border-radius:30px;margin:6px 0;transition:background .2s,color .2s}
+ #tabbar a svg{width:22px;height:22px}#tabbar a.on{color:var(--ac);background:rgba(var(--tint),.07)}
  .pal{padding-top:calc(8px + env(safe-area-inset-top))}.palbox{width:calc(100vw - 16px)}
 }
 
@@ -137,6 +146,8 @@ code{font:500 13px ui-monospace,SFMono-Regular,monospace;background:rgba(var(--t
 :root[data-theme=light] #tabbar,:root[data-theme=light] .palbox,:root[data-theme=light] aside.open{box-shadow:0 10px 40px rgba(120,135,160,.35)}
 .thm{border:0;background:none;color:var(--mut);cursor:pointer;display:flex;align-items:center;gap:12px;height:42px;padding:0 14px;border-radius:13px;font-size:15px;font-weight:500;width:100%}.thm:hover{color:var(--text)}
 .tbtn{width:42px;height:42px;border-radius:50%;border:0;background:var(--convex);box-shadow:var(--raise-sm);color:var(--mut);display:grid;place-items:center;cursor:pointer;flex:none}
-/* haptics (app.js setupHaptics): the hidden switch the tap flips, and the transparent label slipped under the finger on iOS */
+/* haptics (app.js setupHaptics): hidden switch + transparent labels laid over every tappable control (iOS only) */
 .haptic-switch{position:fixed;top:0;left:0;width:1px;height:1px;margin:0;opacity:0;pointer-events:none}
-.haptic-pad{position:fixed;width:48px;height:48px;z-index:2147483647}.haptic-pad[hidden]{display:none}
+.hpt:not(.sw):not(td){position:relative}td.hpt{position:relative}
+.hpl{position:absolute;inset:0;z-index:1;border-radius:inherit;cursor:pointer;-webkit-user-select:none;user-select:none}
+.hpt .hpt{z-index:2}
