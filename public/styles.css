@@ -293,3 +293,50 @@ h1{font-weight:700;letter-spacing:-.02em}
 /* motion polish: tactile press + reduced motion */
 .btn:not(:disabled):active,.kbtn:active{transform:scale(.97)}
 @media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* ======================================================================================
+   v6: "invisible ink" — Geist + Geist Mono (self-hosted), graphite ink with a UV-violet accent,
+   numbers as the hero (mono, tabular), translucent chrome, visible focus. Overrides everything above.
+   ====================================================================================== */
+:root{
+--bg:#0b0d10;--bg2:#161a1f;--panel:#111418;--line:#22272e;--line2:#2b313a;--hov:#161a1f;
+--text:#e9ecef;--mut:#929aa4;--mut2:#6c747e;--ac:#8b7cf6;--ac2:#8b7cf6;--acbg:rgba(139,124,246,.14);--lnk:#a99cff;--pop:#161a1f;
+--up:#2fbf71;--upbg:rgba(47,191,113,.13);--down:#f2545b;--downbg:rgba(242,84,91,.13);
+--face:#161a1f;--faceRing:#111418;
+--sans:Geist,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+--ease:cubic-bezier(.22,1,.36,1)}
+:root[data-theme=light]{
+--bg:#f5f6f3;--bg2:#ebede8;--panel:#fff;--line:#dfe2dc;--line2:#d3d7d0;--hov:#eef0eb;
+--text:#111418;--mut:#646b73;--mut2:#8a9098;--ac:#5b4bd6;--ac2:#5b4bd6;--acbg:rgba(91,75,214,.1);--lnk:#4a3bc4;--pop:#fff;
+--up:#16884a;--upbg:rgba(22,136,74,.1);--down:#cf2f37;--downbg:rgba(207,47,55,.08);--face:#ebede8;--faceRing:#fff}
+html,body{font-family:var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{letter-spacing:-.006em;font-feature-settings:"ss01","cv11"}
+h1{font-size:clamp(24px,3.2vw,32px);letter-spacing:-.028em;line-height:1.15}
+.num,.v,.r.num,kbd{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+/* numbers are the hero: big, mono, tight */
+.stat .v,.grid>.stat .v,.g3>.stat .v{font-family:var(--mono);font-weight:500;font-size:clamp(24px,2.6vw,30px);letter-spacing:-.04em}
+.stat .k{font-size:13px;color:var(--mut)}
+.hero{position:relative;overflow:hidden}
+.hero:before{content:'';position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,transparent,var(--ac),transparent);opacity:.7}
+.card{border-color:var(--line);border-radius:14px}
+:root[data-theme=light] .card{box-shadow:0 1px 0 rgba(17,20,24,.03)}
+/* translucent chrome (Apple materials) */
+.topbar,#tabbar{background:color-mix(in srgb,var(--bg) 78%,transparent)!important;backdrop-filter:saturate(1.6) blur(18px);-webkit-backdrop-filter:saturate(1.6) blur(18px)}
+.btn{border-radius:9px}.btn.pri{background:var(--ac)}
+.chip.on,.seg button.on{background:var(--acbg);color:var(--ac)}
+.seg button{transition:background .25s var(--ease),color .25s var(--ease)}
+.tbl tbody tr{transition:background .15s var(--ease)}
+.pill.up{background:var(--upbg);color:var(--up)}.pill.down{background:var(--downbg);color:var(--down)}
+/* visible keyboard focus */
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:8px}
+.inp:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acbg)}
+::selection{background:var(--acbg);color:var(--text)}
+/* toasts: enter 250ms, exit 150ms (transitions.dev open/close asymmetry) */
+.toast{border:1px solid var(--line);background:color-mix(in srgb,var(--pop) 88%,transparent)}
+.toast.out{animation:toastOut .15s var(--ease) forwards}
+@keyframes toastOut{to{opacity:0;transform:translateY(4px) scale(.98);filter:blur(2px)}}
+/* palette (⌘K): pop in */
+.pal:not([hidden]) .palbox{animation:palIn .25s var(--ease) both}
+@keyframes palIn{from{opacity:0;transform:scale(.97) translateY(-4px)}}
+@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
