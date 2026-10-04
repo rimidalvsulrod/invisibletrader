@@ -340,3 +340,60 @@ h1{font-size:clamp(24px,3.2vw,32px);letter-spacing:-.028em;line-height:1.15}
 .pal:not([hidden]) .palbox{animation:palIn .25s var(--ease) both}
 @keyframes palIn{from{opacity:0;transform:scale(.97) translateY(-4px)}}
 @media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* ======================================================================================
+   v7 (ui-ux-pro-max: dark OLED + dense dashboard): true-black canvas, electric-lime accent for actions,
+   glowing hero metrics, sticky dense tables, active-nav rail. Overrides everything above.
+   ====================================================================================== */
+:root{
+--bg:#05070b;--bg2:#0e131b;--panel:#0a0e14;--line:#1a212c;--line2:#263041;--hov:#111823;
+--text:#f1f5f9;--mut:#8b97a8;--mut2:#5f6b7c;
+--ac:#c6f432;--ac2:#c6f432;--acbg:rgba(198,244,50,.12);--lnk:#c6f432;--pop:#0e131b;
+--up:#34d399;--upbg:rgba(52,211,153,.12);--down:#fb5a6b;--downbg:rgba(251,90,107,.12);--r:14px}
+:root[data-theme=light]{
+--bg:#f3f4f0;--bg2:#e8eae3;--panel:#fff;--line:#dcdfd5;--line2:#c9cdc0;--hov:#eef0e8;
+--text:#0b0f14;--mut:#5b6470;--mut2:#858d98;
+--ac:#17210a;--ac2:#17210a;--acbg:rgba(23,33,10,.08);--lnk:#2f5d00;--pop:#fff;
+--up:#0f8a4f;--upbg:rgba(15,138,79,.1);--down:#c8283a;--downbg:rgba(200,40,58,.08)}
+body{font-size:14.5px}
+.wrap{max-width:1240px}
+.glow{display:block;position:fixed;inset:-20% 30% auto auto;width:520px;height:520px;background:radial-gradient(closest-side,rgba(198,244,50,.09),transparent);pointer-events:none;z-index:0}
+:root[data-theme=light] .glow{display:none}
+/* primary actions: lime on black text */
+.btn.pri,.btn.pri:hover{background:var(--ac);color:#0b1004;font-weight:700}
+:root[data-theme=light] .btn.pri,:root[data-theme=light] .btn.pri:hover{background:#0b0f14;color:#c6f432}
+.btn{border:1px solid var(--line2);background:var(--bg2)}.btn:hover{border-color:var(--mut2)}
+.chip.on,.seg button.on{background:var(--ac);color:#0b1004;font-weight:700}
+:root[data-theme=light] .chip.on,:root[data-theme=light] .seg button.on{background:#0b0f14;color:#c6f432}
+/* nav: active rail + lime icon */
+.nv{position:relative;height:38px}
+.nv.on{background:var(--hov);color:var(--text)}
+.nv.on:before{content:'';position:absolute;left:-16px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--ac);box-shadow:0 0 12px var(--ac)}
+.nv.on svg{color:var(--ac)}
+:root[data-theme=light] .nv.on svg{color:var(--text)}
+/* cards: lifted on hover, hero metrics glow */
+.card{background:linear-gradient(180deg,var(--panel),color-mix(in srgb,var(--panel) 92%,var(--bg2)));border-color:var(--line);transition:border-color .25s var(--ease),transform .25s var(--ease)}
+.card.stat:hover,.grid>.card:hover{border-color:var(--line2)}
+.stat .v,.grid>.stat .v,.g3>.stat .v{font-size:clamp(28px,3.2vw,40px);font-weight:600;letter-spacing:-.05em}
+.stat .v.up{color:var(--up);text-shadow:0 0 28px rgba(52,211,153,.35)}.stat .v.down{color:var(--down);text-shadow:0 0 28px rgba(251,90,107,.3)}
+:root[data-theme=light] .stat .v.up,:root[data-theme=light] .stat .v.down{text-shadow:none}
+.hero:before{background:linear-gradient(90deg,transparent,var(--ac),transparent);height:2px;opacity:1}
+/* dense, scannable tables */
+.tbl thead th{position:sticky;top:0;background:var(--panel);font-size:12px;font-weight:600;color:var(--mut);letter-spacing:.01em;border-bottom:1px solid var(--line2)}
+.tbl tbody tr{border-bottom:1px solid var(--line)}
+.tbl tbody tr:hover{background:var(--hov)}
+.tbl td,.tbl th{padding-top:9px;padding-bottom:9px}
+.up{color:var(--up)}.down{color:var(--down)}
+.pill{font-weight:600;border-radius:999px;padding:2px 9px}
+.pill.ac{background:var(--ac);color:#0b1004}
+:root[data-theme=light] .pill.ac{background:#0b0f14;color:#c6f432}
+h1{font-size:clamp(28px,3.6vw,38px);font-weight:700;letter-spacing:-.035em}
+.ph .s,.ph p{color:var(--mut)}
+.cmdk{border-color:var(--line2)}.cmdk:hover{border-color:var(--mut2)}
+.inp:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acbg)}
+:focus-visible{outline-color:var(--ac)}
+.sw.on{background:var(--ac)}.sw.on:after{background:#0b1004}
+:root[data-theme=light] .sw.on{background:#0b0f14}:root[data-theme=light] .sw.on:after{background:#c6f432}
+.ldot{box-shadow:0 0 0 0 rgba(52,211,153,.6);animation:ldp 2s infinite}
+@keyframes ldp{70%{box-shadow:0 0 0 7px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+@media (prefers-reduced-motion:reduce){.ldot{animation:none}}
