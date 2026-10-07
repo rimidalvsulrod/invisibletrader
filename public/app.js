@@ -122,9 +122,12 @@ async function overview(){
   $('#ovf').innerHTML=feedRows(trades.slice(0,9),true);
   $('#ovl').innerHTML=lb.slice(0,7).map((t,i)=>`<a class="pi fade" href="#/trader/${t.proxyWallet}" style="animation-delay:${i*30}ms"><span class="mut num" style="width:16px">${t.rank}</span>${av(t.userName,t.proxyWallet,t.profileImage,'sm')}<span class="grow ell" style="font-weight:550">${esc(nm(t.userName,t.proxyWallet))}</span><span class="num up">${abbr(t.pnl)}</span></a>`).join('');
 }
-const feedRows=(d,compact)=>`<table class=tbl><tbody>${d.map(t=>{const v=t.size*t.price;return`<tr class=clk onclick="if(!event.target.closest('button,a'))location.hash='#/trader/${t.proxyWallet}'"><td style="width:1%">${av(t.name||t.pseudonym,t.proxyWallet,t.profileImageOptimized||t.profileImage,'sm')}</td>
+const feedRows=(d,compact)=>{
+ if(compact)return `<table class=tbl><tbody>${d.map(t=>{const v=t.size*t.price;return`<tr class=clk onclick="if(!event.target.closest('button,a'))location.hash='#/trader/${t.proxyWallet}'"><td style="width:1%">${av(t.name||t.pseudonym,t.proxyWallet,t.profileImageOptimized||t.profileImage,'sm')}</td>
   <td style="max-width:${compact?220:380}px"><div class=ell style="font-weight:550">${esc(nm(t.name||t.pseudonym,t.proxyWallet))} <span class="pill ${t.side=='BUY'?'up':'down'}" style="margin-left:4px">${t.side=='BUY'?'Bought':'Sold'} ${esc(t.outcome)}</span></div><div class="mut ell" style="font-size:12.5px;margin-top:2px">${esc(t.title)}</div></td>
-  <td class=r><div class="num" style="font-weight:600">${abbr(v,0)}</div><div class="mut num" style="font-size:12px">@ ${(t.price*100).toFixed(1)}¢</div></td>${compact?'':`<td class="r mut hide-m" style="font-size:12.5px;white-space:nowrap">${rel(t.timestamp)}</td>`}</tr>`}).join('')||'<tr><td class=empty>No trades match.</td></tr>'}</tbody></table>`;
+  <td class=r><div class="num" style="font-weight:600">${abbr(v,0)}</div><div class="mut num" style="font-size:12px">@ ${(t.price*100).toFixed(1)}¢</div></td></tr>`}).join('')||'<tr><td class=empty>No trades match.</td></tr>'}</tbody></table>`;
+ return `<div class=feedlist>${d.map(t=>{const v=t.size*t.price,n=nm(t.name||t.pseudonym,t.proxyWallet),rank=t._rank;return`<a class=feeditem href="#/trader/${t.proxyWallet}">${av(t.name||t.pseudonym,t.proxyWallet,t.profileImageOptimized||t.profileImage,'sm')}<div class=feedbody><div class=feedwho><b class=ell>${esc(n)}</b><span class="pill ${t.side=='BUY'?'up':'down'}">${t.side=='BUY'?'Bought':'Sold'} ${esc(t.outcome)}</span></div><div class=feedtitle>${esc(t.title)}</div>${rank?`<div class=feedrank>${rank}</div>`:''}</div><div class=feedvalue><b class=num>${abbr(v,0)}</b><span class=mut>@ ${(t.price*100).toFixed(1)}¢ · ${rel(t.timestamp)}</span></div></a>`}).join('')||'<div class=empty>No trades match.</div>'}</div>`;
+};
 
 /* ---------- Leaderboard ---------- */
 async function leaderboard(){
@@ -190,18 +193,31 @@ async function trader(a){
 
 /* ---------- Whale feed ---------- */
 let feedT,seenT=new Set();
+// Feed ranking is deliberately opt-in: live trades remain instant by default,
+// while P&L / win-rate views enrich only the wallets currently on screen.
+const feedPnl=a=>cached('feed-pnl-'+a,async()=>{const r=await api(`v1/leaderboard?timePeriod=ALL&orderBy=PNL&user=${a}`),x=Array.isArray(r)?r[0]:r,n=Number(x?.pnl);return Number.isFinite(n)?n:null});
+const feedWin=a=>cached('feed-win-'+a,async()=>{const s=await statOf(a);return s.n>=20?{v:s.wr,n:s.n}:null});
+async function rankFeed(d,sort){
+  if(sort=='latest')return[...d].sort((a,b)=>b.timestamp-a.timestamp);
+  if(sort=='size')return[...d].sort((a,b)=>b.size*b.price-a.size*a.price);
+  const wallets=[...new Set(d.map(t=>t.proxyWallet).filter(Boolean))].slice(0,sort=='win'?24:40),scores=new Map();
+  await Promise.all(wallets.map(async a=>{try{scores.set(a,sort=='pnl'?await feedPnl(a):await feedWin(a))}catch(_){scores.set(a,null)}}));
+  return d.map(t=>{const s=scores.get(t.proxyWallet);return{...t,_score:sort=='pnl'?(s==null?-Infinity:s):(s?.v??-1),_rank:sort=='pnl'?(s==null?'P&L unavailable':`All-time P&L ${sg(s)}`):s?`Win rate ${Math.round(s.v*100)}% · ${s.n} resolved`:'Win rate unavailable'}}).sort((a,b)=>b._score-a._score||b.timestamp-a.timestamp);
+}
 async function feed(){
-  const min=LS.get('fmin',10000);let side='all',only=false;
+  const min=LS.get('fmin',10000);let side='all',only=false,sort=LS.get('fsort','latest'),tickId=0;
   app.innerHTML=`<div class="ph fade"><div><h1>Whale Feed</h1><p class=lead>Large Polymarket trades as they happen. Click a trader to see their record.</p></div><span class=live id=fst>Live</span></div>
    <div class="row wrapf" style="margin-bottom:14px"><div class=row id=mins>${[1000,5000,10000,50000].map(v=>`<button class="chip ${v==min?'on':''}" data-v=${v}>${abbr(v,0).replace('+','')}+</button>`).join('')}</div><div class=seg id=sides><button data-s=all class=on>All</button><button data-s=BUY>Buys</button><button data-s=SELL>Sells</button></div>
-   <button class=chip id=fo>${ic('star',13)} Tracking only</button><label class="row mut" style="font-size:13px;margin-left:auto;gap:6px"><input type=checkbox id=nt> Notify me</label></div><div class=card style="overflow:hidden" id=ft>${sk(300)}</div>`;
+   <div class=seg id=fsort>${[['latest','Latest'],['size','Size'],['pnl','P&L'],['win','Win rate']].map(([v,l])=>`<button data-v=${v} class="${sort==v?'on':''}">${l}</button>`).join('')}</div><button class=chip id=fo>${ic('star',13)} Tracking only</button><label class="row mut" style="font-size:13px;margin-left:auto;gap:6px"><input type=checkbox id=nt> Notify me</label></div><div class=card style="overflow:hidden" id=ft>${sk(300)}</div>`;
   let cur=min;$$('#mins .chip').forEach(b=>b.onclick=()=>{cur=+b.dataset.v;LS.set('fmin',cur);$$('#mins .chip').forEach(x=>x.classList.toggle('on',x==b));seenT.clear();tick()});
   $$('#sides button').forEach(b=>b.onclick=()=>{side=b.dataset.s;$$('#sides button').forEach(x=>x.classList.toggle('on',x==b));tick()});
+  $$('#fsort button').forEach(b=>b.onclick=()=>{sort=b.dataset.v;LS.set('fsort',sort);$$('#fsort button').forEach(x=>x.classList.toggle('on',x==b));tick()});
   $('#fo').onclick=()=>{only=!only;$('#fo').classList.toggle('on',only);tick()};$('#nt').onchange=e=>e.target.checked&&Notification.requestPermission();
-  async function tick(){if(!$('#ft'))return clearInterval(feedT);let d=await api(`trades?limit=250&filterType=CASH&filterAmount=${cur}`);if(!Array.isArray(d)||!$('#ft'))return;
+  async function tick(){const id=++tickId;if(!$('#ft'))return clearInterval(feedT);let d=await api(`trades?limit=250&filterType=CASH&filterAmount=${cur}`);if(!Array.isArray(d)||!$('#ft')||id!=tickId)return;
     if(side!='all')d=d.filter(t=>t.side==side);if(only)d=d.filter(t=>fol[t.proxyWallet]);
     const first=!seenT.size,fresh=d.filter(t=>!seenT.has(t.transactionHash+t.asset));d.forEach(t=>seenT.add(t.transactionHash+t.asset));
-    $('#ft').innerHTML=feedRows(d.slice(0,120));if(!first)[...$('#ft').querySelectorAll('tbody tr')].slice(0,fresh.length).forEach(r=>r.classList.add('flash'));
+    if(sort=='pnl'||sort=='win')$('#fst').textContent='Ranking active wallets…';d=await rankFeed(d.slice(0,120),sort);if(!$('#ft')||id!=tickId)return;
+    $('#ft').innerHTML=feedRows(d);if(!first&&sort=='latest')[...$('#ft').querySelectorAll('.feeditem')].slice(0,fresh.length).forEach(r=>r.classList.add('flash'));
     $('#fst').textContent='Live · '+new Date().toLocaleTimeString();if(!first&&fresh.length&&$('#nt').checked&&Notification.permission=='granted')new Notification(`${fresh.length} new whale trade(s)`)}
   tick();clearInterval(feedT);feedT=setInterval(tick,12000);
 }
