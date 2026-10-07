@@ -71,7 +71,7 @@ function botLogin(first) {
 }
 
 function botRender(S) {
-  BOTON = S.enabled; renderSide();
+  BOTON = S.enabled; TOPBAL = S.account?.total ?? S.account?.cash ?? null; renderSide();
   const c = S.cfg, A = S.account, connected = S.keys.set, real = S.keys.env === 'prod';
   const perTrade = A ? Math.min(A.cash * c.pct / 100, S.capServer || Infinity) : null;
   const stale = S.enabled && (!S.last || Date.now() - S.last > 5 * 60e3);

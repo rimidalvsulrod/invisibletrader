@@ -85,15 +85,16 @@ function area(el,vals,o={}){
 
 /* ---------- shell ---------- */
 const NAV=[['Discover',[['','home','Overview'],['leaderboard','trophy','Leaderboard'],['feed','wave','Whale Feed']]],['Strategy',[['backtest','flask','Profit Bot'],['bot','bot','Auto Trader']]],['You',[['journal','book','Tracking'],['analyze','spark','Analyzer']]]];
-let BOTON=false;
+let BOTON=false,TOPBAL=null;
 function renderSide(){const p=location.hash.slice(2).split('/')[0];const nf=Object.keys(fol).length;
   $('#side').innerHTML=`<div class=mobile-sheet-head><b>More</b><button class=tbtn id=sheetclose aria-label="Close menu">${ic('x',18)}</button></div><a class=logo href="#/"><img src="/icon-192.png" alt="" width=34 height=34><span><b>Mimic</b></span></a>`+
   NAV.map(([g,items])=>`<div class=navg>${g}</div>`+items.map(([k,i,t])=>`<a class="nv ${p==k||(k==''&&!p)?'on':''}" href="#/${k}">${ic(i)}${t}${k=='bot'&&BOTON?'<span class=dot></span>':''}${k=='journal'&&nf?`<span class="pill n" style="margin-left:auto">${nf}</span>`:''}</a>`).join('')).join('')+
   `<div class=sfoot><button class=thm id=thm>${ic(document.documentElement.dataset.theme=='light'?'sun':'moon')}Appearance · ${THEMES[LS.get('theme','auto')]}</button><a class="nv ${p=='help'?'on':''}" href="#/help">${ic('help')}Help</a>${OWNER?`<a class=nv href="#" id=lo>${ic('lock')}Lock (log out)</a>`:`<a class=nv href="#/bot">${ic('lock')}Owner login</a>`}</div>`;
   $('#tabbar').innerHTML=[['','home','Home'],['feed','wave','Feed'],['bot','bot','Auto'],['journal','book','Tracking']].map(([k,i,t])=>`<a href="#/${k}" class="${p==k||(k==''&&!p)?'on':''}">${ic(i)}<span>${t}</span></a>`).join('')+`<a href="#" id=tmore aria-label="More sections">${ic('chev')}<span>More</span></a>`;
+  const hasBal=Number.isFinite(Number(TOPBAL));$('#topr').innerHTML=`${hasBal?`<a class=topbal href="#/bot" title="Open Polymarket US account"><span>Polymarket US</span><b class=num>${usd(TOPBAL,2)}</b></a>`:''}<button class=tbtn id=ttheme aria-label="Light or dark mode"></button>`;
   $('#thm').onclick=cycleTheme;$('#ttheme').innerHTML=ic(document.documentElement.dataset.theme=='light'?'moon':'sun',18);$('#ttheme').onclick=()=>{LS.set('theme',document.documentElement.dataset.theme=='light'?'dark':'light');applyTheme();renderSide()};
   $('#tmore').onclick=e=>{e.preventDefault();$('#side').classList.add('open')};$('#sheetclose').onclick=()=>$('#side').classList.remove('open');
-  $('#lo')&&($('#lo').onclick=async e=>{e.preventDefault();await fetch('/api/auth',{method:'POST',headers:{'content-type':'application/json'},body:'{"op":"logout"}'});OWNER=false;setFol([]);toast('Logged out');route()})}
+  $('#lo')&&($('#lo').onclick=async e=>{e.preventDefault();await fetch('/api/auth',{method:'POST',headers:{'content-type':'application/json'},body:'{"op":"logout"}'});OWNER=false;TOPBAL=null;setFol([]);toast('Logged out');route()})}
 document.addEventListener('click',e=>{if($('#side').classList.contains('open')&&!e.target.closest('#side')&&!e.target.closest('#tmore'))$('#side').classList.remove('open')});
 /* command palette */
 let palT;function openPal(){$('#pal').hidden=false;$('#palq').value='';$('#palr').innerHTML=palHint();$('#palq').focus()}
@@ -302,7 +303,7 @@ let lastTouchEnd=0;document.addEventListener('touchend',e=>{const n=Date.now();i
 if(navigator.standalone||matchMedia('(display-mode: standalone)').matches)document.documentElement.classList.add('standalone');
 applyTheme();matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{applyTheme();renderSide()});
 addEventListener('hashchange',route);
-fetch('/api/auth?op=me').then(r=>r.json()).then(m=>{OWNER=!!m.owner;if(OWNER){loadFollows();fetch('/api/bot?op=state').then(r=>r.ok?r.json():null).then(s=>{if(s){BOTON=s.enabled;renderSide()}}).catch(()=>{})}renderSide()}).catch(()=>{});
+fetch('/api/auth?op=me').then(r=>r.json()).then(m=>{OWNER=!!m.owner;if(OWNER){loadFollows();fetch('/api/bot?op=state').then(r=>r.ok?r.json():null).then(s=>{if(s){BOTON=s.enabled;TOPBAL=s.account?.total??s.account?.cash??null;renderSide()}}).catch(()=>{})}renderSide()}).catch(()=>{});
 route();
 
 /* ---------- tap haptics ----------
