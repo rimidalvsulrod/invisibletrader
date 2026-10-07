@@ -84,6 +84,18 @@ kbd{font-size:11px;font-weight:500;padding:2px 6px;border-radius:6px;background:
  .cmdk{width:260px}main{margin-left:252px;padding-top:var(--nav)}
 }
 
+/* A 21:9+ workspace is a different canvas, not a stretched laptop.  This
+   applies only there, leaving 16:9 and smaller desktops exactly as they are. */
+@media(min-width:1200px) and (min-aspect-ratio:21/9){
+ .wrap{width:100%;max-width:1680px;padding:72px clamp(52px,4vw,96px) 144px}
+ .split{grid-template-columns:minmax(0,1fr) 430px;gap:24px}.grid{gap:20px}
+ .pad{padding:30px 32px}.ph{margin-bottom:48px}.lead{max-width:740px}
+}
+@media(min-width:1900px) and (min-aspect-ratio:21/9){
+ .wrap{max-width:1840px;padding-left:88px;padding-right:88px}
+ .split{grid-template-columns:minmax(0,1fr) 460px;gap:28px}.grid{gap:24px}
+}
+
 /* ---------- page ---------- */
 main{min-width:0;position:relative}
 .wrap{max-width:1180px;margin:0 auto;padding:64px 40px 120px}
