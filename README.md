@@ -1,4 +1,4 @@
-# InvisibleTrader
+# Mimic
 
 Track public Polymarket International wallets and execute high-confidence signals on Polymarket US.
 **Signals:** Polymarket International public wallet activity. **Orders:** Polymarket US.

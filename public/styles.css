@@ -6,7 +6,7 @@
 @font-face{font-family:'Geist Mono';font-weight:500;font-display:swap;src:url(/fonts/GeistMono-500.woff2) format('woff2')}
 @font-face{font-family:'Geist Mono';font-weight:600;font-display:swap;src:url(/fonts/GeistMono-600.woff2) format('woff2')}
 /* ======================================================================================
-   InvisibleTrader — "Obsidian"
+   Mimic — "Obsidian"
    Apple-grade materials on a true OLED canvas: #000 page, neutral graphite surfaces (no blue cast),
    white as the accent, SF Pro on Apple devices (Geist elsewhere), floating glass navigation.
    ====================================================================================== */
@@ -236,6 +236,7 @@ details summary{cursor:pointer;color:var(--mut);font-size:14px;list-style:none}d
 /* Live feed: a flexible list avoids desktop-table clipping on compact phones. */
 .feedlist{display:flex;flex-direction:column}.feeditem{display:grid;grid-template-columns:36px minmax(0,1fr) auto;align-items:start;gap:12px;padding:15px 20px;border-bottom:.5px solid var(--line);transition:background .15s var(--ease)}.feeditem:last-child{border-bottom:0}.feeditem:hover{background:var(--hov)}
 .feedbody{min-width:0}.feedwho{display:flex;align-items:center;gap:7px;min-width:0;font-size:14px}.feedwho>b{min-width:0}.feedwho .pill{max-width:145px;overflow:hidden;text-overflow:ellipsis}.feedtitle{color:var(--mut);font-size:12.5px;line-height:1.35;margin-top:3px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.feedrank{font-size:11.5px;color:var(--mut);margin-top:5px}.feedvalue{display:flex;min-width:90px;flex-direction:column;align-items:flex-end;gap:2px;font-size:12px;white-space:nowrap}.feedvalue>b{font-size:15px}
+.mobile-leaders{display:none}
 
 /* ---------- breakpoints ---------- */
 @media(max-width:1060px){.split{grid-template-columns:1fr}.g4{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -278,8 +279,8 @@ details summary{cursor:pointer;color:var(--mut);font-size:14px;list-style:none}d
  .pal{padding-top:calc(10px + env(safe-area-inset-top))}.palbox{width:calc(100vw - 20px)}
  .dial{width:236px;height:236px}
  #bstate .g3{grid-template-columns:1fr 1fr;gap:16px}#bstate .g3>.stat:last-child{grid-column:1/-1}#bstate .stat .v{font-size:30px}
- /* Leaderboard cards retain rank, trader, metric, and Track action without a horizontal table. */
- #lb .tbl,#lb .tbl tbody,#lb .tbl tr,#lb .tbl td{display:block;width:auto}#lb .tbl thead{display:none}#lb .tbl tr{display:grid;width:100%;grid-template-columns:28px minmax(0,1fr) auto 40px;align-items:center;gap:10px;padding:13px 14px;border-top:.5px solid var(--line)}#lb .tbl tr:first-child{border-top:0}#lb .tbl td{padding:0;border:0}#lb .tbl td:nth-child(1){grid-column:1;text-align:center}#lb .tbl td:nth-child(2){grid-column:2;min-width:0}#lb .tbl td:nth-child(3){grid-column:3;text-align:right;white-space:nowrap}#lb .tbl td:nth-child(6){grid-column:4;justify-self:end}.feeditem{grid-template-columns:30px minmax(0,1fr);gap:10px;padding:14px 16px}.feedbody{grid-column:2;min-width:0}.feedvalue{grid-column:2;grid-row:2;flex-direction:row;justify-content:space-between;align-items:baseline;min-width:0;margin-top:5px}.feedvalue>b{font-size:14px}.feedvalue span{overflow:hidden;text-overflow:ellipsis}.feedwho .pill{max-width:120px}.feedtitle{-webkit-line-clamp:2}.feedrank{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ /* On iPhone, use one purpose-built leaderboard row instead of transforming a desktop table. */
+ #lb>.pods,#lb>.card,#lb>p{display:none}.mobile-leaders{display:grid;overflow:hidden;border:.5px solid var(--line);border-radius:20px;background:var(--panel)}.leaderrow{display:grid;grid-template-columns:20px 28px minmax(0,1fr) minmax(72px,auto) 44px;align-items:center;gap:8px;padding:15px 14px;border-bottom:.5px solid var(--line);min-height:76px}.leaderrow:last-child{border-bottom:0}.leaderrow:active{background:var(--fill)}.leaderplace{color:var(--mut);text-align:center;font-size:13px}.leaderidentity{display:grid;min-width:0;gap:3px;font-size:14px}.leaderidentity>b{font-weight:600}.leaderstatus{display:block;min-height:17px;color:var(--mut);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.leaderstatus .pill{height:18px;padding:0 7px;font-size:10.5px}.leadermetric{display:grid;justify-items:end;gap:2px;min-width:72px;text-align:right;line-height:1.1}.leadermetric>b{font-size:14px;white-space:nowrap}.leadermetric>span,.leadermetric i{max-width:82px;color:var(--mut);font-size:10.5px;font-style:normal;line-height:1.2}.leaderrow .fol{width:44px;height:44px}.feeditem{grid-template-columns:30px minmax(0,1fr);gap:10px;padding:14px 16px}.feedbody{grid-column:2;min-width:0}.feedvalue{grid-column:2;grid-row:2;flex-direction:row;justify-content:space-between;align-items:baseline;min-width:0;margin-top:5px}.feedvalue>b{font-size:14px}.feedvalue span{overflow:hidden;text-overflow:ellipsis}.feedwho .pill{max-width:120px}.feedtitle{-webkit-line-clamp:2}.feedrank{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 }
 @media(max-width:430px){.topbar{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}.mobile-brand span{font-size:15px}.ph{gap:12px}.ph .live{height:28px;padding:0 10px}.feedwho{font-size:13.5px}.feedwho .pill{max-width:106px;padding:0 7px;font-size:11px}}
 @media(prefers-reduced-transparency:reduce){aside,.topbar,#tabbar,.palbox{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:var(--panel)!important}}
