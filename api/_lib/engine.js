@@ -6,7 +6,10 @@ const tkey=t=>crypto.createHash('sha1').update(`${t.transactionHash}|${t.asset}|
 const orderCap=()=>Number(process.env.MAX_ORDER_USD)||Infinity,log=(s,e)=>s.logs.push({t:Date.now(),...e});
 const getJSON=u=>fetch(u).then(r=>r.ok?r.json():Promise.reject(new Error(`${r.status} ${u.split('?')[0]}`)));
 const runCtx=()=>{const T=new Map();let top;return{trades:a=>T.get(a)??T.set(a,getJSON(`https://data-api.polymarket.com/trades?user=${a}&limit=25&_=${Date.now()}`).catch(()=>[])).get(a),top:()=>top??=getJSON('https://data-api.polymarket.com/v1/leaderboard?timePeriod=ALL&orderBy=PNL&limit=10').then(r=>r.map(x=>x.proxyWallet)).catch(()=>[])}};
-function cash(j){const a=j.balances||j.accounts||j,r=Array.isArray(a)?a[0]:a;return num(r?.buyingPower?.value,num(r?.buying_power?.value,num(r?.cash?.value,num(r?.availableCash?.value,num(r?.balance?.value,num(r?.balance))))))}
+// The US API documents buyingPower/currentBalance as numbers, whereas a few
+// early responses used money objects.  Support both without turning a valid
+// scalar balance into $0.
+function cash(j){const a=j?.balances||j?.accounts||j?.data||j,list=Array.isArray(a)?a:[a],r=list.find(x=>/USD|USDC/i.test(String(x?.currency||'')))||list[0]||{},v=r.buyingPower??r.buying_power??r.availableCash??r.currentBalance??r.balance??r.cash;return num(v?.value,v)}
 function pos(x){const tk=x.marketSlug||x.market_slug||x.marketMetadata?.slug||x.market?.slug,n=num(x.netPositionDecimal,num(x.netPosition,num(x.quantity,x.position))),cost=num(x.cost?.value,num(x.costBasis?.value,num(x.marketExposure?.value)));return tk&&n?{tk,side:n<0?'no':'yes',count:Math.abs(n),cost:Math.abs(cost),raw:x}:null}
 // The retail API has returned both arrays and keyed objects for paginated
 // portfolio data. Normalize before iterating so credential verification never
