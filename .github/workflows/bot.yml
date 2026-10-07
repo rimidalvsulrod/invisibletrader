@@ -25,9 +25,8 @@ jobs:
       RUN_MINUTES: 350
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-      KALSHI_KEY_ID: ${{ secrets.KALSHI_KEY_ID }}
-      KALSHI_PRIVATE_KEY: ${{ secrets.KALSHI_PRIVATE_KEY }}
-      KALSHI_ENV: ${{ secrets.KALSHI_ENV }}
+      POLYMARKET_US_KEY_ID: ${{ secrets.POLYMARKET_US_KEY_ID }}
+      POLYMARKET_US_SECRET_KEY: ${{ secrets.POLYMARKET_US_SECRET_KEY }}
       MAX_ORDER_USD: ${{ secrets.MAX_ORDER_USD }}
       TRADING_DISABLED: ${{ secrets.TRADING_DISABLED }}
     steps:
@@ -45,7 +44,6 @@ jobs:
         if: steps.dog.outputs.skip != '1'
         run: |
           me=$(gh run view ${{ github.run_id }} --json createdAt -q .createdAt)
-          # new code or hand-over: once this runner is up, stop older ones (they finish their current check first)
           ( sleep 45
             for id in $(gh run list -w bot.yml -L 20 --json databaseId,status -q ".[] | select(.status != \"completed\" and .databaseId < ${{ github.run_id }}) | .databaseId"); do
               gh run cancel "$id" && echo "stopped older run $id" || true
