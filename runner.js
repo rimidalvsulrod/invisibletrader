@@ -1,9 +1,9 @@
 // 24/7 runner (used by .github/workflows/bot.yml). Needs DATABASE_URL.
 // Live: listens to Polymarket's real-time trade stream and runs the engine the moment a tracked trader trades (~1s).
 // Backup: every 15s the engine also polls each tracked trader, which catches anything missed while reconnecting
-// and keeps the Kalshi sync / sell retries going. Safe alongside other runners: the engine's database lock and
+// and keeps US-account reconciliation current. Safe alongside other runners: the engine's database lock and
 // seen-trade memory make sure each trade is handled once.
-const E = require('./api/_lib/engine'), db = require('./api/_lib/db'), M = require('./api/_lib/match'), S = require('./api/_lib/settings');
+const E = require('./api/_lib/engine'), db = require('./api/_lib/db'), M = require('./api/_lib/match-us');
 const end = Date.now() + (Number(process.env.RUN_MINUTES) || 130) * 6e4, POLL = 15e3;
 const sleep = ms => new Promise(z => setTimeout(z, ms)), log = (...a) => console.log(new Date().toISOString(), ...a);
 let stop = false; for (const s of ['SIGINT', 'SIGTERM']) process.on(s, () => { stop = true; });
@@ -17,7 +17,7 @@ async function refresh() {
   let w = (await db.q('SELECT wallet FROM follows')).map(x => x.wallet.toLowerCase());
   if (!w.length) w = (await fetch('https://data-api.polymarket.com/v1/leaderboard?timePeriod=ALL&orderBy=PNL&limit=10').then(x => x.json()).catch(() => [])).map(x => String(x.proxyWallet).toLowerCase());
   if (w.length) watch = new Set(w);
-  const c = await S.getCreds().catch(() => null); if (c) M.eventIndex(c.env).catch(e => log('kalshi index', e.message)); // keep Kalshi's market list warm
+  M.index().catch(e => log('Polymarket US index', e.message)); // keep the strict matcher warm
 }
 
 function connect() {

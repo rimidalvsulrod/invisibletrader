@@ -1,4 +1,4 @@
-/* Auto Trader — real money on your Kalshi account. The engine runs on the server; this page shows live Kalshi data and settings. */
+/* Auto Trader — international Polymarket signals, executed on Polymarket US. */
 let botPoll, botFast, botTick, dialOpen = false, dialTimer; // the trade-size dial starts locked
 const botStopPoll = () => { clearInterval(botPoll); clearInterval(botFast); clearInterval(botTick); };
 /* live view: the 24/7 runner writes a heartbeat every 2s (stream status, trades/s, last checks) */
@@ -56,7 +56,7 @@ function botNoDb() {
 function botLogin(first) {
   app.innerHTML = `<div style="max-width:420px;margin:8vh auto 0" class="card pad fade"><div style="width:46px;height:46px;border-radius:13px;display:grid;place-items:center;background:var(--acbg);color:var(--ac)">${ic('lock', 22)}</div>
     <h2 style="margin-top:16px;font-size:22px">${first ? 'Create your account' : 'Log in'}</h2>
-    <p class=mut style="margin:6px 0 18px;font-size:14px">${first ? 'Use your email and pick a password. This is the only account on the site.' : 'The Auto Trader trades real money on your Kalshi account.'}</p>
+    <p class=mut style="margin:6px 0 18px;font-size:14px">${first ? 'Use your email and pick a password. This is the only account on the site.' : 'The Auto Trader trades real money on your Polymarket US account.'}</p>
     <form id=lf><input class=inp id=em type=email placeholder=Email autocomplete=username required style="margin-bottom:8px">
       <input class=inp id=pw type=password placeholder="${first ? 'New password (8+ characters)' : 'Password'}" autocomplete="${first ? 'new-password' : 'current-password'}" required>
       ${first ? '<input class=inp id=pw2 type=password placeholder="Repeat password" autocomplete=new-password style="margin-top:8px" required>' : ''}
@@ -81,40 +81,40 @@ function botRender(S) {
   const status = `<div class="card pad" id=bstate>
     <div class="row sb wrapf" style="gap:16px"><div class=row style="gap:16px"><button class="sw ${S.enabled ? 'on' : ''}" id=btog aria-label="Bot on/off" ${connected ? '' : 'disabled'}></button>
       <div><div style="font-size:22px;font-weight:650;letter-spacing:-.5px">${S.enabled ? '<span class=up>Running</span>' : 'Paused'}</div>
-      <div class=mut style="font-size:13px">${S.last ? `Last check ${rel(S.last / 1000)} · copying ${S.watching} trader${S.watching == 1 ? '' : 's'}` : connected ? 'Turn on to start copying' : 'Connect Kalshi to start'}</div></div></div>
-      ${connected ? `<span class="pill ${real ? 'down' : 'ac'}" style="height:26px;padding:0 12px">${real ? 'Kalshi · real money' : 'Kalshi · demo account'}</span>` : ''}</div>
+      <div class=mut style="font-size:13px">${S.last ? `Last check ${rel(S.last / 1000)} · following ${S.watching} signal trader${S.watching == 1 ? '' : 's'}` : connected ? 'Turn on to start copying' : 'Connect Polymarket US to start'}</div></div></div>
+      ${connected ? `<span class="pill down" style="height:26px;padding:0 12px">Polymarket US · real money</span>` : ''}</div>
     ${S.enabled ? '<div id=blive class=lv></div>' : ''}
     ${stale ? `<div class=note style="margin-top:16px">The bot is on but hasn't checked in 5 minutes — the 24/7 runner may be restarting. It recovers on its own; tap Check now to run immediately.</div>` : ''}
     ${S.disabledServer ? `<div class=note style="margin-top:16px">Trading is switched off on the server (TRADING_DISABLED).</div>` : ''}
-    ${S.accountError ? `<div class=note style="margin-top:16px">Kalshi: ${esc(S.accountError)}</div>` : ''}
-    ${A ? `<div class="grid g3" style="margin-top:20px"><div class=stat><div class=k>Cash</div><div class="v num">${usd(A.cash, 2)}</div><div class=s>available on Kalshi</div></div>
+    ${S.accountError ? `<div class=note style="margin-top:16px">Polymarket US: ${esc(S.accountError)}</div>` : ''}
+    ${A ? `<div class="grid g3" style="margin-top:20px"><div class=stat><div class=k>Cash</div><div class="v num">${usd(A.cash, 2)}</div><div class=s>available on Polymarket US</div></div>
       <div class=stat><div class=k>In positions</div><div class="v num">${usd(A.positionsValue, 2)}</div><div class=s>${S.positions.length} market${S.positions.length == 1 ? '' : 's'} · at current bids</div></div>
       <div class=stat><div class=k>Account value</div><div class="v num">${usd(A.total, 2)}</div><div class=s>cash + positions</div></div></div>` : ''}</div>`;
 
   const keysCard = connected
-    ? `<div class="card pad"><div class="row sb"><h3>Kalshi account</h3><span class="pill ${real ? 'down' : 'ac'}">${real ? 'Real money' : 'Demo'}</span></div>
+    ? `<div class="card pad"><div class="row sb"><h3>Polymarket US account</h3><span class="pill down">Real money</span></div>
         <div class=mut style="font-size:13px;margin-top:8px">Connected · key <span class=num>${esc(S.keys.keyId)}</span>${S.keys.source == 'env' ? ' (set in Vercel)' : ''}</div>
         ${S.keys.source == 'app' ? `<button class="btn sm danger" id=kdel style="margin-top:12px">Disconnect</button>` : ''}</div>`
-    : `<div class="card pad" id=kcard><h2>Connect Kalshi</h2><p class=mut style="font-size:13px;line-height:1.55;margin:6px 0 14px">On Kalshi open <b>Account → API keys → Create</b>, then paste the Key ID and the private key below. It's verified with Kalshi and stored encrypted.</p>
-        <input class=inp id=kid placeholder="Key ID"><textarea class=inp id=kpem placeholder="-----BEGIN PRIVATE KEY-----&#10;…&#10;-----END PRIVATE KEY-----" style="height:120px;padding:10px 14px;margin-top:8px;font:12px ui-monospace,monospace;resize:vertical"></textarea>
+    : `<div class="card pad" id=kcard><h2>Connect Polymarket US</h2><p class=mut style="font-size:13px;line-height:1.55;margin:6px 0 14px">Create an API key in the Polymarket US developer portal, then paste the Key ID and Secret Key. It is verified and stored encrypted.</p>
+        <input class=inp id=kid placeholder="Key ID"><textarea class=inp id=ksecret placeholder="Secret Key" style="height:80px;padding:10px 14px;margin-top:8px;font:12px ui-monospace,monospace;resize:vertical"></textarea>
         <button class="btn pri" id=ksave style="width:100%;margin-top:10px">Verify & connect</button><div id=kerr class=down style="font-size:13px;margin-top:8px"></div></div>`;
 
-  const settings = `<div class="card pad"><h2>Trade size</h2><p class=mut style="font-size:13px;margin:4px 0 12px">Turn the dial: the share of your Kalshi cash each copied trade uses.</p>
+  const settings = `<div class="card pad"><h2>Trade size</h2><p class=mut style="font-size:13px;margin:4px 0 12px">Turn the dial: the share of your Polymarket US cash each copied trade uses.</p>
     <div class="dialbox ${dialOpen ? '' : 'locked'}" id=dialbox><div class=dialtop><button class=kbtn id=kminus aria-label=Less>−</button><div class=dialval><b class=num id=pctv>${c.pct}</b><span>% per trade</span></div><button class=kbtn id=kplus aria-label=More>+</button></div>
       <div class=dial id=dial role=slider aria-label="Percent per trade" aria-valuemin=1 aria-valuemax=100 aria-valuenow=${c.pct} tabindex=0><svg viewBox="0 0 224 224" id=dialsvg></svg><div class=face id=face><i></i></div></div>
       <div class=latchrow><span class=latchlbl id=latchlbl style="text-align:right">${dialOpen ? 'Unlocked' : 'Locked'}</span><button class="latch ${dialOpen ? 'open' : ''}" id=latch aria-label="Lock or unlock the dial"><i id=latchico>${ic(dialOpen ? 'unlock' : 'lock', 15)}</i></button><span class=latchlbl></span></div>
       <div class="dialcap num" id=pcte>${perTrade != null ? `≈ ${usd(perTrade, 2)} per trade right now` : ''}</div></div>
     <details style="margin-top:18px"><summary>${ic('chev', 12)} Advanced</summary><div class="grid g2" style="margin-top:14px">
-      ${[['minUsd', 'Copy trades over ($)', c.minUsd], ['maxPrice', 'Max price (¢)', c.maxPrice], ['slip', 'Max price gap vs trader (¢)', c.slip], ['maxUse', 'Max % of money in copies', c.maxUse], ['thresh', 'Match strictness (%)', c.thresh]]
+      ${[['minUsd', 'Copy signals over ($)', c.minUsd], ['maxPrice', 'Max US price (¢)', c.maxPrice], ['slip', 'Max price gap vs signal (¢)', c.slip], ['maxUse', 'Max % of money in copies', c.maxUse], ['thresh', 'US match strictness (%)', c.thresh]]
         .map(([k, l, v]) => `<label><span class=lbl>${l}</span><input class=inp type=number data-k=${k} value=${v}></label>`).join('')}</div></details></div>`;
 
   const posT = `<div class="card" style="overflow:hidden"><div class="row sb pad" style="padding-bottom:8px"><h2>Positions</h2>${S.positions.some(p => p.copied) ? `<button class="btn sm danger" id=bsa>Sell all copies</button>` : ''}</div>
     <table class=tbl><tbody>${S.positions.map(p => `<tr><td><div class=ell style="font-weight:550;max-width:380px">${esc(p.title)}${p.sub ? ` <span class=mut>· ${esc(p.sub)}</span>` : ''}</div>
       <div class=mut style="font-size:12.5px;margin-top:3px"><span class="pill ${p.side == 'yes' ? 'up' : 'down'}" style="height:19px">${p.side.toUpperCase()}</span> ${fmt(p.count)} contracts · cost ${usd(p.cost, 2)}${p.copied ? ` · <span style="color:var(--ac)">copied ${esc(p.copied.trader)}</span>` : ''}${p.status && p.status != 'active' ? ` · ${esc(p.status)}` : ''}</div></td>
       <td class="r num">${p.value != null ? usd(p.value, 2) : '—'}<div class="${p.pnl != null ? ud(p.pnl) : 'mut'}" style="font-size:12px">${p.pnl != null ? sg(p.pnl, 2) : ''}</div></td>
-      <td class=r style="width:1%"><button class="btn sm" data-sell="${esc(p.tk)}">Sell</button></td></tr>`).join('') || `<tr><td class=empty>${connected ? 'No open positions on Kalshi.' : 'Connect Kalshi to see your positions.'}</td></tr>`}</tbody></table></div>`;
+      <td class=r style="width:1%"><button class="btn sm" data-sell="${esc(p.tk)}">Sell</button></td></tr>`).join('') || `<tr><td class=empty>${connected ? 'No open positions on Polymarket US.' : 'Connect Polymarket US to see your positions.'}</td></tr>`}</tbody></table></div>`;
 
-  const fillsT = S.fills.length ? `<div class="card" style="overflow:hidden"><div class="pad" style="padding-bottom:8px"><h2>Recent Kalshi fills</h2></div><table class=tbl><tbody>${S.fills.map(f => `<tr>
+  const fillsT = S.fills.length ? `<div class="card" style="overflow:hidden"><div class="pad" style="padding-bottom:8px"><h2>Recent Polymarket US activity</h2></div><table class=tbl><tbody>${S.fills.map(f => `<tr>
       <td style="width:1%"><span class="pill ${f.action == 'buy' ? 'up' : 'ac'}">${f.action == 'buy' ? 'Bought' : 'Sold'}</span></td><td><div class="num ell" style="max-width:360px">${esc(f.tk)}</div><div class=mut style="font-size:12.5px">${(f.side || '').toUpperCase()} · ${fmt(f.count)} × ${Math.round(f.price * 100)}¢${f.fee ? ` · fee ${usd(f.fee, 2)}` : ''}</div></td>
       <td class="r mut" style="font-size:12.5px;white-space:nowrap">${rel(f.t / 1000)}</td></tr>`).join('')}</tbody></table></div>` : '';
 
@@ -126,7 +126,7 @@ function botRender(S) {
 
   const cronCard = `<div class="card pad"><div class="row sb"><h3>Always on</h3><span class=live>24/7</span></div><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 0">The bot runs on GitHub's servers around the clock, listening to Polymarket's live trade feed — it reacts within about a second of a tracked trader's trade, and double-checks every 15 seconds. Your phone and this page can be closed.</p></div>`;
 
-  app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>Copies the Polymarket traders you track onto your Kalshi account.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
+  app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>Follows international Polymarket wallets and executes only high-confidence matches on Polymarket US.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
     ${status}<div class=split style="margin-top:20px"><div class=grid>${connected ? posT + fillsT : ''}${logT}</div><div class=grid>${keysCard}${connected ? settings : ''}${cronCard}</div></div>`;
   if (keepOpen && $('details')) $('details').open = true;
   liveDraw(false);
@@ -134,17 +134,17 @@ function botRender(S) {
   const act = async (fn, okMsg) => { try { const r = await fn(); if (okMsg) toast(typeof okMsg == 'function' ? okMsg(r) : okMsg); } catch (e) { toast(`<span class=down>${esc(e.message)}</span>`); } botRefresh(); };
   const save = cfg => act(() => bapi('cfg', { cfg }));
   $('#btog') && ($('#btog').onclick = () => {
-    if (!S.enabled && !confirm(`Start copying trades with REAL money on your Kalshi ${real ? '' : 'demo '}account?\n\nEach trade uses ${c.pct}% of your cash.`)) return;
+    if (!S.enabled && !confirm(`Start copying signals with REAL money on your Polymarket US account?\n\nEach trade uses ${c.pct}% of your cash.`)) return;
     act(() => bapi(S.enabled ? 'stop' : 'start', {}), S.enabled ? 'Bot paused' : 'Bot started');
   });
   $('#brun') && ($('#brun').onclick = () => act(() => bapi('runnow', {}), r => r.ran ? `Checked — ${r.trades || 0} new trade(s)` : 'Turn the bot on first'));
   $('#bsa') && ($('#bsa').onclick = () => confirm('Sell every position the bot copied, at the current bid?') && act(() => bapi('sell', { ticker: 'all' }), 'Sell orders sent'));
   $$('[data-sell]').forEach(b => b.onclick = () => confirm(`Sell your whole ${b.dataset.sell} position at the current bid?`) && act(() => bapi('sell', { ticker: b.dataset.sell }), 'Sell order sent'));
   $('#bclr').onclick = () => act(() => bapi('clearlog', {}));
-  $('#kdel') && ($('#kdel').onclick = () => confirm('Disconnect your Kalshi account? The bot stops.') && act(() => bapi('keysdel', {}), 'Disconnected'));
+  $('#kdel') && ($('#kdel').onclick = () => confirm('Disconnect your Polymarket US account? The bot stops.') && act(() => bapi('keysdel', {}), 'Disconnected'));
   $('#ksave') && ($('#ksave').onclick = async () => {
-    $('#ksave').disabled = true; $('#ksave').textContent = 'Checking with Kalshi…'; $('#kerr').textContent = '';
-    try { const r = await bapi('keys', { keyId: $('#kid').value, pem: $('#kpem').value }); toast(`Connected your ${r.env == 'prod' ? 'real-money' : 'demo'} Kalshi account · cash ${usd(r.cash, 2)}`); botRefresh(); }
+    $('#ksave').disabled = true; $('#ksave').textContent = 'Checking with Polymarket US…'; $('#kerr').textContent = '';
+    try { const r = await bapi('keys', { keyId: $('#kid').value, secret: $('#ksecret').value }); toast(`Connected your real-money Polymarket US account · cash ${usd(r.cash, 2)}`); botRefresh(); }
     catch (e) { $('#kerr').textContent = e.message; $('#ksave').disabled = false; $('#ksave').textContent = 'Verify & connect'; }
   });
   // rotary dial: 1–100% over a 270° sweep, 50 tick marks; drag, +/- buttons, arrow keys
