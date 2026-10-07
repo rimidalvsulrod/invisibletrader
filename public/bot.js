@@ -110,7 +110,7 @@ function botRender(S) {
 
   const posT = `<div class="card" style="overflow:hidden"><div class="row sb pad" style="padding-bottom:8px"><h2>Positions</h2>${S.positions.some(p => p.copied) ? `<button class="btn sm danger" id=bsa>Sell all copies</button>` : ''}</div>
     <table class=tbl><tbody>${S.positions.map(p => `<tr><td><div class=ell style="font-weight:550;max-width:380px">${esc(p.title)}${p.sub ? ` <span class=mut>· ${esc(p.sub)}</span>` : ''}</div>
-      <div class=mut style="font-size:12.5px;margin-top:3px"><span class="pill ${p.side == 'yes' ? 'up' : 'down'}" style="height:19px">${p.side.toUpperCase()}</span> ${fmt(p.count)} contracts · cost ${usd(p.cost, 2)}${p.copied ? ` · <span style="color:var(--ac)">copied ${esc(p.copied.trader)}</span>` : ''}${p.status && p.status != 'active' ? ` · ${esc(p.status)}` : ''}</div></td>
+      <div class=mut style="font-size:12.5px;margin-top:3px"><span class="pill ${p.side == 'yes' ? 'up' : 'down'}" style="height:19px">${p.side.toUpperCase()}</span> ${fmt(p.count)} contracts · cost ${usd(p.cost, 2)}${p.copied ? ` · <span style="color:var(--ac)">copied ${esc(p.copied.trader)}</span>` : ''}${p.status && !['active', 'open'].includes(p.status) ? ` · ${esc(p.status)} — pays out automatically` : ''}</div></td>
       <td class="r num">${p.value != null ? usd(p.value, 2) : '—'}<div class="${p.pnl != null ? ud(p.pnl) : 'mut'}" style="font-size:12px">${p.pnl != null ? sg(p.pnl, 2) : ''}</div></td>
       <td class=r style="width:1%"><button class="btn sm" data-sell="${esc(p.tk)}">Sell</button></td></tr>`).join('') || `<tr><td class=empty>${connected ? 'No open positions on Polymarket US.' : 'Connect Polymarket US to see your positions.'}</td></tr>`}</tbody></table></div>`;
 
