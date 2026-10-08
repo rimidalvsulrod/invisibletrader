@@ -366,7 +366,7 @@ h2{letter-spacing:-.022em}.lead{letter-spacing:-.006em}
 .ribbon-lite .topbar{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(4,4,5,.92)!important}
 /* the hero band on Overview: the ribbon bleeds to the edges of the content area and fades out below the tiles */
 .lhero{position:relative;isolation:isolate}
-.lhero>canvas{position:absolute!important;top:calc(-1 * var(--nav) - 72px)!important;left:-120px!important;width:calc(100% + 240px)!important;height:calc(100% + var(--nav) + 132px)!important;z-index:-1}
+.lhero>canvas{position:absolute!important;top:calc(-1 * var(--nav) - 72px)!important;left:-120px!important;width:calc(100% + 240px)!important;height:calc(100% + var(--nav) + 312px)!important;z-index:-1}
 .lhero>:not(canvas){position:relative}
 /* live indicator: the accent dot glows, the rest stays grey */
 :root[data-theme=dark] .live:before{box-shadow:0 0 8px rgba(var(--accent-rgb,63,191,134),.8)}
