@@ -50,7 +50,7 @@ async function botRefresh() {
   catch (e) { if (e.status === 401) return botLogin(false); app.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; }
 }
 function botNoDb() {
-  app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1></div></div><div class="card pad" style="max-width:620px"><h2>Database not detected</h2>
+  app.innerHTML = `<div class="ph fade"><div><h1>Auto <em>Trader</em></h1></div></div><div class="card pad" style="max-width:620px"><h2>Database not detected</h2>
     <p class=mut style="font-size:14px;line-height:1.6;margin:8px 0 0">The site can't see its database yet. In Vercel open your project → <b>Deployments</b> → ⋯ on the latest → <b>Redeploy</b>, then refresh this page.</p></div>`;
 }
 function botLogin(first) {
@@ -126,7 +126,7 @@ function botRender(S) {
 
   const cronCard = `<div class="card pad"><div class="row sb"><h3>Always on</h3><span class=live>24/7</span></div><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 0">The bot runs on GitHub's servers around the clock, listening to Polymarket's live trade feed. It reacts within about a second of a tracked trader's trade, and double-checks every 15 seconds. Your phone and this page can be closed.</p></div>`;
 
-  app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>Follows international Polymarket wallets and executes only high-confidence matches on Polymarket US.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
+  app.innerHTML = `<div class="ph fade"><div><h1>Auto <em>Trader</em></h1><p class=lead>Follows international Polymarket wallets and executes only high-confidence matches on Polymarket US.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
     ${status}<div class=split style="margin-top:20px"><div class=grid>${connected ? posT + fillsT : ''}${logT}</div><div class=grid>${keysCard}${connected ? settings : ''}${cronCard}</div></div>`;
   if (keepOpen && $('details')) $('details').open = true;
   liveDraw(false);

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en" class="js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ribbon Demo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600&family=Inter:wght@400;500&family=Instrument+Serif:ital@1&family=JetBrains+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="luminous.css">
+<style>
+  body { margin: 0; overflow-x: hidden; }
+  .wrap { max-width: 1440px; margin-inline: auto; padding-inline: clamp(20px, 5.5vw, 80px); }
+  .hero-wrap { position: relative; overflow: clip; }
+  .hero { min-height: 100svh; display: flex; align-items: center; }
+  .hero .wrap > * + * { margin-top: 28px; }
+  section { padding-block: 160px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; margin-top: 56px; }
+  .cards .lum-glass { padding: 30px; min-height: 180px; }
+  .waves-wrap { position: relative; }
+</style>
+</head>
+<body class="lum-page">
+  <canvas data-ribbon="ambient"></canvas>
+  <div class="hero-wrap">
+    <canvas data-ribbon="hero" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas>
+    <header class="hero lum-above">
+      <div class="wrap">
+        <span class="lum-chip"><span class="lum-dot"></span>demo / ribbon engine</span>
+        <h1 class="lum-h1">Light that runs<br><em>itself</em>.</h1>
+        <p class="lum-lead">A GPU light ribbon that flows corner to corner, pulses and glows, with almost no CPU work per frame.</p>
+        <div style="display:flex;gap:13px;flex-wrap:wrap"><a class="lum-btn lum-btn-accent" href="#more">Start free</a><a class="lum-btn lum-btn-ghost" href="#more">See how</a></div>
+      </div>
+    </header>
+  </div>
+  <main>
+    <section id="more" data-ribbon-shape="sweepLeft"><div class="wrap"><div class="lum-sh"><span class="lum-tag"><span class="lum-dot"></span>ambient</span><h2 class="lum-h2">Soft light behind <em>every</em> section.</h2><p>The fixed layer reshapes as you scroll. Pick a shape per section with data-ribbon-shape.</p></div>
+      <div class="cards"><div class="lum-glass"><span class="lum-mono">one</span></div><div class="lum-glass"><span class="lum-mono">two</span></div><div class="lum-glass"><span class="lum-mono">three</span></div></div></div></section>
+    <section data-ribbon-shape="diagDown"><div class="wrap"><h2 class="lum-h2">Corner to <em>corner</em>.</h2></div></section>
+    <div class="waves-wrap">
+      <canvas data-ribbon="waves" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas>
+      <section class="lum-above" data-ribbon-shape="horizontal" style="min-height:900px"><div class="wrap"><h2 class="lum-h2">Waves across the <em>pricing</em>.</h2></div></section>
+    </div>
+  </main>
+  <script type="module">
+    import { autoMount } from './ribbon-engine.js';
+    const accent = new URLSearchParams(location.search).get('accent');
+    if (accent) document.documentElement.style.setProperty('--lum-accent', '#' + accent);
+    autoMount(accent ? { accent: '#' + accent } : {});
+  </script>
+</body>
+</html>

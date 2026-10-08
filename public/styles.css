@@ -341,3 +341,44 @@ a[style*="--ac"],.card a.lnk,.lnk{color:var(--accent)}
 .pods{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr)}
 .pods .g1 .pv{font-size:clamp(34px,3.2vw,44px)!important}
 @media(max-width:760px){.ovs{grid-template-columns:1fr}.ovs>:first-child{grid-row:auto}}
+
+/* ======================================================================================
+   v9: luminous ribbon + Apple materials. Dark theme: near-black ground, a WebGL light ribbon behind the
+   Overview header (public/fx.js), soft ambient light behind every page, glass cards WITHOUT backdrop blur
+   (blur over animated light re-renders every frame). One frosted surface: the top bar. One italic serif
+   word per page title. Light theme keeps the v8 look (additive light needs a dark ground).
+   ====================================================================================== */
+:root{--serif:"Instrument Serif","Times New Roman",Georgia,serif}
+:root,:root[data-theme=dark]{--bg:#040405;--panel:#0d0e0e;--panel2:#131414;--bg2:#16171a;
+  --pop:rgba(18,19,20,.94);--glass:rgba(4,4,5,.62);--line:rgba(255,255,255,.075);--line2:rgba(255,255,255,.12);--hl:rgba(255,255,255,.04)}
+:root[data-theme=light]{--panel:#fcfcfd;--panel2:#f8f8fa;--pop:rgba(255,255,255,.9)}
+main{position:relative;z-index:1;overflow-x:clip}
+.fxamb{z-index:0!important}
+:root[data-theme=light] .fxamb{display:none}
+/* type: size-specific tracking, tight leading on display sizes, the serif word sits on the same baseline */
+h1{letter-spacing:-.038em;line-height:1.04;font-weight:600;font-optical-sizing:auto}
+h1 em{font-family:var(--serif);font-style:italic;font-weight:400;letter-spacing:-.01em;font-size:1.08em;padding-right:.04em}
+h2{letter-spacing:-.022em}.lead{letter-spacing:-.006em}
+/* glass cards in dark: translucent fill + hairline, no blur */
+:root[data-theme=dark] .card{background:linear-gradient(180deg,rgba(18,19,18,.74),rgba(8,9,9,.82));border-color:rgba(255,255,255,.07);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+:root[data-theme=dark] .ovs>:first-child{background:radial-gradient(120% 90% at 100% 0%,rgba(63,191,134,.16),transparent 60%),linear-gradient(180deg,rgba(18,19,18,.74),rgba(8,9,9,.82))}
+:root[data-theme=dark] .card:hover{border-color:rgba(255,255,255,.11)}
+/* materials: heavy solid sidebar (structure), one light frosted top bar (interactive chrome) */
+:root[data-theme=dark] aside{background:rgba(6,6,7,.9);backdrop-filter:none;-webkit-backdrop-filter:none}
+:root[data-theme=dark] #tabbar{background:rgba(14,15,16,.97);backdrop-filter:none;-webkit-backdrop-filter:none}
+.ribbon-lite .topbar{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(4,4,5,.92)!important}
+/* the hero band on Overview: the ribbon bleeds to the edges of the content area and fades out below the tiles */
+.lhero{position:relative;isolation:isolate}
+.lhero>canvas{position:absolute!important;top:calc(-1 * var(--nav) - 72px)!important;left:-120px!important;width:calc(100% + 240px)!important;height:calc(100% + var(--nav) + 132px)!important;z-index:-1}
+.lhero>:not(canvas){position:relative}
+:root[data-theme=light] .lhero>canvas{display:none!important}
+/* live indicator: the accent dot glows, the rest stays grey */
+:root[data-theme=dark] .live:before{box-shadow:0 0 8px rgba(63,191,134,.8)}
+/* press feedback on pointer-down, instant (Apple: respond on press, not release) */
+.btn,.chip,.kbtn,.tbtn,.seg button,.nv,#tabbar a{transition:transform .1s ease-out,background-color .2s,border-color .2s,color .2s}
+.seg button:active,.nv:active,#tabbar a:active,a.card:active{transform:scale(.97)}
+@media(max-width:760px){.lhero>canvas{top:-90px!important;left:-16px!important;width:calc(100% + 32px)!important;height:calc(100% + 130px)!important}}
+@media(prefers-contrast:more){:root[data-theme=dark] .card{background:#0e0f0f;border-color:rgba(255,255,255,.28)}.topbar{background:var(--bg)!important;backdrop-filter:none!important}}
+@media(prefers-reduced-transparency:reduce){:root[data-theme=dark] .card{background:#0e0f0f}}
+:root[data-theme=dark] .lhero .ph{text-shadow:0 0 18px #040405,0 0 4px #040405}
+#fxstops{position:absolute;inset:0 auto auto 0;width:0;height:0;overflow:visible;pointer-events:none}#fxstops i{position:absolute;left:0;width:0;height:0}

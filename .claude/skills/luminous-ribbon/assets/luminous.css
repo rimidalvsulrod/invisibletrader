@@ -1,0 +1,80 @@
+/* luminous.css: the "Luminous Console" design language as drop-in tokens + components.
+   Change --lum-accent (and --lum-accent-rgb) to re-brand. Prefix lum- avoids clashes.
+   Fonts (Google): Inter Tight 500/600, Inter 400/500, Instrument Serif italic, JetBrains Mono 400/500. */
+
+:root {
+  --lum-bg: #040404;
+  --lum-fg: #f1f1ee;
+  --lum-fg-2: #8d8d89;
+  --lum-fg-3: #5e5e5a;
+  --lum-line: rgba(255, 255, 255, .075);
+  --lum-line-2: rgba(255, 255, 255, .12);
+  --lum-accent: #c3ff4c;
+  --lum-accent-rgb: 195, 255, 76;
+  --lum-on-accent: #0b0e05;
+  --lum-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --lum-display: "Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --lum-serif: "Instrument Serif", "Times New Roman", Georgia, serif;
+  --lum-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --lum-radius: 20px;
+  color-scheme: dark;
+}
+
+/* page */
+.lum-page { background: var(--lum-bg); color: var(--lum-fg); font-family: var(--lum-sans); -webkit-font-smoothing: antialiased; }
+.lum-page main, .lum-page footer, .lum-above { position: relative; z-index: 1; }
+
+/* type */
+.lum-h1 { font-family: var(--lum-display); font-weight: 500; font-size: clamp(42px, 5.3vw, 76px); line-height: 1.03; letter-spacing: -.045em; text-wrap: balance; }
+.lum-h2 { font-family: var(--lum-display); font-weight: 500; font-size: clamp(32px, 3.2vw, 46px); line-height: 1.24; letter-spacing: -.04em; text-wrap: balance; }
+.lum-h3 { font-family: var(--lum-display); font-weight: 500; font-size: 26px; letter-spacing: -.03em; }
+.lum-h1 em, .lum-h2 em, .lum-h3 em, .lum-it { font-family: var(--lum-serif); font-style: italic; font-weight: 400; letter-spacing: -.01em; font-size: 1.05em; }
+.lum-lead { font-size: 17.5px; line-height: 28px; color: var(--lum-fg-2); max-width: 470px; }
+.lum-body { font-size: 15.5px; line-height: 24px; color: var(--lum-fg-2); }
+.lum-mono { font-family: var(--lum-mono); font-size: 13px; color: var(--lum-fg-3); font-variant-ligatures: none; }
+
+/* bits */
+.lum-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--lum-accent); box-shadow: 0 0 8px rgba(var(--lum-accent-rgb), .8); flex: none; }
+.lum-tag { display: inline-flex; align-items: center; gap: 9px; height: 32px; padding: 0 13px; border-radius: 999px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .04); font-size: 13.5px; color: #a6a6a0; width: fit-content; }
+.lum-chip { display: inline-flex; align-items: center; gap: 10px; height: 36px; padding: 0 13px; border: 1px solid var(--lum-line-2); border-radius: 7px; background: rgba(0, 0, 0, .35); font-family: var(--lum-mono); font-size: 13px; color: #d6d6d0; }
+.lum-status { display: inline-flex; align-items: center; gap: 10px; height: 42px; padding: 0 16px; border: 1px solid var(--lum-line-2); border-radius: 999px; background: rgba(255, 255, 255, .025); font-family: var(--lum-mono); font-size: 14px; color: #cfcfca; }
+
+/* glass card: no backdrop-filter on purpose (it re-blurs the animated light every frame) */
+.lum-glass { background: linear-gradient(180deg, rgba(17, 18, 16, .74), rgba(8, 9, 8, .8)); border: 1px solid rgba(255, 255, 255, .07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04); border-radius: var(--lum-radius); }
+/* at most ONE frosted element (e.g. the hero product card) */
+.lum-frost { background: linear-gradient(180deg, rgba(24, 30, 20, .6), rgba(8, 10, 7, .72)); border: 1px solid rgba(255, 255, 255, .09); border-radius: 22px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.ribbon-lite .lum-frost { -webkit-backdrop-filter: none; backdrop-filter: none; background: linear-gradient(180deg, rgba(20, 25, 17, .88), rgba(8, 10, 7, .92)); }
+
+/* buttons */
+.lum-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 48px; padding: 0 24px; border-radius: 999px; border: 0; cursor: pointer; font: 500 16px var(--lum-sans); text-decoration: none; white-space: nowrap; overflow: hidden; isolation: isolate; transition: transform .15s, color .3s; }
+.lum-btn:active { transform: scale(.98); }
+.lum-btn:focus-visible { outline: 2px solid var(--lum-accent); outline-offset: 3px; }
+.lum-btn-accent { background: var(--lum-accent); color: var(--lum-on-accent); }
+.lum-btn-accent::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: #050505; transform: scaleX(0); transform-origin: left; transition: transform .45s cubic-bezier(.7, 0, .2, 1); }
+.lum-btn-accent:hover { color: var(--lum-accent); }
+.lum-btn-accent:hover::before { transform: scaleX(1); }
+.lum-btn-ghost { background: rgba(22, 22, 22, .85); color: var(--lum-fg); border: 1px solid var(--lum-line-2); }
+.lum-btn-ghost:hover { background: rgba(40, 40, 40, .9); }
+
+/* accent panel (the one loud block per page: manifesto or final CTA) */
+.lum-panel { background-color: var(--lum-accent); color: var(--lum-on-accent); border-radius: var(--lum-radius); background-image: radial-gradient(rgba(11, 14, 5, .16) 1.2px, transparent 1.3px); background-size: 48px 48px; }
+
+/* section header: tag, headline left, short explainer right */
+.lum-sh { display: grid; grid-template-columns: minmax(0, 1fr) 445px; column-gap: 40px; align-items: start; }
+.lum-sh > .lum-tag { grid-column: 1 / -1; margin-bottom: 24px; }
+.lum-sh > p { padding-top: 14px; font-size: 15px; line-height: 24px; color: var(--lum-fg-2); }
+@media (max-width: 980px) { .lum-sh { grid-template-columns: minmax(0, 1fr); } }
+
+/* reveal: blur in once (JS adds .in via IntersectionObserver; resting state stays visible without JS) */
+.js .lum-reveal { transition: opacity 1s cubic-bezier(.2, .7, .2, 1), filter 1s cubic-bezier(.2, .7, .2, 1), transform 1s cubic-bezier(.2, .7, .2, 1); }
+.js .lum-reveal:not(.in) { opacity: 0; filter: blur(12px); transform: translateY(14px); }
+.js .lum-reveal em { transition: opacity 1s .35s, filter 1s .35s; }
+.js .lum-reveal:not(.in) em { opacity: 0; filter: blur(14px); }
+.ribbon-lite.js .lum-reveal:not(.in), .ribbon-lite.js .lum-reveal:not(.in) em { filter: none; }
+
+/* no WebGL2: a static glow so the hero is not flat */
+.ribbon-nogl [data-ribbon="hero"] { background: radial-gradient(40% 50% at 38% 70%, rgba(var(--lum-accent-rgb), .22), transparent 70%); }
+
+@media (prefers-reduced-motion: reduce) {
+  .js .lum-reveal:not(.in), .js .lum-reveal:not(.in) em { opacity: 1; filter: none; transform: none; }
+}

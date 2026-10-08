@@ -10,7 +10,7 @@ const short=a=>a?a.slice(0,6)+'…'+a.slice(-4):'',nm=(n,a)=>!n?short(a):/^0x[0-
 const dt=ts=>new Date(ts*1000).toLocaleDateString('en',{month:'short',day:'numeric'});
 const rel=ts=>{const s=Date.now()/1000-ts;return s<60?Math.max(1,Math.floor(s))+'s ago':s<3600?Math.floor(s/60)+'m ago':s<86400?Math.floor(s/3600)+'h ago':s<86400*60?Math.floor(s/86400)+'d ago':Math.floor(s/2592000)+'mo ago'};
 const THEMES={auto:'Auto',light:'Light',dark:'Dark'};
-const applyTheme=()=>{const t=LS.get('theme','auto'),dark=t=='dark'||(t=='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name=theme-color]')?.setAttribute('content',dark?'#000000':'#f5f5f7')};
+const applyTheme=()=>{const t=LS.get('theme','auto'),dark=t=='dark'||(t=='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name=theme-color]')?.setAttribute('content',dark?'#040405':'#f4f4f6')};
 const cycleTheme=()=>{const order=['auto','light','dark'],t=LS.get('theme','auto');LS.set('theme',order[(order.indexOf(t)+1)%3]);applyTheme();renderSide();toast(`Appearance: ${THEMES[LS.get('theme','auto')]}`)};
 const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const toast=m=>{const t=document.createElement('div');t.className='toast';t.innerHTML=m;$('#toasts').append(t);setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),150)},3200)};
@@ -110,9 +110,9 @@ $('#palq').oninput=()=>{clearTimeout(palT);const v=$('#palq').value.trim();if(!v
 
 /* ---------- Overview ---------- */
 async function overview(){
-  app.innerHTML=`<div class="ph fade"><div><h1>Market pulse</h1><p class=lead>What the best Polymarket traders are doing right now, and what your bot does about it.</p></div><span class=live>Live</span></div>
+  app.innerHTML=`<div class=lhero><canvas data-ribbon=hero aria-hidden=true></canvas><div class="ph fade"><div><h1>Market <em>pulse</em></h1><p class=lead>What the best Polymarket traders are doing right now, and what your bot does about it.</p></div><span class=live>Live</span></div>
   <div class="grid ovs" id=ovs>${[0,1,2].map(()=>`<div class="card pad stat">${sk(12,'40%')}<div style="height:12px"></div>${sk(28,'70%')}</div>`).join('')}</div>
-  <div class=split style="margin-top:16px"><div class=card><div class="row sb pad" style="padding-bottom:6px"><h2>Whale trades</h2><a href="#/feed" class="btn sm">Open feed ${ic('chev',13)}</a></div><div id=ovf>${sk(200)}</div></div>
+  </div><div class=split style="margin-top:16px"><div class=card><div class="row sb pad" style="padding-bottom:6px"><h2>Whale trades</h2><a href="#/feed" class="btn sm">Open feed ${ic('chev',13)}</a></div><div id=ovf>${sk(200)}</div></div>
   <div class=card><div class="row sb pad" style="padding-bottom:6px"><h2>Top traders</h2><a href="#/leaderboard" class="btn sm">All ${ic('chev',13)}</a></div><div id=ovl style="padding:0 10px 10px">${sk(200)}</div></div></div>`;
   const[lb,tr]=await Promise.all([lbOf('ALL','PNL'),api('trades?limit=200&filterType=CASH&filterAmount=5000')]);if(!$('#ovs'))return;
   const trades=Array.isArray(tr)?tr:[],bigH=trades.filter(t=>Date.now()/1000-t.timestamp<3600).sort((a,b)=>b.size*b.price-a.size*a.price)[0];
@@ -133,7 +133,7 @@ const feedRows=(d,compact)=>{
 /* ---------- Leaderboard ---------- */
 async function leaderboard(){
   const per=LS.get('lbper','ALL'),ord=LS.get('lbord','PNL'),dir=LS.get('lbdir','desc');
-  app.innerHTML=`<div class="ph fade"><div><h1>Leaderboard</h1><p class=lead>${ord=='WR'?`Top 100 traders by profit, re-ranked by win rate (${dir=='asc'?'lowest':'highest'} first) over their most recent resolved positions (min. 20).`:`Ranked by Polymarket's official ${ord=='VOL'?'volume':'profit & loss'}. Win rates use each trader's most recent resolved positions.`}</p></div>
+  app.innerHTML=`<div class="ph fade"><div><h1><em>Leaderboard</em></h1><p class=lead>${ord=='WR'?`Top 100 traders by profit, re-ranked by win rate (${dir=='asc'?'lowest':'highest'} first) over their most recent resolved positions (min. 20).`:`Ranked by Polymarket's official ${ord=='VOL'?'volume':'profit & loss'}. Win rates use each trader's most recent resolved positions.`}</p></div>
    <div class="row wrapf"><div class=seg id=per>${[['DAY','Today'],['WEEK','Week'],['MONTH','Month'],['ALL','All time']].map(([k,l])=>`<button data-v=${k} class="${per==k?'on':''}">${l}</button>`).join('')}</div><div class=seg id=ord>${[['PNL','Profit'],['VOL','Volume'],['WR','Win rate']].map(([k,l])=>`<button data-v=${k} class="${ord==k?'on':''}">${l}</button>`).join('')}</div></div></div><div id=lb>${sk(160)}</div>`;
   $$('#per button').forEach(b=>b.onclick=()=>{LS.set('lbper',b.dataset.v);leaderboard()});$$('#ord button').forEach(b=>b.onclick=()=>{if(b.dataset.v!=ord)LS.set('lbdir','desc');LS.set('lbord',b.dataset.v);leaderboard()});
   const base=ord=='WR'?'PNL':ord;let lb=[...await lbOf(per,base,0),...await lbOf(per,base,50)];if(!$('#lb'))return;
@@ -210,7 +210,7 @@ async function rankFeed(d,sort){
 }
 async function feed(){
   const min=LS.get('fmin',10000);let side='all',only=false,sort=LS.get('fsort','latest'),tickId=0;
-  app.innerHTML=`<div class="ph fade"><div><h1>Whale Feed</h1><p class=lead>Large Polymarket trades as they happen. Click a trader to see their record.</p></div><span class=live id=fst>Live</span></div>
+  app.innerHTML=`<div class="ph fade"><div><h1>Whale <em>Feed</em></h1><p class=lead>Large Polymarket trades as they happen. Click a trader to see their record.</p></div><span class=live id=fst>Live</span></div>
    <div class="row wrapf" style="margin-bottom:14px"><div class=row id=mins>${[1000,5000,10000,50000].map(v=>`<button class="chip ${v==min?'on':''}" data-v=${v}>${abbr(v,0).replace('+','')}+</button>`).join('')}</div><div class=seg id=sides><button data-s=all class=on>All</button><button data-s=BUY>Buys</button><button data-s=SELL>Sells</button></div>
    <div class=seg id=fsort>${[['latest','Latest'],['size','Size'],['pnl','P&L'],['win','Win rate']].map(([v,l])=>`<button data-v=${v} class="${sort==v?'on':''}">${l}</button>`).join('')}</div><button class=chip id=fo>${ic('star',13)} Tracking only</button><label class="row mut" style="font-size:13px;margin-left:auto;gap:6px"><input type=checkbox id=nt> Notify me</label></div><div class=card style="overflow:hidden" id=ft>${sk(300)}</div>`;
   let cur=min;$$('#mins .chip').forEach(b=>b.onclick=()=>{cur=+b.dataset.v;LS.set('fmin',cur);$$('#mins .chip').forEach(x=>x.classList.toggle('on',x==b));seenT.clear();tick()});
@@ -228,7 +228,7 @@ async function feed(){
 
 /* ---------- Profit Bot (backtest) ---------- */
 async function backtest(){
-  app.innerHTML=`<div class="ph fade"><div><h1>Profit Bot</h1><p class=lead>A backtest: replay the real resolved picks of top traders in order, restaking a share of the bankroll each time.</p></div></div><div id=bt>${sk(380)}</div>`;
+  app.innerHTML=`<div class="ph fade"><div><h1>Profit <em>Bot</em></h1><p class=lead>A backtest: replay the real resolved picks of top traders in order, restaking a share of the bankroll each time.</p></div></div><div id=bt>${sk(380)}</div>`;
   const ex=await loadExperts();if(!$('#bt'))return;
   const seen=new Set(),picks=ex.flatMap(e=>e.closed.map(c=>({...c,wr:e.wr}))).filter(c=>c.avgPrice>=.4&&c.avgPrice<=.9&&c.totalBought*c.avgPrice>=300).sort((a,b)=>a.timestamp-b.timestamp).filter(c=>{const k=c.conditionId+c.outcomeIndex;return seen.has(k)?0:(seen.add(k),1)});
   if(picks.length<5){$('#bt').innerHTML=`<div class="card empty">Not enough resolved picks to backtest right now.</div>`;return}
@@ -257,7 +257,7 @@ async function backtest(){
 /* ---------- Tracking + notes ---------- */
 function journal(){
   const fl=Object.entries(fol),notes=LS.get('notes',[]);
-  app.innerHTML=`<div class="ph fade"><div><h1>Tracking</h1><p class=lead>Traders you track${OWNER?'. Your Auto Trader copies them':''}. Plus your private trade notes.</p></div></div>
+  app.innerHTML=`<div class="ph fade"><div><h1><em>Tracking</em></h1><p class=lead>Traders you track${OWNER?'. Your Auto Trader copies them':''}. Plus your private trade notes.</p></div></div>
    <div class="grid g3" id=fg>${fl.map(([a,n])=>`<a href="#/trader/${a}" class="card pad fade"><div class=row>${av(n,a)}<div class=grow><div class=ell style="font-weight:600">${esc(n)}</div><div class="mut num" style="font-size:12px">${short(a)}</div></div>${folBtn(a,n)}</div><div class="row sb" style="margin-top:14px;font-size:13px" data-fs="${a}">${sk(14)}</div></a>`).join('')||`<div class="card empty" style="grid-column:1/-1">You're not tracking anyone yet. Tap ${ic('star',13)} on the <a href="#/leaderboard" style="color:var(--ac)">leaderboard</a>.</div>`}</div>
    <div class=sec><h2>Notes</h2></div><form id=nf class=row><input class=inp id=nt placeholder="Write a note…"><button class="btn pri">Add</button></form>
    <div style="margin-top:12px" class=grid>${notes.map((n,i)=>`<div class="card pad row sb" style="padding:14px 18px"><div><div>${esc(n.t)}</div><div class=mut style="font-size:12px;margin-top:4px">${new Date(n.d).toLocaleString()}</div></div><button class="btn ic sm" data-del=${i}>${ic('x',13)}</button></div>`).join('')}</div>`;
@@ -268,7 +268,7 @@ function journal(){
 
 /* ---------- Analyzer ---------- */
 function analyze(){
-  app.innerHTML=`<div class="ph fade"><div><h1>Analyzer</h1><p class=lead>A plain-English read on any trader's edge, risk and style, computed from their real resolved positions.</p></div></div>
+  app.innerHTML=`<div class="ph fade"><div><h1><em>Analyzer</em></h1><p class=lead>A plain-English read on any trader's edge, risk and style, computed from their real resolved positions.</p></div></div>
    <form id=af class=row><input class=inp id=aq placeholder="Paste a 0x wallet address" value="${esc(LS.get('aq',''))}"><button class="btn pri">${ic('spark',15)} Analyze</button></form><div id=ar style="margin-top:16px"></div>`;
   $('#af').onsubmit=async e=>{e.preventDefault();const a=$('#aq').value.trim().toLowerCase();if(!/^0x[0-9a-f]{40}$/.test(a)){$('#ar').innerHTML=`<div class="card empty">Enter a valid wallet (0x…). Tip: copy it from any trader's profile.</div>`;return}LS.set('aq',a);
     $('#ar').innerHTML=sk(200);const[c,o,lt]=await Promise.all([resolvedOf(a,4),openOf(a),lastTradeOf(a)]);if(c.length<5){$('#ar').innerHTML=`<div class="card empty">Not enough resolved positions to analyze.</div>`;return}
@@ -288,7 +288,7 @@ function analyze(){
 
 /* ---------- Help & setup ---------- */
 function help(){
-  app.innerHTML=`<div class="ph fade"><div><h1>Help</h1><p class=lead>Signals come from public Polymarket wallets. Orders go only to your Polymarket US account.</p></div></div>
+  app.innerHTML=`<div class="ph fade"><div><h1><em>Help</em></h1><p class=lead>Signals come from public Polymarket wallets. Orders go only to your Polymarket US account.</p></div></div>
    <div class="grid g2"><div class="card pad"><h2>Turning on the Auto Trader</h2><div style="margin-top:8px">${[['Create a password','Open <a href="#/bot" style="color:var(--ac)">Auto Trader</a>. The first visit asks you to make one.'],['Connect Polymarket US','Create a Key ID and Secret Key in the Polymarket US developer portal and paste them into Auto Trader.'],['Pick a size','Choose what % of your balance each copied trade uses, then flip the switch on.'],['Track traders','Tap ☆ on anyone on the international Polymarket leaderboard to use their public wallet as a signal source.']].map(([t,d],i)=>`<div class=step><b class=ok>${i+1}</b><div><div style="font-weight:550">${t}</div><div class=mut style="font-size:13px;margin-top:3px">${d}</div></div></div>`).join('')}</div></div>
    <div class=grid><div class="card pad"><h3>How the bot decides</h3><div class=mut style="font-size:13.5px;line-height:1.6;margin-top:8px">When a tracked international wallet buys, the bot searches Polymarket US. It requires matching key words, all numbers and dates, direction words such as above/below/before/not, compatible resolution dates, and a clear winning candidate. It then uses an immediate-or-cancel US order only when the US ask is within your price gap. Ambiguous or unavailable markets are skipped with a reason and match score.</div></div>
     <div class="card pad"><h3>Accuracy</h3><div class=mut style="font-size:13.5px;line-height:1.6;margin-top:8px">Profit and volume are Polymarket's official numbers. Win rates use each trader's most recent resolved positions, including losers they never cashed out. "Open" only shows markets that haven't resolved yet.</div></div></div></div>`;
