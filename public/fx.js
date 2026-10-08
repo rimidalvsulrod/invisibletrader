@@ -4,7 +4,10 @@
 import { createRibbons, supported, paletteFromAccent, AMBIENT } from '/ribbon-engine.js';
 const app = document.getElementById('app'), root = document.documentElement;
 let fx = null, amb = null, hero = null, ambCanvas = null, heroCanvas = null, ambKey = '', theme = '', t = 0;
-const ink = () => { const p = paletteFromAccent('#14845a'), k = .32, d = c => c.map(v => v * k); return { ...p, main: p.main.map(d), cool: p.cool.map(d), haze: d(p.haze), coreHot: d(p.coreHot), core: d(p.core), glitter: d(p.glitter), bokeh: d(p.bokeh), dust: d(p.dust) }; };
+// the user's accent (Settings): dark theme glows in it, light theme draws it as ink
+const accent = () => getComputedStyle(root).getPropertyValue('--accent').trim() || '#3fbf86';
+const DPR = Math.min(window.devicePixelRatio || 1, 2); // sharp on retina; the engine steps down on its own if a device struggles
+const ink = () => { const p = paletteFromAccent(accent()), k = .32, d = c => c.map(v => v * k); return { ...p, main: p.main.map(d), cool: p.cool.map(d), haze: d(p.haze), coreHot: d(p.coreHot), core: d(p.core), glitter: d(p.glitter), bokeh: d(p.bokeh), dust: d(p.dust) }; };
 
 function teardown() {
   hero?.destroy(); amb?.destroy(); hero = amb = null;
@@ -15,8 +18,9 @@ function teardown() {
 function mount() {
   if (!supported()) { root.classList.add('ribbon-nogl'); return; }
   const dark = root.dataset.theme !== 'light';
-  if (theme !== root.dataset.theme) { teardown(); theme = root.dataset.theme; }
-  fx ||= dark ? createRibbons({ accent: '#3fbf86' }) : createRibbons({ palette: ink() });
+  const look = root.dataset.theme + accent();
+  if (theme !== look) { teardown(); theme = look; }
+  fx ||= dark ? createRibbons({ accent: accent(), dpr: DPR }) : createRibbons({ palette: ink(), dpr: DPR });
   const hc = app.querySelector('canvas[data-ribbon="hero"]');
   if (hc !== heroCanvas) { hero?.destroy(); hero = null; heroCanvas = hc; if (hc) hero = fx.hero(hc, { alpha: dark ? .55 : .5, fade: [0, 120], heightFrom: hc.parentElement }); }
   // pages re-render on their own polls: only rebuild the ambient when the page itself changes
@@ -36,5 +40,5 @@ stops.innerHTML = Array.from({ length: 40 }, (_, i) => `<i style="top:${700 + i 
 app.parentElement.append(stops);
 const later = () => { clearTimeout(t); t = setTimeout(mount, 60); };
 new MutationObserver(later).observe(app, { childList: true });                       // a new page was rendered
-new MutationObserver(later).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+new MutationObserver(later).observe(root, { attributes: true, attributeFilter: ['data-theme', 'data-accent'] });
 mount();

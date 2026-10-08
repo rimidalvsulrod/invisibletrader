@@ -1,6 +1,6 @@
 /* Mimic — Polymarket signals, Polymarket US execution. */
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],app=$('#app');
-const P={search:'<circle cx=7 cy=7 r=4.5 /><path d="M10.5 10.5l3 3" />',home:'<path d="M2.5 7.5L8 3l5.5 4.5V13a1 1 0 01-1 1h-9a1 1 0 01-1-1z" /><path d="M6.5 14V10h3v4" />',trophy:'<path d="M5 2h6v4a3 3 0 01-6 0zM3 3h2v2a2 2 0 01-2-2zM13 3h-2v2a2 2 0 002-2zM8 9v3M5 14h6" />',wave:'<path d="M1.5 9c1.5 0 1.5-4 3-4s1.5 6 3 6 1.5-8 3-8 1.5 6 3 6" />',flask:'<path d="M6 2h4M6.5 2v4L3 13a1 1 0 00.9 1.4h8.2A1 1 0 0013 13L9.5 6V2" /><path d="M4.5 10h7" />',bot:'<rect x=3 y=5 width=10 height=8 rx=2.5 /><path d="M8 2v3M6 9h.01M10 9h.01" />',book:'<path d="M3 3.5A1.5 1.5 0 014.5 2H13v10.5H4.5A1.5 1.5 0 003 14z" /><path d="M3 14a1.5 1.5 0 001.5-1.5H13" />',spark:'<path d="M6 2l1.2 3L10 6.2 7.2 7.4 6 10.5 4.8 7.4 2 6.2 4.8 5z" /><path d="M11.5 9l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8L9 11.5l1.8-.7z" />',help:'<circle cx=8 cy=8 r=6 /><path d="M6.3 6.4c0-1 .8-1.6 1.7-1.6s1.7.6 1.7 1.5c0 1.2-1.7 1.3-1.7 2.5M8 11v.1" />',arrow:'<path d="M5 11l6-6M6 5h5v5" />',star:'<path d="M8 2l1.8 3.8 4.2.5-3.1 2.9.8 4.1L8 11.3l-3.7 2 .8-4.1L2 6.3l4.2-.5z" />',lock:'<rect x=3.5 y=7 width=9 height=7 rx=1.5 /><path d="M5.5 7V5a2.5 2.5 0 015 0v2" />',unlock:'<rect x=3.5 y=7 width=9 height=7 rx=1.5 /><path d="M5.5 7V5a2.5 2.5 0 014.9-.6" />',copy:'<rect x=5.5 y=5.5 width=8 height=8 rx=1.5 /><path d="M3 10.5V3.5A1 1 0 014 2.5h6.5" />',x:'<path d="M4 4l8 8M12 4l-8 8" />',chev:'<path d="M6 4l4 4-4 4" />',sun:'<circle cx=8 cy=8 r=3 /><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1" />',moon:'<path d="M13 9.5A5.5 5.5 0 016.5 3a5.5 5.5 0 106.5 6.5z" />'};
+const P={gear:'<circle cx=8 cy=8 r=2.2 /><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />',search:'<circle cx=7 cy=7 r=4.5 /><path d="M10.5 10.5l3 3" />',home:'<path d="M2.5 7.5L8 3l5.5 4.5V13a1 1 0 01-1 1h-9a1 1 0 01-1-1z" /><path d="M6.5 14V10h3v4" />',trophy:'<path d="M5 2h6v4a3 3 0 01-6 0zM3 3h2v2a2 2 0 01-2-2zM13 3h-2v2a2 2 0 002-2zM8 9v3M5 14h6" />',wave:'<path d="M1.5 9c1.5 0 1.5-4 3-4s1.5 6 3 6 1.5-8 3-8 1.5 6 3 6" />',flask:'<path d="M6 2h4M6.5 2v4L3 13a1 1 0 00.9 1.4h8.2A1 1 0 0013 13L9.5 6V2" /><path d="M4.5 10h7" />',bot:'<rect x=3 y=5 width=10 height=8 rx=2.5 /><path d="M8 2v3M6 9h.01M10 9h.01" />',book:'<path d="M3 3.5A1.5 1.5 0 014.5 2H13v10.5H4.5A1.5 1.5 0 003 14z" /><path d="M3 14a1.5 1.5 0 001.5-1.5H13" />',spark:'<path d="M6 2l1.2 3L10 6.2 7.2 7.4 6 10.5 4.8 7.4 2 6.2 4.8 5z" /><path d="M11.5 9l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8L9 11.5l1.8-.7z" />',help:'<circle cx=8 cy=8 r=6 /><path d="M6.3 6.4c0-1 .8-1.6 1.7-1.6s1.7.6 1.7 1.5c0 1.2-1.7 1.3-1.7 2.5M8 11v.1" />',arrow:'<path d="M5 11l6-6M6 5h5v5" />',star:'<path d="M8 2l1.8 3.8 4.2.5-3.1 2.9.8 4.1L8 11.3l-3.7 2 .8-4.1L2 6.3l4.2-.5z" />',lock:'<rect x=3.5 y=7 width=9 height=7 rx=1.5 /><path d="M5.5 7V5a2.5 2.5 0 015 0v2" />',unlock:'<rect x=3.5 y=7 width=9 height=7 rx=1.5 /><path d="M5.5 7V5a2.5 2.5 0 014.9-.6" />',copy:'<rect x=5.5 y=5.5 width=8 height=8 rx=1.5 /><path d="M3 10.5V3.5A1 1 0 014 2.5h6.5" />',x:'<path d="M4 4l8 8M12 4l-8 8" />',chev:'<path d="M6 4l4 4-4 4" />',sun:'<circle cx=8 cy=8 r=3 /><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1" />',moon:'<path d="M13 9.5A5.5 5.5 0 016.5 3a5.5 5.5 0 106.5 6.5z" />'};
 const ic=(n,s=16)=>`<svg width=${s} height=${s} viewBox="0 0 16 16" fill=none stroke=currentColor stroke-width=1.5 stroke-linecap=round stroke-linejoin=round>${P[n]}</svg>`;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
 const fmt=(n,d=0)=>Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -10,7 +10,11 @@ const short=a=>a?a.slice(0,6)+'…'+a.slice(-4):'',nm=(n,a)=>!n?short(a):/^0x[0-
 const dt=ts=>new Date(ts*1000).toLocaleDateString('en',{month:'short',day:'numeric'});
 const rel=ts=>{const s=Date.now()/1000-ts;return s<60?Math.max(1,Math.floor(s))+'s ago':s<3600?Math.floor(s/60)+'m ago':s<86400?Math.floor(s/3600)+'h ago':s<86400*60?Math.floor(s/86400)+'d ago':Math.floor(s/2592000)+'mo ago'};
 const THEMES={auto:'Auto',light:'Light',dark:'Dark'};
-const applyTheme=()=>{const t=LS.get('theme','auto'),dark=t=='dark'||(t=='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name=theme-color]')?.setAttribute('content',dark?'#040405':'#f4f4f6')};
+// accent colour (dark-theme shade, light-theme shade); also recolours the ribbon (public/fx.js)
+const ACCENTS={emerald:['Emerald','#3fbf86','#14845a'],blue:['Blue','#4c9dff','#1d6fe0'],violet:['Violet','#a28bff','#6d4fe0'],pink:['Pink','#ff6fb1','#cc2f78'],orange:['Orange','#ff9f45','#c4610f'],gold:['Gold','#e6c34a','#946f00'],cyan:['Cyan','#3fd0d8','#0b858c'],red:['Red','#ff6b6b','#c92a2a']};
+const applyAccent=()=>{const r=document.documentElement,k=ACCENTS[LS.get('accent','emerald')]?LS.get('accent','emerald'):'emerald',hex=ACCENTS[k][r.dataset.theme=='light'?2:1],n=parseInt(hex.slice(1),16),rgb=`${n>>16},${n>>8&255},${n&255}`;
+  r.style.setProperty('--accent',hex);r.style.setProperty('--lnk',hex);r.style.setProperty('--accentbg',`rgba(${rgb},.13)`);r.style.setProperty('--accent-rgb',rgb);r.dataset.accent=k};
+const applyTheme=()=>{const t=LS.get('theme','auto'),dark=t=='dark'||(t=='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name=theme-color]')?.setAttribute('content',dark?'#040405':'#f4f4f6');applyAccent()};
 const cycleTheme=()=>{const order=['auto','light','dark'],t=LS.get('theme','auto');LS.set('theme',order[(order.indexOf(t)+1)%3]);applyTheme();renderSide();toast(`Appearance: ${THEMES[LS.get('theme','auto')]}`)};
 const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const toast=m=>{const t=document.createElement('div');t.className='toast';t.innerHTML=m;$('#toasts').append(t);setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),150)},3200)};
@@ -38,6 +42,28 @@ const lbOf=(per,ord,off=0)=>cached(`lb${per}${ord}${off}`,async()=>{const r=awai
 let EXP;const loadExperts=()=>EXP??=(async()=>{const[a,m]=await Promise.all([lbOf('ALL','PNL'),lbOf('MONTH','PNL')]);const seen=new Set(),lb=[...a.slice(0,10),...m.slice(0,12)].filter(t=>t.proxyWallet&&!seen.has(t.proxyWallet)&&seen.add(t.proxyWallet));
   return Promise.all(lb.map(async t=>{const[closed,open]=await Promise.all([resolvedOf(t.proxyWallet,2),openOf(t.proxyWallet)]);return{...t,closed,open,wr:closed.length?closed.filter(c=>c.realizedPnl>0).length/closed.length:0}}))})();
 const statOf=a=>cached('st'+a,async()=>{const[c,lt]=await Promise.all([resolvedOf(a,2),lastTradeOf(a)]);const w=c.filter(x=>x.realizedPnl>0).length,n=c.length;return{n,w,wr:n?w/n:0,avgE:n?c.reduce((s,x)=>s+x.avgPrice,0)/n:0,last:lt}});
+
+/* ---------- "Best to copy": who is worth following with the Auto Trader ----------
+   For each trader, over their last ~100 resolved positions:
+   - edge: how much more often they win than their entry prices implied (a 60c buy "should" win 60% of the time).
+     This is skill; a high win rate from buying 95c favourites has ~0 edge and makes little.
+   - ROI: realized profit / money put in.
+   Shrunk toward 0 for small samples, then weighted by how recently they traded and by how many of their recent
+   trades the bot can actually place on Polymarket US (US sports, elections, Bitcoin, ...). */
+const COPYABLE=s=>/^(nfl|cfb|nba|wnba|cbb|mlb|nhl|ufc|mls|epl|lal|sea|bun|fl1|ucl|uel|uecl|bra|arg|mex|jap|cs2|dota2|lol|val)-[a-z0-9]+-[a-z0-9]+-\d{4}-\d{2}-\d{2}/.test(s)||/bitcoin|btc-|-senate-|-governor-|-house-|presidential|nobel|ballon|champion|mvp|super-bowl|world-series|stanley-cup|nba-finals/.test(s);
+const recentTradesOf=a=>cached('rt'+a,async()=>{const r=await api(`trades?user=${a}&limit=60`);return Array.isArray(r)?r:[]});
+const bestOf=a=>cached('b'+a,async()=>{
+  const[c,tr]=await Promise.all([resolvedOf(a,2),recentTradesOf(a)]),n=c.length,last=tr[0]?.timestamp||null;
+  if(n<20)return{n,ok:false,last};
+  let cost=0,pnl=0,edge=0,w=0;for(const x of c){const p=Math.min(.99,Math.max(.01,+x.avgPrice||0)),won=x.realizedPnl>0;cost+=(+x.totalBought||0)*p;pnl+=+x.realizedPnl||0;edge+=(won?1:0)-p;w+=won?1:0}
+  edge/=n;const roi=cost>0?pnl/cost:0,shrink=n/(n+30),days=last?(Date.now()/1000-last)/86400:99;
+  const recent=days<=3?1:days<=7?.75:days<=14?.4:0,buys=tr.filter(t=>t.side=='BUY'),copy=buys.length?buys.filter(t=>COPYABLE(t.slug||t.eventSlug||'')).length/buys.length:0;
+  const avgE=c.reduce((s,x)=>s+(+x.avgPrice||0),0)/n,rich=avgE>.9?.5:1; // mostly 90c+ buys: the bot skips 97c+ and the upside is thin
+  const score=Math.max(0,(edge*100*1.6+Math.max(-1,Math.min(1.5,roi))*25)*shrink)*recent*(.25+.75*copy)*rich;
+  return{n,ok:true,w,wr:w/n,edge,roi,copy,last,days,avgE,score}});
+async function bestBoard(){
+  const pool=[...await lbOf('ALL','PNL',0),...await lbOf('ALL','PNL',50),...await lbOf('MONTH','PNL',0),...await lbOf('WEEK','PNL',0)],seen=new Set();
+  return pool.filter(t=>t.proxyWallet&&!seen.has(t.proxyWallet)&&seen.add(t.proxyWallet))}
 
 /* ---------- follows (synced to server when logged in, so the bot copies them) ---------- */
 /* Tracked traders: when you're logged in, your account on the server holds the one list every device shows
@@ -84,15 +110,15 @@ function area(el,vals,o={}){
 }
 
 /* ---------- shell ---------- */
-const NAV=[['Discover',[['','home','Overview'],['leaderboard','trophy','Leaderboard'],['feed','wave','Whale Feed']]],['Strategy',[['backtest','flask','Profit Bot'],['bot','bot','Auto Trader']]],['You',[['journal','book','Tracking'],['analyze','spark','Analyzer']]]];
+const NAV=[['Discover',[['','home','Overview'],['leaderboard','trophy','Leaderboard'],['feed','wave','Whale Feed']]],['Strategy',[['backtest','flask','Profit Bot'],['bot','bot','Auto Trader']]],['You',[['journal','book','Tracking'],['analyze','spark','Analyzer'],['settings','gear','Settings']]]];
 let BOTON=false,TOPBAL=null;
 function renderSide(){const p=location.hash.slice(2).split('/')[0];const nf=Object.keys(fol).length;
   $('#side').innerHTML=`<div class=mobile-sheet-head><b>More</b><button class=tbtn id=sheetclose aria-label="Close menu">${ic('x',18)}</button></div><a class=logo href="#/"><img src="/icon.svg" alt="" width=34 height=34><span><b>Mimic</b></span></a>`+
   NAV.map(([g,items])=>`<div class=navg>${g}</div>`+items.map(([k,i,t])=>`<a class="nv ${p==k||(k==''&&!p)?'on':''}" href="#/${k}">${ic(i)}${t}${k=='bot'&&BOTON?'<span class=dot></span>':''}${k=='journal'&&nf?`<span class="pill n" style="margin-left:auto">${nf}</span>`:''}</a>`).join('')).join('')+
   `<div class=sfoot><button class=thm id=thm>${ic(document.documentElement.dataset.theme=='light'?'sun':'moon')}Appearance · ${THEMES[LS.get('theme','auto')]}</button><a class="nv ${p=='help'?'on':''}" href="#/help">${ic('help')}Help</a>${OWNER?`<a class="nv ${p=='account'?'on':''}" href="#/account">${ic('lock')}<span class=ell>${esc(USER?.email||'Account')}</span></a><a class=nv href="#" id=lo>${ic('x')}Log out</a>`:`<a class="nv ${p=='account'?'on':''}" href="#/account">${ic('lock')}Log in or sign up</a>`}</div>`;
-  $('#tabbar').innerHTML=[['','home','Home'],['feed','wave','Feed'],['bot','bot','Auto'],['journal','book','Tracking']].map(([k,i,t])=>`<a href="#/${k}" class="${p==k||(k==''&&!p)?'on':''}">${ic(i)}<span>${t}</span></a>`).join('')+`<a href="#" id=tmore aria-label="More sections">${ic('chev')}<span>More</span></a>`;
+  $('#tabbar').innerHTML=[['','home','Home'],['leaderboard','trophy','Leaders'],['bot','bot','Auto'],['journal','book','Tracking']].map(([k,i,t])=>`<a href="#/${k}" class="${p==k||(k==''&&!p)?'on':''}">${ic(i)}<span>${t}</span></a>`).join('')+`<a href="#" id=tmore aria-label="More sections">${ic('chev')}<span>More</span></a>`;
   const hasBal=TOPBAL!=null&&TOPBAL!==""&&Number.isFinite(Number(TOPBAL));$('#topr').innerHTML=`${hasBal?`<a class=topbal href="#/bot" title="Open Polymarket US account"><span>Polymarket US</span><b class=num>${usd(TOPBAL,2)}</b></a>`:''}<button class=tbtn id=ttheme aria-label="Light or dark mode"></button>`;
-  $('#thm').onclick=cycleTheme;$('#ttheme').innerHTML=ic(document.documentElement.dataset.theme=='light'?'moon':'sun',18);$('#ttheme').onclick=()=>{LS.set('theme',document.documentElement.dataset.theme=='light'?'dark':'light');applyTheme();renderSide()};
+  $('#thm').onclick=()=>location.hash='#/settings';$('#ttheme').innerHTML=ic(document.documentElement.dataset.theme=='light'?'moon':'sun',18);$('#ttheme').onclick=()=>{LS.set('theme',document.documentElement.dataset.theme=='light'?'dark':'light');applyTheme();renderSide()};
   $('#tmore').onclick=e=>{e.preventDefault();$('#side').classList.add('open')};$('#sheetclose').onclick=()=>$('#side').classList.remove('open');
   $('#lo')&&($('#lo').onclick=async e=>{e.preventDefault();await signOut();toast('Logged out');route()})}
 document.addEventListener('click',e=>{if($('#side').classList.contains('open')&&!e.target.closest('#side')&&!e.target.closest('#tmore'))$('#side').classList.remove('open')});
@@ -132,9 +158,10 @@ const feedRows=(d,compact)=>{
 
 /* ---------- Leaderboard ---------- */
 async function leaderboard(){
-  const per=LS.get('lbper','ALL'),ord=LS.get('lbord','PNL'),dir=LS.get('lbdir','desc');
+  const per=LS.get('lbper','ALL'),ord=LS.get('lbord','BEST'),dir=LS.get('lbdir','desc');
+  if(ord=='BEST')return bestPage();
   app.innerHTML=`<div class="ph fade"><div><h1>Leaderboard</h1><p class=lead>${ord=='WR'?`Top 100 traders by profit, re-ranked by win rate (${dir=='asc'?'lowest':'highest'} first) over their most recent resolved positions (min. 20).`:`Ranked by Polymarket's official ${ord=='VOL'?'volume':'profit & loss'}. Win rates use each trader's most recent resolved positions.`}</p></div>
-   <div class="row wrapf"><div class=seg id=per>${[['DAY','Today'],['WEEK','Week'],['MONTH','Month'],['ALL','All time']].map(([k,l])=>`<button data-v=${k} class="${per==k?'on':''}">${l}</button>`).join('')}</div><div class=seg id=ord>${[['PNL','Profit'],['VOL','Volume'],['WR','Win rate']].map(([k,l])=>`<button data-v=${k} class="${ord==k?'on':''}">${l}</button>`).join('')}</div></div></div><div id=lb>${sk(160)}</div>`;
+   <div class="row wrapf"><div class=seg id=per>${[['DAY','Today'],['WEEK','Week'],['MONTH','Month'],['ALL','All time']].map(([k,l])=>`<button data-v=${k} class="${per==k?'on':''}">${l}</button>`).join('')}</div><div class=seg id=ord>${[['BEST','Best to copy'],['PNL','Profit'],['VOL','Volume'],['WR','Win rate']].map(([k,l])=>`<button data-v=${k} class="${ord==k?'on':''}">${l}</button>`).join('')}</div></div></div><div id=lb>${sk(160)}</div>`;
   $$('#per button').forEach(b=>b.onclick=()=>{LS.set('lbper',b.dataset.v);leaderboard()});$$('#ord button').forEach(b=>b.onclick=()=>{if(b.dataset.v!=ord)LS.set('lbdir','desc');LS.set('lbord',b.dataset.v);leaderboard()});
   const base=ord=='WR'?'PNL':ord;let lb=[...await lbOf(per,base,0),...await lbOf(per,base,50)];if(!$('#lb'))return;
   if(ord=='WR'&&lb.length){const act=LS.get('lbact',true),el=$('#lb');let done=0,i=0;
@@ -162,6 +189,25 @@ async function leaderboard(){
     if(s.last)$$(`[data-la="${a}"]`).forEach(la=>{const old=Date.now()/1000-s.last>7*86400;la.innerHTML=old?`<span class="pill warn" style="height:19px">Inactive · ${rel(s.last)}</span>`:`Active ${rel(s.last)}`});
   }),{rootMargin:'250px'});
   $$('[data-w],[data-wr]').forEach(x=>io.observe(x));
+}
+
+async function bestPage(){
+  app.innerHTML=`<div class="ph fade"><div><h1>Leaderboard</h1><p class=lead>The best traders to copy, best first: real skill (they win more often than their prices implied), return on money, recent activity, and how many of their trades your bot can place on Polymarket US.</p></div>
+   <div class="row wrapf"><div class=seg id=ord>${[['BEST','Best to copy'],['PNL','Profit'],['VOL','Volume'],['WR','Win rate']].map(([k,l])=>`<button data-v=${k} class="${k=='BEST'?'on':''}">${l}</button>`).join('')}</div></div></div><div id=lb>${sk(160)}</div>`;
+  $$('#ord button').forEach(b=>b.onclick=()=>{LS.set('lbord',b.dataset.v);LS.set('lbdir','desc');leaderboard()});
+  const el=$('#lb'),pool=await bestBoard();if($('#lb')!==el)return;
+  if(!pool.length){el.innerHTML=`<div class="card empty">Couldn't load traders from Polymarket. Try again in a moment.</div>`;return}
+  let done=0,i=0;const paint=()=>{if($('#lb')===el)el.innerHTML=`<div class="card pad"><div class="row sb"><span>Scoring traders… <b class=num>${done}</b> of ${pool.length}</span><span class=mut style="font-size:13px">first time takes ~30s</span></div><div class=bar style="margin-top:14px"><i style="width:${done/pool.length*100}%"></i></div></div>`};
+  paint();const work=async()=>{while(i<pool.length){const t=pool[i++];t._b=await bestOf(t.proxyWallet).catch(()=>({ok:false}));done++;paint()}};
+  await Promise.all([...Array(10)].map(work));if($('#lb')!==el)return;
+  const lb=pool.filter(t=>t._b.ok&&t._b.score>0).sort((a,b)=>b._b.score-a._b.score).slice(0,50);
+  if(!lb.length){el.innerHTML=`<div class="card empty">No trader qualifies right now.</div>`;return}
+  const top=lb[0]._b.score,pts=b=>Math.round(b.score/top*100),pct=x=>`${x>=0?'+':''}${Math.round(x*100)}%`,act=b=>b.days<1?'today':`${Math.round(b.days)}d ago`;
+  el.innerHTML=`<div class=mobile-leaders>${lb.map((t,k)=>`<div class="leaderrow clk" onclick="if(!event.target.closest('button,a'))location.hash='#/trader/${t.proxyWallet}'"><span class="leaderplace num">${k+1}</span>${av(t.userName,t.proxyWallet,t.profileImage,'sm')}<div class=leaderidentity><b class=ell>${esc(nm(t.userName,t.proxyWallet))}</b><span class=leaderstatus>edge ${pct(t._b.edge)} · ${Math.round(t._b.copy*100)}% copyable</span></div><b class="num" style="text-align:right">${pts(t._b)}</b>${folBtn(t.proxyWallet,t.userName||short(t.proxyWallet))}</div>`).join('')}</div>
+   <div class=card style="overflow:hidden"><table class=tbl><thead><tr><th style="width:48px">#</th><th>Trader</th><th class=r title="Relative to the #1 trader">Score</th><th class="r hide-m" title="How much more often they win than their entry prices implied">Edge</th><th class="r hide-m">ROI</th><th class="r hide-m">Win rate</th><th class="r hide-m" title="Share of recent buys your bot can place on Polymarket US">Copyable</th><th class="r hide-m">Last trade</th><th></th></tr></thead><tbody>
+   ${lb.map((t,k)=>`<tr class=clk onclick="if(!event.target.closest('button,a'))location.hash='#/trader/${t.proxyWallet}'"><td class="mut num">${k+1}</td><td><div class=row>${av(t.userName,t.proxyWallet,t.profileImage)}<div class=grow style="min-width:0"><div class=ell style="font-weight:550;max-width:240px">${esc(nm(t.userName,t.proxyWallet))}</div><div class=mut style="font-size:12.5px">${t._b.n} resolved · avg entry ${Math.round(t._b.avgE*100)}¢</div></div></div></td>
+    <td class="r num" style="font-weight:650">${pts(t._b)}</td><td class="r num hide-m ${ud(t._b.edge)}">${pct(t._b.edge)}</td><td class="r num hide-m ${ud(t._b.roi)}">${pct(t._b.roi)}</td><td class="r num hide-m">${Math.round(t._b.wr*100)}%</td><td class="r num hide-m">${Math.round(t._b.copy*100)}%</td><td class="r mut hide-m">${act(t._b)}</td><td class=r style="width:1%">${folBtn(t.proxyWallet,t.userName||short(t.proxyWallet))}</td></tr>`).join('')}</tbody></table></div>
+   <p class=mut style="font-size:12.5px;margin-top:12px;line-height:1.55">Score ranks traders from the top ~200 by profit (all time, this month, this week) with 20+ resolved positions. Edge = wins minus what their entry prices implied: +10% means they win 10 points more often than the odds they bought at. Past results don't guarantee future ones.</p>`;
 }
 
 /* ---------- Trader profile ---------- */
@@ -297,10 +343,21 @@ function help(){
     <div class="card pad"><h3>Accuracy</h3><div class=mut style="font-size:13.5px;line-height:1.6;margin-top:8px">Profit and volume are Polymarket's official numbers. Win rates use each trader's most recent resolved positions, including losers they never cashed out. "Open" only shows markets that haven't resolved yet.</div></div></div></div>`;
 }
 
+/* ---------- Settings (this device) ---------- */
+function settingsPage(){
+  const t=LS.get('theme','auto'),a=LS.get('accent','emerald');
+  app.innerHTML=`<div class="ph fade"><div><h1>Settings</h1><p class=lead>How Mimic looks on this device. The colour also changes the light ribbon.</p></div></div>
+   <div class=grid style="max-width:720px"><div class="card pad"><h2>Appearance</h2><div class=seg id=sth style="margin-top:12px">${Object.entries(THEMES).map(([k,l])=>`<button data-v=${k} class="${t==k?'on':''}">${l}</button>`).join('')}</div></div>
+   <div class="card pad"><h2>Colour</h2><div class=swatches id=sac>${Object.entries(ACCENTS).map(([k,[l,d,lt]])=>`<button data-v=${k} class="sw8 ${a==k?'on':''}" aria-label="${l}" aria-pressed=${a==k} style="--c1:${d};--c2:${lt}"><i></i><span>${l}</span></button>`).join('')}</div></div>
+   ${OWNER?`<div class="card pad row sb"><div><h2>Account</h2><div class=mut style="font-size:13px;margin-top:4px">${esc(USER?.email||'')}</div></div><a class=btn href="#/account">Manage</a></div>`:''}</div>`;
+  $$('#sth button').forEach(b=>b.onclick=()=>{LS.set('theme',b.dataset.v);applyTheme();renderSide();settingsPage()});
+  $$('#sac button').forEach(b=>b.onclick=()=>{LS.set('accent',b.dataset.v);applyAccent();settingsPage()});
+}
+
 /* ---------- router ---------- */
 function route(){clearInterval(feedT);typeof botStopPoll=='function'&&botStopPoll();$('#side').classList.remove('open');renderSide();
   const[p,a]=location.hash.slice(2).split('/');window.scrollTo(0,0);
-  const R={'':overview,leaderboard,feed,terminal:feed,backtest,profits:backtest,bot:botPage,journal,analyze,ai:analyze,help,account:accountPage,login:accountPage,search:openPal,trader:()=>trader(a)};(R[p]||overview)()}
+  const R={'':overview,leaderboard,feed,terminal:feed,backtest,profits:backtest,bot:botPage,journal,analyze,ai:analyze,help,account:accountPage,login:accountPage,settings:settingsPage,search:openPal,trader:()=>trader(a)};(R[p]||overview)()}
 ['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
 let lastTouchEnd=0;document.addEventListener('touchend',e=>{const n=Date.now();if(n-lastTouchEnd<300&&!e.target.closest('input,textarea'))e.preventDefault();lastTouchEnd=n},{passive:false});
 if(navigator.standalone||matchMedia('(display-mode: standalone)').matches)document.documentElement.classList.add('standalone');
