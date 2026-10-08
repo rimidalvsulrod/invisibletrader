@@ -15,6 +15,7 @@ module.exports = {
   buy: (c, sym, notional) => trade(c, 'POST', '/v2/orders', { symbol: sym, notional: notional.toFixed(2), side: 'buy', type: 'market', time_in_force: 'day' }),
   buyQty: (c, sym, qty) => trade(c, 'POST', '/v2/orders', { symbol: sym, qty: String(qty), side: 'buy', type: 'market', time_in_force: 'day' }),
   last: (c, sym) => req(c, 'GET', `${DATA}/v2/stocks/${encodeURIComponent(sym)}/trades/latest`).then(j => Number(j.trade?.p)),
+  sell: (c, sym, qty) => trade(c, 'POST', '/v2/orders', { symbol: sym, qty: String(qty), side: 'sell', type: 'market', time_in_force: 'day' }),
   close: (c, sym) => trade(c, 'DELETE', `/v2/positions/${encodeURIComponent(sym)}`),
   order: (c, id) => trade(c, 'GET', `/v2/orders/${id}`),
   asset: (c, sym) => trade(c, 'GET', `/v2/assets/${encodeURIComponent(sym)}`),

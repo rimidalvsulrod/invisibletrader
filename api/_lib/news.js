@@ -10,7 +10,7 @@ const J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (_) { return d
 const PHRASES = [
   // strong positive
   [5, /\bfda (approv|clear|grant)|\breceives? fda\b|\bapproval (of|for)\b.*\b(drug|therapy|treatment)/], [5, /\bto be acquired\b|\bagrees? to be (acquired|bought)\b|\bbuyout\b|\btakeover (offer|bid)\b/],
-  [4, /\b(beats?|tops?|exceeds?|surpass\w*)\b(?:[^.;]|\.\d){0,30}\b(estimates?|expectations|consensus|forecasts?)\b/], [4, /\braises? (\w+ )?(guidance|outlook|forecast)\b/],
+  [4, /\b(beats?|tops|topped|exceeds?|exceeded|surpass\w*)\b(?:[^.;]|\.\d){0,30}\b(estimates?|expectations|consensus|forecasts?)\b/], [4, /\braises? (\w+ )?(guidance|outlook|forecast)\b/],
   [4, /\b(positive|successful|met (its )?primary endpoint)\b.*\b(trial|study|data)\b|\btopline results?\b.*\bpositive\b/], [3, /\bupgrade[sd]?\b/],
   [3, /\b(share )?(buyback|repurchase)\b/], [3, /\brecord (quarterly |annual )?(revenue|sales|profit|earnings)\b/], [3, /\b(wins?|awarded|secures?) .{0,40}\bcontract\b/],
   [2, /\b(partnership|collaboration|strategic agreement)\b/], [2, /\bdividend (increase|hike)|\braises? (its )?dividend\b/], [2, /\bprice target (raised|increase)|\braises? price target\b/],
@@ -24,6 +24,7 @@ const PHRASES = [
 const NOISE = /\b(shares are trading|stocks? (moving|to watch)|movers|mid-day|pre-market|after-hours|top (gainers|losers)|why .* (is|are) (trading|moving)|options activity|unusual options|earnings preview|what to expect|scheduled to report)\b/;
 function score(n) {
   const t = String(n.headline || '').toLowerCase(); if (NOISE.test(t)) return { s: 0, hits: ['market recap'] };
+  if (/\?\s*$/.test(t) || /^(can|will|should|is|are|does|do|could|would|why|how|what)\b/.test(t)) return { s: 0, hits: ['question, not news'] };
   let s = 0; const hits = []; for (const [w, re] of PHRASES) if (re.test(t)) { s += w; hits.push((w > 0 ? '+' : '') + w); }
   if (/\b(may|could|might|considering|exploring|reportedly|rumor)\b/.test(t)) s *= .6; // unconfirmed: weaker
   return { s: Math.round(s * 10) / 10, hits };
@@ -73,7 +74,11 @@ async function marketOpen(c) { const k = c.key, x = CLOCK.get(k); if (x && Date.
 const rec = (uid, n, sym, extra) => db.q('INSERT INTO ntrades (id, uid, ts, sym, headline, url, score, status, reason, newsid, notional, qty, entry) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
   [crypto.randomBytes(8).toString('hex'), uid, Date.now(), sym, n.headline, n.url, n.score, extra.status, extra.reason || null, n.id, extra.notional || null, extra.qty || null, extra.entry || null]);
 
+const BUSY = new Set();
 async function act(uid, n) {
+  const k = uid + '|' + (n.syms[0] || ''); if (BUSY.has(k)) return; BUSY.add(k); try { return await act1(uid, n); } finally { BUSY.delete(k); }
+}
+async function act1(uid, n) {
   const { row, cfg } = await open(uid); if (!row.enabled) return; const c = await AL.getCreds(uid); if (!c) return;
   if (Date.now() - n.t > FRESH) return; // old news: the move already happened
   if (!n.syms.length || n.syms.length > 3) return; // market-wide or roundup stories aren't about one company
@@ -103,11 +108,20 @@ async function act(uid, n) {
     } catch (e) { await rec(uid, n, sym, { status: 'skip', reason: String(e.message).slice(0, 120) }); }
   }
 }
+const SELLING = new Map();
 async function exit(uid, c, t, why) {
   const p0 = (await AL.positions(c).catch(() => [])).find?.(x => x.symbol === t.sym); // price + fill details just before selling
   if (p0) { t.lastp = Number(p0.current_price); if (!t.entry) { t.entry = Number(p0.avg_entry_price); t.qty = Number(p0.qty); } }
-  try { await AL.close(c, t.sym); } catch (e) { if (!/position/i.test(e.message)) throw e; } // already flat is fine
-  const p = await AL.positions(c).catch(() => []); if (p.find?.(x => x.symbol === t.sym)) return; // still closing; next check finishes it
+  if (!p0) { await db.q("UPDATE ntrades SET status='closed', reason=coalesce(reason,'closed outside the bot'), exitts=$2 WHERE id=$1", [t.id, Date.now()]); return; }
+  const mine = Number(t.qty) > 0 ? Number(t.qty) : 0, held = Number(p0.qty);
+  if (mine && held > mine + 1e-6) { // you also own shares of this stock: sell only the bot's
+    if (Date.now() - (SELLING.get(t.id) || 0) < 6e4) return; SELLING.set(t.id, Date.now()); // a sell is already on its way
+    const o = await AL.sell(c, t.sym, mine); let f = o; for (let i = 0; i < 6 && f.status !== 'filled'; i++) { await new Promise(z => setTimeout(z, 500)); f = await AL.order(c, o.id).catch(() => f); }
+    if (f.status !== 'filled') return; SELLING.delete(t.id); t.lastp = Number(f.filled_avg_price) || t.lastp;
+  } else {
+    try { await AL.close(c, t.sym); } catch (e) { if (!/position/i.test(e.message)) throw e; } // already flat is fine
+    const p = await AL.positions(c).catch(() => []); if (p.find?.(x => x.symbol === t.sym)) return; // still closing; next check finishes it
+  }
   const last = t.lastp || t.entry, pnl = t.entry && t.qty ? (last - t.entry) * t.qty : null;
   await db.q("UPDATE ntrades SET status='closed', exitp=$2, pnl=$3, reason=$4, exitts=$5 WHERE id=$1", [t.id, last, pnl, why, Date.now()]);
 }

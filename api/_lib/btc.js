@@ -100,9 +100,13 @@ async function quote(slug) {
 }
 
 /* ---------- one shared snapshot of every live window ---------- */
-const S0 = new Map(); // window start price cache
+const S0 = new Map(), HIST = []; // window start price cache; recent Bitcoin prices (to price a quote at the moment it was made)
+const at = t => { for (let i = HIST.length - 1; i >= 0; i--) if (HIST[i].t <= t) return HIST[i].S; return HIST[0]?.S; };
 async function snapshot() {
   const now = Date.now(), [S, sig] = await Promise.all([spot(), sigma()]), out = [];
+  HIST.push({ t: now, S }); while (HIST.length && now - HIST[0].t > 6e4) HIST.shift();
+  // the start price is a Coinbase number; scale it onto the same 3-exchange basis as the live price (exchanges differ by $10-50)
+  const cb = PX.cb && now - PX.cb.t < 15e3 ? PX.cb.p : NaN, basis = cb > 0 && Math.abs(S / cb - 1) < .005 ? S / cb : 1;
   await feed(Object.entries(TF).map(([tf, len]) => slugOf(tf, Math.floor(now / len) * len))).catch(e => { wsErr = e.message; });
   for (const [tf, len] of Object.entries(TF)) {
     const start = Math.floor(now / len) * len, end = start + len, slug = slugOf(tf, start), secs = (end - now) / 1e3;
@@ -110,13 +114,14 @@ async function snapshot() {
     try {
       if (!S0.has(slug) && now - start > 15e3) { const p = await priceAt(start); if (p > 0) S0.set(slug, p); }
       if (S0.size > 50) S0.delete(S0.keys().next().value);
-      w.S0 = S0.get(slug);
+      w.S0cb = S0.get(slug); w.S0 = w.S0cb * basis;
       const q = await quote(slug); w.open = q.open; w.upAsk = q.ask; w.downAsk = Number.isFinite(q.bid) ? 1 - q.bid : NaN; w.src = q.src; w.qAge = Date.now() - q.t;
       if (w.S0 > 0 && secs > 0) {
-        const z = Math.log(S / w.S0) / (sig * Math.sqrt(secs / 60)), cl = x => Math.min(.97, Math.max(.03, x)); // never fully trust the model
-        w.fair = cl(Phi(z));
-        // worst case over the volatility range: a side only shows an edge if it has one whether Bitcoin turns calmer or wilder
-        const ups = VOLS.map(k => cl(Phi(z / k))), upLo = Math.min(...ups), downLo = 1 - Math.max(...ups);
+        const zOf = x => Math.log(x / w.S0) / (sig * Math.sqrt(secs / 60)), cl = x => Math.min(.97, Math.max(.03, x)); // never fully trust the model
+        const z = zOf(S), zq = zOf(at(q.t) || S); w.fair = cl(Phi(z));
+        // worst case over the volatility range AND over "Bitcoin now" vs "Bitcoin when the quote was made":
+        // a side only shows an edge if it has one whether Bitcoin turns calmer or wilder, and isn't just a stale quote
+        const ups = VOLS.flatMap(k => [cl(Phi(z / k)), cl(Phi(zq / k))]), upLo = Math.min(...ups), downLo = 1 - Math.max(...ups);
         const net = (pr, ch) => pr > 0 && pr < 1 ? ch - pr - fee(1, pr) : -1;
         w.upEdge = net(w.upAsk, upLo); w.downEdge = net(w.downAsk, downLo);
       }
@@ -159,15 +164,14 @@ async function decide(row, snap) {
     let fillQ = qty, fillP = price;
     if (live) {
       const r = await P.order(creds, { slug: w.slug, side: side === 'up' ? 'yes' : 'no', quantity: qty, slippageBips: 100 });
-      if (!r.ok) continue; let n = 0, c = 0;
-      for (const x of r.json?.executions || []) if (/PARTIAL_FILL|EXECUTION_TYPE_FILL$/.test(String(x.type)) && Number(x.lastShares) > 0) { n += +x.lastShares; c += +x.lastShares * price; }
-      if (!n) continue; fillQ = n; fillP = c / n;
+      if (!r.ok) continue; const f = require('./engine').fills(r, side === 'up' ? 'yes' : 'no', price); // real execution prices
+      if (!(f.n > 0)) continue; fillQ = f.n; fillP = f.cost / f.n;
     } else {
       const need = qty * price + fee(qty, price); if (row.paper < need) { qty = Math.floor(row.paper / (price + fee(1, price))); if (qty < 1) continue; fillQ = qty; }
       await db.q('UPDATE btcbot SET paper=paper-$2 WHERE uid=$1', [uid, fillQ * price + fee(fillQ, price)]); row.paper -= fillQ * price + fee(fillQ, price);
     }
     await db.q('INSERT INTO btctrades (id, uid, ts, slug, tf, side, price, qty, fee, fair, edge, s0, s, secs, mode, wend) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)',
-      [crypto.randomBytes(8).toString('hex'), uid, Date.now(), w.slug, w.tf, side, fillP, fillQ, fee(fillQ, fillP), side === 'up' ? w.fair : 1 - w.fair, edge, w.S0, w.S, w.secs, row.mode, w.end]);
+      [crypto.randomBytes(8).toString('hex'), uid, Date.now(), w.slug, w.tf, side, fillP, fillQ, fee(fillQ, fillP), side === 'up' ? w.fair : 1 - w.fair, edge, w.S0cb, w.S, w.secs, row.mode, w.end]);
   }
 }
 // settle finished windows: Polymarket US's own result; if it's gone already, the price at the window's end vs its start
