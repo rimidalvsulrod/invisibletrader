@@ -52,6 +52,8 @@ async function marketBySlug(slug) {
   if (r.ok) { const j = await json(r); m = j.market && j.market.active && !j.market.closed ? j.market : null; } else if (r.status >= 500) throw new Error(`Polymarket US market data: ${r.status}`);
   if (MKT.size > 2000) MKT.clear(); MKT.set(slug, { t: Date.now(), m }); return m;
 }
+// one market by slug including closed / resolved ones (no cache): used to settle finished BTC windows
+const marketRaw = slug => pub(`/v1/market/slug/${encodeURIComponent(slug)}`).then(j => j.market || null).catch(() => null);
 // every market of one game/event (e.g. all totals, spreads and props for nfl-phi-jax-2026-10-11), cached 60s
 const EVT = new Map();
 async function event(slug) {
@@ -67,4 +69,4 @@ function order(c, { slug, side, quantity, slippageBips }) {
   return call(c, 'POST', '/v1/orders', { marketSlug: slug, quantity, outcomeSide: side === 'no' ? 'OUTCOME_SIDE_NO' : 'OUTCOME_SIDE_YES', action: 'ORDER_ACTION_BUY', tif: 'TIME_IN_FORCE_IMMEDIATE_OR_CANCEL', synchronousExecution: true, maxBlockTime: '10', slippageTolerance: { bips: slippageBips }, manualOrderIndicator: 'MANUAL_ORDER_INDICATOR_AUTOMATIC' });
 }
 const closePosition = (c, slug, slippageBips) => call(c, 'POST', '/v1/order/close-position', { marketSlug: slug, synchronousExecution: true, maxBlockTime: '10', slippageTolerance: { bips: slippageBips } });
-module.exports = { API, GATEWAY, call, markets, bbo, marketBySlug, event, allOpenMarkets, balance, positions, activities, order, closePosition };
+module.exports = { API, GATEWAY, call, markets, bbo, marketBySlug, marketRaw, event, allOpenMarkets, balance, positions, activities, order, closePosition };

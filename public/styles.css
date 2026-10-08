@@ -402,3 +402,5 @@ h2{letter-spacing:-.022em}.lead{letter-spacing:-.006em}
 :root[data-theme=light] #tabbar{background:rgba(252,252,253,.97)}
 /* phones: table text wraps inside its card instead of pushing the row (and its Sell button) off the screen */
 @media(max-width:760px){.card .tbl{width:100%}.card .tbl td{overflow-wrap:anywhere;word-break:break-word}.card .tbl .ell{max-width:none!important;white-space:normal}.card .tbl td:not(:nth-child(2)):not(:first-child){white-space:nowrap}}
+.card.dim{opacity:.55}
+.chip{white-space:nowrap}

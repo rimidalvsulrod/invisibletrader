@@ -17,6 +17,9 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS ufollows (uid text NOT NULL, wallet text NOT NULL, name text, PRIMARY KEY (uid, wallet))`,
   `CREATE TABLE IF NOT EXISTS notes (id text PRIMARY KEY, uid text NOT NULL, t text NOT NULL, d bigint NOT NULL)`,
   `ALTER TABLE botlog ADD COLUMN IF NOT EXISTS uid text`,
+  // BTC Up or Down bot: one row per user (paper balance lives here) + every trade it takes, paper or live
+  `CREATE TABLE IF NOT EXISTS btcbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, mode text NOT NULL DEFAULT 'paper', cfg text, paper double precision NOT NULL DEFAULT 100, paperstart double precision NOT NULL DEFAULT 100, updated bigint)`,
+  `CREATE TABLE IF NOT EXISTS btctrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, slug text NOT NULL, tf text, side text, price double precision, qty double precision, fee double precision, fair double precision, edge double precision, s0 double precision, s double precision, secs double precision, mode text, status text NOT NULL DEFAULT 'open', pnl double precision, wend bigint)`,
 ];
 // One time: the site used to have a single owner (bot row 'me', global follows/log, keys + password in settings).
 // Move all of it into the owner's user account so nothing is lost.
