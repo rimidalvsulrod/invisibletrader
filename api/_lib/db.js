@@ -10,10 +10,31 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS botlog (id text PRIMARY KEY, ts bigint NOT NULL, entry text NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS settings (k text PRIMARY KEY, v text)`,
   `CREATE TABLE IF NOT EXISTS rate (k text PRIMARY KEY, n int NOT NULL, reset bigint NOT NULL)`,
-  `INSERT INTO bot (id, enabled, cfg, state, positions) VALUES ('me', false, '{}', '{}', '[]') ON CONFLICT (id) DO NOTHING`,
   `ALTER TABLE bot ADD COLUMN IF NOT EXISTS live text`, // runner heartbeat for the app's live view
+  // accounts: every user has their own bot row (bot.id = user id), tracked traders, log, notes and Polymarket US keys
+  `CREATE TABLE IF NOT EXISTS users (id text PRIMARY KEY, email text UNIQUE NOT NULL, pw text, verified boolean NOT NULL DEFAULT false, admin boolean NOT NULL DEFAULT false, creds text, sv int NOT NULL DEFAULT 1, created bigint)`,
+  `CREATE TABLE IF NOT EXISTS codes (id text PRIMARY KEY, email text NOT NULL, purpose text NOT NULL, hash text NOT NULL, exp bigint NOT NULL, tries int NOT NULL DEFAULT 0)`,
+  `CREATE TABLE IF NOT EXISTS ufollows (uid text NOT NULL, wallet text NOT NULL, name text, PRIMARY KEY (uid, wallet))`,
+  `CREATE TABLE IF NOT EXISTS notes (id text PRIMARY KEY, uid text NOT NULL, t text NOT NULL, d bigint NOT NULL)`,
+  `ALTER TABLE botlog ADD COLUMN IF NOT EXISTS uid text`,
 ];
-const ensure = () => ready ??= (async () => { for (const s of SCHEMA) await getPool().query(s); })().catch(e => { ready = null; throw e; });
+// One time: the site used to have a single owner (bot row 'me', global follows/log, keys + password in settings).
+// Move all of it into the owner's user account so nothing is lost.
+async function migrate(pool) {
+  const q = (sql, p) => pool.query(sql, p).then(r => r.rows);
+  if ((await q('SELECT count(*)::int AS n FROM users'))[0].n) return;
+  const get = async k => (await q('SELECT v FROM settings WHERE k=$1', [k]))[0]?.v ?? null;
+  const pw = await get('pw'), had = (await q("SELECT id FROM bot WHERE id='me'")).length;
+  if (!pw && !process.env.ADMIN_PASSWORD) { await q("DELETE FROM bot WHERE id='me' AND (cfg IS NULL OR cfg='{}') AND (positions IS NULL OR positions='[]')"); return; }
+  const C = require('crypto'), email = (process.env.OWNER_EMAIL || 'vladimirdorlus08@gmail.com').trim().toLowerCase(), uid = C.randomBytes(9).toString('base64url');
+  const salt = C.randomBytes(16), hash = pw || salt.toString('hex') + ':' + C.scryptSync(String(process.env.ADMIN_PASSWORD), salt, 64).toString('hex');
+  await q('INSERT INTO users (id, email, pw, verified, admin, creds, created) VALUES ($1,$2,$3,true,true,$4,$5)', [uid, email, hash, await get('polymarket_us'), Date.now()]);
+  if (had) await q("UPDATE bot SET id=$1 WHERE id='me'", [uid]);
+  for (const f of await q('SELECT wallet, name FROM follows')) await q('INSERT INTO ufollows (uid, wallet, name) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [uid, f.wallet, f.name]);
+  await q('UPDATE botlog SET uid=$1 WHERE uid IS NULL', [uid]);
+  await q("DELETE FROM settings WHERE k IN ('polymarket_us')");
+}
+const ensure = () => ready ??= (async () => { const p = getPool(); for (const s of SCHEMA) await p.query(s); await migrate(p); })().catch(e => { ready = null; throw e; });
 const q = async (sql, params = []) => { await ensure(); return (await getPool().query(sql, params)).rows; };
 const one = async (sql, params) => (await q(sql, params))[0];
 async function limit(key, max, windowMs) {
@@ -22,4 +43,4 @@ async function limit(key, max, windowMs) {
   if (r.n >= max) throw err(429, 'Too many attempts — try again in a few minutes');
   await q('UPDATE rate SET n=n+1 WHERE k=$1', [key]);
 }
-module.exports = { q, one, limit, dbUrl };
+module.exports = { q, one, limit, dbUrl, _migrate: () => migrate(getPool()) };

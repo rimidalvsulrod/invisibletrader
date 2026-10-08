@@ -23,21 +23,19 @@ function liveAgo() {
   const el = $('#lago'); if (!el || !LIVE) return; const now = Date.now() + LIVE.skew;
   el.textContent = `Heartbeat ${ago(now - LIVE.t)} · full check ${ago(now - LIVE.lastPoll)} · last tracked trade ${LIVE.lastTracked ? ago(now - LIVE.lastTracked) : 'none yet'}`;
 }
-const bapi = async (op, body) => {
-  const r = await fetch('/api/bot' + (body ? '' : '?op=' + op), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op, ...body }) } : {});
+const bapi = async (op, body, url = '/api/bot', extra) => {
+  body = body || extra; const r = await fetch(url + (body ? '' : '?op=' + op), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op, ...body }) } : {});
   const j = await r.json().catch(() => ({ error: 'Bad response from server' }));
   if (!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), { status: r.status });
   return j;
 };
-const authPost = (op, data) => fetch('/api/auth', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op, ...data }) });
 
 async function botPage() {
   app.innerHTML = sk(320);
-  const me = await fetch('/api/auth?op=me').then(r => r.json()).catch(() => ({ setup: {} }));
-  const was = OWNER; OWNER = !!me.owner; if (OWNER && !was) loadFollows(); renderSide();
+  const me = await fetch('/api/auth?op=me').then(r => r.json()).catch(() => ({ setup: {} })); SETUP = me.setup || SETUP;
   if (!me.setup?.db) return botNoDb();
-  if (!me.setup.password) return botLogin(true);
-  if (!OWNER) return botLogin(false);
+  if (!me.user) { if (OWNER) await signOut(); return authView('login', '', botPage); }
+  if (!OWNER) await signedIn(me.user);
   await botRefresh();
   botStopPoll();
   liveFetch();
@@ -47,29 +45,12 @@ async function botPage() {
 }
 async function botRefresh() {
   try { botRender(await bapi('state')); }
-  catch (e) { if (e.status === 401) return botLogin(false); app.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; }
+  catch (e) { if (e.status === 401) return authView('login', '', botPage); app.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; }
 }
 function botNoDb() {
   app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1></div></div><div class="card pad" style="max-width:620px"><h2>Database not detected</h2>
     <p class=mut style="font-size:14px;line-height:1.6;margin:8px 0 0">The site can't see its database yet. In Vercel open your project → <b>Deployments</b> → ⋯ on the latest → <b>Redeploy</b>, then refresh this page.</p></div>`;
 }
-function botLogin(first) {
-  app.innerHTML = `<div style="max-width:420px;margin:8vh auto 0" class="card pad fade"><div style="width:46px;height:46px;border-radius:13px;display:grid;place-items:center;background:var(--acbg);color:var(--ac)">${ic('lock', 22)}</div>
-    <h2 style="margin-top:16px;font-size:22px">${first ? 'Create your account' : 'Log in'}</h2>
-    <p class=mut style="margin:6px 0 18px;font-size:14px">${first ? 'Use your email and pick a password. This is the only account on the site.' : 'The Auto Trader trades real money on your Polymarket US account.'}</p>
-    <form id=lf><input class=inp id=em type=email placeholder=Email autocomplete=username required style="margin-bottom:8px">
-      <input class=inp id=pw type=password placeholder="${first ? 'New password (8+ characters)' : 'Password'}" autocomplete="${first ? 'new-password' : 'current-password'}" required>
-      ${first ? '<input class=inp id=pw2 type=password placeholder="Repeat password" autocomplete=new-password style="margin-top:8px" required>' : ''}
-      <button class="btn pri" style="width:100%;margin-top:12px;height:46px">${first ? 'Create account' : 'Log in'}</button><div id=le class=down style="font-size:13px;margin-top:10px"></div></form></div>`;
-  $('#lf').onsubmit = async e => {
-    e.preventDefault();
-    if (first && $('#pw').value !== $('#pw2').value) { $('#le').textContent = "Passwords don't match"; return; }
-    const r = await authPost(first ? 'setup' : 'login', { email: $('#em').value, password: $('#pw').value }), j = await r.json().catch(() => ({}));
-    if (!r.ok) { $('#le').textContent = j.error || 'Login failed'; return; }
-    OWNER = true; await loadFollows(); toast('Logged in'); botPage();
-  };
-}
-
 function botRender(S) {
   BOTON = S.enabled; TOPBAL = S.account?.total ?? S.account?.cash ?? null; renderSide();
   const c = S.cfg, A = S.account, connected = S.keys.set, real = S.keys.env === 'prod';
@@ -97,17 +78,16 @@ function botRender(S) {
         ${S.keys.source == 'app' ? `<button class="btn sm danger" id=kdel style="margin-top:12px">Disconnect</button>` : ''}</div>`
     : `<div class="card pad" id=kcard><h2>Connect Polymarket US</h2><p class=mut style="font-size:13px;line-height:1.55;margin:6px 0 14px">Create an API key in the Polymarket US developer portal, then paste the Key ID and Secret Key. It is verified and stored encrypted.</p>
         <input class=inp id=kid placeholder="Key ID"><textarea class=inp id=ksecret placeholder="Secret Key" style="height:80px;padding:10px 14px;margin-top:8px;font:12px ui-monospace,monospace;resize:vertical"></textarea>
-        <button class="btn pri" id=ksave style="width:100%;margin-top:10px">Verify & connect</button><div id=kerr class=down style="font-size:13px;margin-top:8px"></div></div>`;
+        <button class="btn pri" id=ksave style="width:100%;margin-top:10px">${SETUP.email ? 'Email me a code to connect' : 'Verify & connect'}</button>
+        <div id=kconf hidden style="margin-top:10px"><input class=inp id=kcode inputmode=numeric autocomplete=one-time-code placeholder="${SETUP.email ? '6-digit code from your email' : 'Your Mimic password'}" ${SETUP.email ? '' : 'type=password'}><button class="btn pri" id=kgo style="width:100%;margin-top:8px">Verify & connect</button></div>
+        <div id=kerr class=down style="font-size:13px;margin-top:8px"></div></div>`;
 
   const settings = `<div class="card pad"><h2>Trade size</h2><p class=mut style="font-size:13px;margin:4px 0 12px">Turn the dial: the share of your Polymarket US cash each copied trade uses.</p>
     <div class="dialbox ${dialOpen ? '' : 'locked'}" id=dialbox><div class=dialtop><button class=kbtn id=kminus aria-label=Less>−</button><div class=dialval><b class=num id=pctv>${c.pct}</b><span>% per trade</span></div><button class=kbtn id=kplus aria-label=More>+</button></div>
       <div class=dial id=dial role=slider aria-label="Percent per trade" aria-valuemin=1 aria-valuemax=100 aria-valuenow=${c.pct} tabindex=0><svg viewBox="0 0 224 224" id=dialsvg></svg><div class=face id=face><i></i></div></div>
       <div class=latchrow><span class=latchlbl id=latchlbl style="text-align:right">${dialOpen ? 'Unlocked' : 'Locked'}</span><button class="latch ${dialOpen ? 'open' : ''}" id=latch aria-label="Lock or unlock the dial"><i id=latchico>${ic(dialOpen ? 'unlock' : 'lock', 15)}</i></button><span class=latchlbl></span></div>
       <div class="dialcap num" id=pcte>${perTrade != null ? `≈ ${usd(perTrade, 2)} per trade right now` : ''}</div></div>
-    <details style="margin-top:18px"><summary>${ic('chev', 12)} Advanced</summary><div class="grid g2" style="margin-top:14px">
-      ${[['minUsd', 'Copy signals over ($)', c.minUsd], ['maxPrice', 'Max US price (¢)', c.maxPrice], ['slip', 'Max price gap vs signal (¢)', c.slip], ['maxUse', 'Max % of money in copies', c.maxUse], ['thresh', 'US match strictness (%)', c.thresh]]
-        .map(([k, l, v]) => `<label><span class=lbl>${l}</span><input class=inp type=number data-k=${k} value=${v}></label>`).join('')}
-      <label><span class=lbl>When there's no exact US market</span><select class=inp data-k=similar><option value=1 ${c.similar !== 0 ? 'selected' : ''}>Copy into the closest similar market</option><option value=0 ${c.similar === 0 ? 'selected' : ''}>Skip the trade</option></select></label></div></details></div>`;
+    </div>`;
 
   const posT = `<div class="card" style="overflow:hidden"><div class="row sb pad" style="padding-bottom:8px"><h2>Positions</h2>${S.positions.some(p => p.copied) ? `<button class="btn sm danger" id=bsa>Sell all copies</button>` : ''}</div>
     <table class=tbl><tbody>${S.positions.map(p => `<tr><td><div class=ell style="font-weight:550;max-width:380px">${esc(p.title)}${p.sub ? ` <span class=mut>· ${esc(p.sub)}</span>` : ''}</div>
@@ -127,8 +107,8 @@ function botRender(S) {
 
   const cronCard = `<div class="card pad"><div class="row sb"><h3>Always on</h3><span class=pill>24/7</span></div><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 0">The bot runs on GitHub's servers around the clock, listening to Polymarket's live trade feed. It reacts within about a second of a tracked trader's trade, and double-checks every 15 seconds. Your phone and this page can be closed.</p></div>`;
 
-  app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>Follows international Polymarket wallets and executes only high-confidence matches on Polymarket US.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
-    ${status}<div class=split style="margin-top:20px"><div class=grid>${connected ? posT + fillsT : ''}${logT}</div><div class=grid>${keysCard}${connected ? settings : ''}${cronCard}</div></div>`;
+  app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>When a trader you track buys, you buy. When they sell, you sell. On your own Polymarket US account.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
+    ${status}<div class=split style="margin-top:20px"><div class=grid>${connected ? settings + posT + fillsT : keysCard}${logT}</div><div class=grid>${connected ? keysCard : ''}${cronCard}</div></div>`;
   if (keepOpen && $('details')) $('details').open = true;
   liveDraw(false);
 
@@ -142,11 +122,23 @@ function botRender(S) {
   $('#bsa') && ($('#bsa').onclick = () => confirm('Sell every position the bot copied, at the current bid?') && act(() => bapi('sell', { ticker: 'all' }), 'Sell orders sent'));
   $$('[data-sell]').forEach(b => b.onclick = () => confirm(`Sell your whole ${b.dataset.sell} position at the current bid?`) && act(() => bapi('sell', { ticker: b.dataset.sell }), 'Sell order sent'));
   $('#bclr').onclick = () => act(() => bapi('clearlog', {}));
-  $('#kdel') && ($('#kdel').onclick = () => confirm('Disconnect your Polymarket US account? The bot stops.') && act(() => bapi('keysdel', {}), 'Disconnected'));
+  // connecting or removing Polymarket US keys is confirmed with a code sent to your email (or your password if email isn't set up)
+  const proof = v => SETUP.email ? { code: v } : { password: v };
+  $('#kdel') && ($('#kdel').onclick = async () => {
+    if (!confirm('Disconnect your Polymarket US account? The bot stops.')) return;
+    if (SETUP.email) { try { await bapi('code', null, '/api/auth', { purpose: 'keys' }); } catch (e) { return toast(`<span class=down>${esc(e.message)}</span>`); } }
+    const v = prompt(SETUP.email ? `Enter the 6-digit code we just emailed to ${USER.email}` : 'Enter your Mimic password'); if (!v) return;
+    act(() => bapi('keysdel', proof(v.trim())), 'Disconnected');
+  });
   $('#ksave') && ($('#ksave').onclick = async () => {
-    $('#ksave').disabled = true; $('#ksave').textContent = 'Checking with Polymarket US…'; $('#kerr').textContent = '';
-    try { const r = await bapi('keys', { keyId: $('#kid').value, secret: $('#ksecret').value }); toast(`Connected your real-money Polymarket US account · cash ${usd(r.cash, 2)}`); botRefresh(); }
-    catch (e) { $('#kerr').textContent = e.message; $('#ksave').disabled = false; $('#ksave').textContent = 'Verify & connect'; }
+    $('#kerr').textContent = ''; if (!$('#kid').value.trim() || !$('#ksecret').value.trim()) { $('#kerr').textContent = 'Paste the Key ID and Secret Key first'; return; }
+    if (SETUP.email) { $('#ksave').disabled = true; try { await bapi('code', null, '/api/auth', { purpose: 'keys' }); toast(`Code sent to ${esc(USER.email)}`); } catch (e) { $('#kerr').textContent = e.message; $('#ksave').disabled = false; return; } }
+    $('#ksave').hidden = true; $('#kconf').hidden = false; $('#kcode').focus();
+  });
+  $('#kgo') && ($('#kgo').onclick = async () => {
+    $('#kgo').disabled = true; $('#kgo').textContent = 'Checking with Polymarket US…'; $('#kerr').textContent = '';
+    try { const r = await bapi('keys', { keyId: $('#kid').value, secret: $('#ksecret').value, ...proof($('#kcode').value.trim()) }); toast(`Connected your real-money Polymarket US account · cash ${usd(r.cash, 2)}`); botRefresh(); }
+    catch (e) { $('#kerr').textContent = e.message; $('#kgo').disabled = false; $('#kgo').textContent = 'Verify & connect'; }
   });
   // rotary dial: 1–100% over a 270° sweep, 50 tick marks; drag, +/- buttons, arrow keys
   const dial = $('#dial');
@@ -161,7 +153,7 @@ function botRender(S) {
     const relockSoon = () => { clearTimeout(dialTimer); dialTimer = setTimeout(() => setLock(false), 12000); };
     const setLock = open => { dialOpen = open; $('#dialbox')?.classList.toggle('locked', !open); $('#latch')?.classList.toggle('open', open); if ($('#latchico')) $('#latchico').innerHTML = ic(open ? 'unlock' : 'lock', 15); if ($('#latchlbl')) $('#latchlbl').textContent = open ? 'Unlocked' : 'Locked'; if (open) relockSoon(); else clearTimeout(dialTimer); };
     $('#latch').onclick = () => setLock(!dialOpen);
-    const commit = () => { relockSoon(); clearTimeout(t); t = setTimeout(() => v !== c.pct && save({ pct: v, maxUse: Math.max(c.maxUse, v) }), 500); };
+    const commit = () => { relockSoon(); clearTimeout(t); t = setTimeout(() => v !== c.pct && save({ pct: v }), 500); };
     const setV = (x, haptic) => { const n = Math.max(1, Math.min(100, Math.round(x))); if (n !== v) { v = n; paint(); if (haptic && navigator.vibrate) navigator.vibrate(3); } };
     const fromPoint = e => { const r = dial.getBoundingClientRect(); let a = Math.atan2(e.clientX - r.left - r.width / 2, -(e.clientY - r.top - r.height / 2)) * 180 / Math.PI; a = Math.max(-135, Math.min(135, a)); setV(1 + (a + 135) / 270 * 99, 1); };
     dial.onpointerdown = e => { if (locked()) { toast('Unlock the dial first'); return; } dial.setPointerCapture(e.pointerId); fromPoint(e); dial.onpointermove = fromPoint; };
@@ -170,5 +162,4 @@ function botRender(S) {
     $('#kminus').onclick = () => { setV(v - 1); commit(); }; $('#kplus').onclick = () => { setV(v + 1); commit(); };
     paint();
   }
-  $$('[data-k]').forEach(i => i.onchange = () => save({ [i.dataset.k]: +i.value }));
 }

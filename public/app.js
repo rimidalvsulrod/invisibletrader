@@ -42,7 +42,7 @@ const statOf=a=>cached('st'+a,async()=>{const[c,lt]=await Promise.all([resolvedO
 /* ---------- follows (synced to server when logged in, so the bot copies them) ---------- */
 /* Tracked traders: when you're logged in, your account on the server holds the one list every device shows
    (the Auto Trader copies exactly this list). Logged out, tracking is disabled so devices can't drift apart. */
-let fol={},OWNER=false;const OLDFOL=LS.get('fol',null)||{}; // list saved on this device by older versions
+let fol={},OWNER=false,USER=null,SETUP={db:true,email:true};const OLDFOL=LS.get('fol',null)||{}; // list saved on this device by older versions
 const folPaint=()=>$$('[data-f]').forEach(b=>{const on=!!fol[b.dataset.f];b.classList.toggle('on',on);b.title=on?'Stop tracking':'Track';const t=[...b.childNodes].find(x=>x.nodeType==3&&x.textContent.trim());if(t)t.textContent=on?' Tracking':' Track'});
 const setFol=list=>{const before=Object.keys(fol).sort().join();fol={};(list||[]).forEach(f=>fol[f.wallet]=f.name||short(f.wallet));folPaint();renderSide();
   if(location.hash.startsWith('#/journal')&&Object.keys(fol).sort().join()!==before)journal()}; // keep the Tracking page in step
@@ -53,7 +53,7 @@ const loadFollows=async()=>{if(!OWNER){setFol([]);return}
     setFol((await folApi('followlist')).follows)}catch(e){}};
 const syncFol=loadFollows;
 async function toggleFollow(a,n){
-  if(!OWNER){toast('Log in to track traders. Your list stays the same on every device');location.hash='#/bot';return}
+  if(!OWNER){toast('Log in or create a free account to track traders');location.hash='#/account';return}
   const was=!!fol[a];was?delete fol[a]:fol[a]=n;folPaint();renderSide(); // instant feedback
   try{const r=await folApi(was?'unfollow':'follow',{wallet:a,name:n});setFol(r.follows);if(location.hash.startsWith('#/journal'))journal();toast(was?`Stopped tracking <b>${esc(n)}</b>`:`Tracking <b>${esc(n)}</b>. The Auto Trader copies their trades`)}
   catch(e){await loadFollows();toast('<span class=down>Could not save. Check your connection</span>')}
@@ -89,12 +89,12 @@ let BOTON=false,TOPBAL=null;
 function renderSide(){const p=location.hash.slice(2).split('/')[0];const nf=Object.keys(fol).length;
   $('#side').innerHTML=`<div class=mobile-sheet-head><b>More</b><button class=tbtn id=sheetclose aria-label="Close menu">${ic('x',18)}</button></div><a class=logo href="#/"><img src="/icon.svg" alt="" width=34 height=34><span><b>Mimic</b></span></a>`+
   NAV.map(([g,items])=>`<div class=navg>${g}</div>`+items.map(([k,i,t])=>`<a class="nv ${p==k||(k==''&&!p)?'on':''}" href="#/${k}">${ic(i)}${t}${k=='bot'&&BOTON?'<span class=dot></span>':''}${k=='journal'&&nf?`<span class="pill n" style="margin-left:auto">${nf}</span>`:''}</a>`).join('')).join('')+
-  `<div class=sfoot><button class=thm id=thm>${ic(document.documentElement.dataset.theme=='light'?'sun':'moon')}Appearance · ${THEMES[LS.get('theme','auto')]}</button><a class="nv ${p=='help'?'on':''}" href="#/help">${ic('help')}Help</a>${OWNER?`<a class=nv href="#" id=lo>${ic('lock')}Lock (log out)</a>`:`<a class=nv href="#/bot">${ic('lock')}Owner login</a>`}</div>`;
+  `<div class=sfoot><button class=thm id=thm>${ic(document.documentElement.dataset.theme=='light'?'sun':'moon')}Appearance · ${THEMES[LS.get('theme','auto')]}</button><a class="nv ${p=='help'?'on':''}" href="#/help">${ic('help')}Help</a>${OWNER?`<a class="nv ${p=='account'?'on':''}" href="#/account">${ic('lock')}<span class=ell>${esc(USER?.email||'Account')}</span></a><a class=nv href="#" id=lo>${ic('x')}Log out</a>`:`<a class="nv ${p=='account'?'on':''}" href="#/account">${ic('lock')}Log in or sign up</a>`}</div>`;
   $('#tabbar').innerHTML=[['','home','Home'],['feed','wave','Feed'],['bot','bot','Auto'],['journal','book','Tracking']].map(([k,i,t])=>`<a href="#/${k}" class="${p==k||(k==''&&!p)?'on':''}">${ic(i)}<span>${t}</span></a>`).join('')+`<a href="#" id=tmore aria-label="More sections">${ic('chev')}<span>More</span></a>`;
   const hasBal=TOPBAL!=null&&TOPBAL!==""&&Number.isFinite(Number(TOPBAL));$('#topr').innerHTML=`${hasBal?`<a class=topbal href="#/bot" title="Open Polymarket US account"><span>Polymarket US</span><b class=num>${usd(TOPBAL,2)}</b></a>`:''}<button class=tbtn id=ttheme aria-label="Light or dark mode"></button>`;
   $('#thm').onclick=cycleTheme;$('#ttheme').innerHTML=ic(document.documentElement.dataset.theme=='light'?'moon':'sun',18);$('#ttheme').onclick=()=>{LS.set('theme',document.documentElement.dataset.theme=='light'?'dark':'light');applyTheme();renderSide()};
   $('#tmore').onclick=e=>{e.preventDefault();$('#side').classList.add('open')};$('#sheetclose').onclick=()=>$('#side').classList.remove('open');
-  $('#lo')&&($('#lo').onclick=async e=>{e.preventDefault();await fetch('/api/auth',{method:'POST',headers:{'content-type':'application/json'},body:'{"op":"logout"}'});OWNER=false;TOPBAL=null;setFol([]);toast('Logged out');route()})}
+  $('#lo')&&($('#lo').onclick=async e=>{e.preventDefault();await signOut();toast('Logged out');route()})}
 document.addEventListener('click',e=>{if($('#side').classList.contains('open')&&!e.target.closest('#side')&&!e.target.closest('#tmore'))$('#side').classList.remove('open')});
 /* command palette */
 let palT;function openPal(){$('#pal').hidden=false;$('#palq').value='';$('#palr').innerHTML=palHint();$('#palq').focus()}
@@ -255,14 +255,17 @@ async function backtest(){
 }
 
 /* ---------- Tracking + notes ---------- */
+let NOTES=null; // notes live in your account; notes from older versions on this device are moved in once
+async function notesApi(op,data){const r=await folApi(op,data);NOTES=r.notes;return NOTES}
 function journal(){
-  const fl=Object.entries(fol),notes=LS.get('notes',[]);
+  const fl=Object.entries(fol),notes=OWNER?(NOTES||[]):[];
+  if(OWNER&&NOTES==null){notesApi('notes').then(async()=>{const old=LS.get('notes',[]);if(old.length){for(const n of old.slice().reverse())await notesApi('note',{t:n.t});LS.set('notes',[])}if(location.hash.startsWith('#/journal'))journal()}).catch(()=>{})}
   app.innerHTML=`<div class="ph fade"><div><h1>Tracking</h1><p class=lead>Traders you track${OWNER?'. Your Auto Trader copies them':''}. Plus your private trade notes.</p></div></div>
    <div class="grid g3" id=fg>${fl.map(([a,n])=>`<a href="#/trader/${a}" class="card pad fade"><div class=row>${av(n,a)}<div class=grow><div class=ell style="font-weight:600">${esc(n)}</div><div class="mut num" style="font-size:12px">${short(a)}</div></div>${folBtn(a,n)}</div><div class="row sb" style="margin-top:14px;font-size:13px" data-fs="${a}">${sk(14)}</div></a>`).join('')||`<div class="card empty" style="grid-column:1/-1">You're not tracking anyone yet. Tap ${ic('star',13)} on the <a href="#/leaderboard" style="color:var(--ac)">leaderboard</a>.</div>`}</div>
-   <div class=sec><h2>Notes</h2></div><form id=nf class=row><input class=inp id=nt placeholder="Write a note…"><button class="btn pri">Add</button></form>
-   <div style="margin-top:12px" class=grid>${notes.map((n,i)=>`<div class="card pad row sb" style="padding:14px 18px"><div><div>${esc(n.t)}</div><div class=mut style="font-size:12px;margin-top:4px">${new Date(n.d).toLocaleString()}</div></div><button class="btn ic sm" data-del=${i}>${ic('x',13)}</button></div>`).join('')}</div>`;
-  $('#nf').onsubmit=e=>{e.preventDefault();const t=$('#nt').value.trim();if(!t)return;notes.unshift({t,d:Date.now()});LS.set('notes',notes);journal()};
-  $$('[data-del]').forEach(b=>b.onclick=()=>{notes.splice(+b.dataset.del,1);LS.set('notes',notes);journal()});
+   <div class=sec><h2>Notes</h2></div>${OWNER?`<form id=nf class=row><input class=inp id=nt placeholder="Write a note…" maxlength=2000><button class="btn pri">Add</button></form>`:`<div class="card empty"><a href="#/account" style="color:var(--lnk)">Log in</a> to keep private notes in your account.</div>`}
+   <div style="margin-top:12px" class=grid>${notes.map(n=>`<div class="card pad row sb" style="padding:14px 18px"><div><div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(n.t)}</div><div class=mut style="font-size:12px;margin-top:4px">${new Date(Number(n.d)).toLocaleString()}</div></div><button class="btn ic sm" data-del="${esc(n.id)}" aria-label="Delete note">${ic('x',13)}</button></div>`).join('')}</div>`;
+  $('#nf')&&($('#nf').onsubmit=async e=>{e.preventDefault();const t=$('#nt').value.trim();if(!t)return;try{await notesApi('note',{t});journal()}catch(x){toast('<span class=down>Could not save the note</span>')}});
+  $$('[data-del]').forEach(b=>b.onclick=async()=>{try{await notesApi('notedel',{id:b.dataset.del});journal()}catch(x){}});
   fl.forEach(async([a])=>{const s=await statOf(a),el=$(`[data-fs="${a}"]`);if(el)el.innerHTML=`<span class=mut>Win rate <b class=num style="color:var(--text)">${s.n>=20?Math.round(s.wr*100)+'%':'-'}</b></span><span class=mut>${s.last?'Last trade '+rel(s.last):'No trades'}</span>`});
 }
 
@@ -297,13 +300,13 @@ function help(){
 /* ---------- router ---------- */
 function route(){clearInterval(feedT);typeof botStopPoll=='function'&&botStopPoll();$('#side').classList.remove('open');renderSide();
   const[p,a]=location.hash.slice(2).split('/');window.scrollTo(0,0);
-  const R={'':overview,leaderboard,feed,terminal:feed,backtest,profits:backtest,bot:botPage,journal,analyze,ai:analyze,help,search:openPal,trader:()=>trader(a)};(R[p]||overview)()}
+  const R={'':overview,leaderboard,feed,terminal:feed,backtest,profits:backtest,bot:botPage,journal,analyze,ai:analyze,help,account:accountPage,login:accountPage,search:openPal,trader:()=>trader(a)};(R[p]||overview)()}
 ['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
 let lastTouchEnd=0;document.addEventListener('touchend',e=>{const n=Date.now();if(n-lastTouchEnd<300&&!e.target.closest('input,textarea'))e.preventDefault();lastTouchEnd=n},{passive:false});
 if(navigator.standalone||matchMedia('(display-mode: standalone)').matches)document.documentElement.classList.add('standalone');
 applyTheme();matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{applyTheme();renderSide()});
 addEventListener('hashchange',route);
-fetch('/api/auth?op=me').then(r=>r.json()).then(m=>{OWNER=!!m.owner;if(OWNER){loadFollows();fetch('/api/bot?op=state').then(r=>r.ok?r.json():null).then(s=>{if(s){BOTON=s.enabled;TOPBAL=s.account?.total??s.account?.cash??null;renderSide()}}).catch(()=>{})}renderSide()}).catch(()=>{});
+fetch('/api/auth?op=me').then(r=>r.json()).then(m=>{SETUP=m.setup||SETUP;if(m.user)signedIn(m.user);renderSide()}).catch(()=>{});
 route();
 
 /* ---------- tap haptics ----------
