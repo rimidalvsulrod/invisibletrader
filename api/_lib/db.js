@@ -19,6 +19,9 @@ const SCHEMA = [
   `ALTER TABLE botlog ADD COLUMN IF NOT EXISTS uid text`,
   // BTC Up or Down bot: one row per user (paper balance lives here) + every trade it takes, paper or live
   `CREATE TABLE IF NOT EXISTS btcbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, mode text NOT NULL DEFAULT 'paper', cfg text, paper double precision NOT NULL DEFAULT 100, paperstart double precision NOT NULL DEFAULT 100, updated bigint)`,
+  // Meme Radar (paper-only meme coin bot): one row per user (paper balance) + every trade
+  `CREATE TABLE IF NOT EXISTS membot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, paper double precision NOT NULL DEFAULT 1000, paperstart double precision NOT NULL DEFAULT 1000, updated bigint)`,
+  `CREATE TABLE IF NOT EXISTS memetrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, chain text, pool text, token text, sym text, entry double precision, qty double precision, cost double precision, liq double precision, fdv double precision, score double precision, why text, status text NOT NULL DEFAULT 'open', peak double precision, last double precision, lastts bigint, lastliq double precision, slipin double precision, exitp double precision, proceeds double precision, pnl double precision, reason text, exitts bigint)`,
   // Newsflash (Alpaca news bot): the user's Alpaca keys, bot row, and every trade/decision
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS alpaca text`,
   `CREATE TABLE IF NOT EXISTS nbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, updated bigint)`,
