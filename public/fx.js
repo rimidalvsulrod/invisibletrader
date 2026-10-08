@@ -16,6 +16,8 @@ function neighbours(hex) {
   const sat = d ? d / (1 - Math.abs(2 * l - 1)) : 0, h = !d ? 0 : mx === r ? 60 * (((g - b) / d) % 6) : mx === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
   return [[22, .75, .5], [-22, .75, .45], [38, .6, .55], [-38, .6, .42]].map(([dh, sm, lv]) => hsl2hex((h + dh + 360) % 360, Math.min(1, sat * sm + .15), lv));
 }
+// background layer: the same thin, sharp strands as the hero (not wide blurry halos), dim, reshaping as you scroll
+const AMB = { haloOnly: 0, n: 150, lw: 1, la: .55, wMin: 60, wMax: 260, haze: 0, uniform: 0, flow: 1.2, flowFrac: .6, spark: 90, bokeh: 0, dust: 30, ef: .12, haloFrac: .1, hw: 3, ha: .12 };
 const GLOW = { la: 1.3, core: 1.7, haze: 1.2, hz: .8, ha: .28, haloFrac: .24, flow: 1.45, flowFrac: .8, spark: 480, bokeh: 22, dust: 100, wob: .07, blue: .22 }; // sharp on retina; the engine steps down on its own if a device struggles
 const ink = () => { const p = paletteFromAccent(accent(), { cool: neighbours(accent()) }), k = .32, d = c => c.map(v => v * k); return { ...p, main: p.main.map(d), cool: p.cool.map(d), haze: d(p.haze), coreHot: d(p.coreHot), core: d(p.core), glitter: d(p.glitter), bokeh: d(p.bokeh), dust: d(p.dust) }; };
 
@@ -32,7 +34,7 @@ function mount() {
   if (theme !== look) { teardown(); theme = look; }
   fx ||= dark ? createRibbons({ accent: accent(), cool: neighbours(accent()), dpr: DPR }) : createRibbons({ palette: ink(), dpr: DPR });
   const hc = app.querySelector('canvas[data-ribbon="hero"]');
-  if (hc !== heroCanvas) { hero?.destroy(); hero = null; heroCanvas = hc; fitHero(); if (hc) hero = fx.hero(hc, { alpha: dark ? .85 : .55, fade: [0, 300], heightFrom: hc.parentElement, params: GLOW }); }
+  if (hc !== heroCanvas) { hero?.destroy(); hero = null; heroCanvas = hc; reachRight(); if (hc) hero = fx.hero(hc, { alpha: dark ? .85 : .55, fade: [0, 120], heightFrom: hc.parentElement, params: GLOW }); }
   // pages re-render on their own polls: only rebuild the ambient when the page itself changes
   const key = location.hash.split('/')[1] || 'home';
   if (key === ambKey) return fx.refresh();
@@ -41,19 +43,19 @@ function mount() {
   amb?.destroy(); ambCanvas?.remove();
   ambCanvas = document.createElement('canvas'); ambCanvas.className = 'fxamb'; ambCanvas.setAttribute('aria-hidden', 'true');
   document.body.prepend(ambCanvas);
-  amb = fx.ambient(ambCanvas, { selector: '#app > *, #fxstops i', opacity: dark ? .6 : .55, params: { flow: 1.5 }, hideUntil: hc ? hc.parentElement : undefined,
+  amb = fx.ambient(ambCanvas, { selector: '#app > *, #fxstops i', opacity: dark ? .7 : .55, params: AMB, hideUntil: hc ? hc.parentElement : undefined,
     shapes: hc ? {} : { off: { p: AMBIENT.edgeRightFaint.p, o: .5 } } });
 }
 // scroll checkpoints every 750px: the soft light keeps reshaping as you scroll, even down one long table
 const stops = document.createElement('div'); stops.id = 'fxstops'; stops.setAttribute('aria-hidden', 'true');
 stops.innerHTML = Array.from({ length: 40 }, (_, i) => `<i style="top:${700 + i * 750}px"></i>`).join('');
 app.parentElement.append(stops);
-// the hero ribbon spans the whole main column (edge to edge on wide screens) instead of stopping beside the content
-function fitHero() {
-  const c = heroCanvas; if (!c || !c.isConnected) return; const m = app.parentElement.getBoundingClientRect(), h = c.parentElement.getBoundingClientRect();
-  c.style.setProperty('left', `${m.left - h.left}px`, 'important'); c.style.setProperty('width', `${m.width}px`, 'important');
+// wide screens: let the ribbon run to the right edge of the screen (its left side and height stay as they are)
+function reachRight() {
+  const c = heroCanvas; if (!c || !c.isConnected) return; c.style.removeProperty('width');
+  const m = app.parentElement.getBoundingClientRect(), r = c.getBoundingClientRect(); if (m.right > r.right) c.style.setProperty('width', `${r.width + m.right - r.right}px`, 'important');
 }
-addEventListener('resize', fitHero);
+addEventListener('resize', reachRight);
 const later = () => { clearTimeout(t); t = setTimeout(mount, 60); };
 new MutationObserver(later).observe(app, { childList: true });                       // a new page was rendered
 new MutationObserver(later).observe(root, { attributes: true, attributeFilter: ['data-theme', 'data-accent'] });

@@ -339,7 +339,7 @@ export function createRibbons(opts = {}) {
    * hideUntil: element (e.g. the hero wrapper); the ambient stays off until it is scrolled past.
    */
   function ambient(canvas, o = {}) {
-    const layer = new Layer(canvas, pal, { scale: .5 }); let anchors = [], cur = AMBIENT.off.p.map(p => p.slice()), curO = 0, shownO = -1;
+    const layer = new Layer(canvas, pal, { scale: 1 }); let anchors = [], cur = AMBIENT.off.p.map(p => p.slice()), curO = 0, shownO = -1;
     const shapes = { ...AMBIENT, ...(o.shapes || {}) };
     function compute() {
       const vh = innerHeight, sy = scrollY; anchors = [{ y: 0, k: 'off' }];
