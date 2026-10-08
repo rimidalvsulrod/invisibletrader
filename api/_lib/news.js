@@ -37,7 +37,7 @@ async function feedCreds() { // news is the same for everyone: any connected key
 }
 function ingest(n) {
   const id = String(n.id); if (SEEN.has(id)) return; SEEN.add(id); if (SEEN.size > 5000) SEEN.delete(SEEN.values().next().value);
-  const syms = (n.symbols || []).filter(x => /^[A-Z.]{1,6}$/.test(x)), sc = score(n), item = { id, t: Date.parse(n.created_at) || Date.now(), seen: Date.now(), headline: n.headline, url: n.url, syms, score: sc.s, hits: sc.hits };
+  const syms = (n.symbols || []).filter(x => /^[A-Z.]{1,6}$/.test(x)), sc = score(n), item = { id, t: Date.parse(n.created_at) || Date.now(), seen: Date.now(), headline: unent(n.headline), url: n.url, syms, score: sc.s, hits: sc.hits };
   FEED.unshift(item); if (FEED.length > 40) FEED.pop(); if (onNews) onNews(item);
 }
 async function stream() {
@@ -53,6 +53,7 @@ async function stream() {
   ws.on('close', () => down()); ws.on('error', down);
   ws.on('unexpected-response', (_, res) => down(`Alpaca news stream refused (${res.statusCode})`));
 }
+function unent(t) { return String(t || '').replace(/&#(\d+);/g, (_, d) => String.fromCharCode(d)).replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'); }
 async function poll() { // fallback when the stream isn't up: newest headlines every 5s
   if (wsUp || Date.now() - lastPoll < 5e3) return; lastPoll = Date.now();
   const c = await feedCreds(); if (!c) return;
@@ -92,8 +93,12 @@ async function act(uid, n) {
     const notional = Math.min(cfg.size === 'usd' ? cfg.usd : eq * cfg.pct / 100, cash * .95);
     if (notional < 1) return rec(uid, n, sym, { status: 'skip', reason: 'not enough cash' });
     try {
-      const a = await AL.asset(c, sym); if (!a.tradable || !a.fractionable) return rec(uid, n, sym, { status: 'skip', reason: 'not tradable as a fractional order' });
-      const o = await AL.buy(c, sym, notional); let f = o; for (let i = 0; i < 6 && f.status !== 'filled'; i++) { await new Promise(z => setTimeout(z, 500)); f = await AL.order(c, o.id).catch(() => f); }
+      const a = await AL.asset(c, sym); if (!a.tradable) return rec(uid, n, sym, { status: 'skip', reason: 'not tradable on Alpaca' });
+      let o; if (a.fractionable) o = await AL.buy(c, sym, notional);
+      else { // no fractional shares for this stock: buy whole shares worth about the same
+        const px = await AL.last(c, sym), qty = px > 0 ? Math.max(1, Math.floor(notional / px)) : 0;
+        if (!qty || qty * px > cash * .95) return rec(uid, n, sym, { status: 'skip', reason: `one share ($${px?.toFixed?.(2)}) costs more than the cash available` });
+        o = await AL.buyQty(c, sym, qty); } let f = o; for (let i = 0; i < 6 && f.status !== 'filled'; i++) { await new Promise(z => setTimeout(z, 500)); f = await AL.order(c, o.id).catch(() => f); }
       await rec(uid, n, sym, { status: 'open', notional, qty: Number(f.filled_qty) || null, entry: Number(f.filled_avg_price) || null });
     } catch (e) { await rec(uid, n, sym, { status: 'skip', reason: String(e.message).slice(0, 120) }); }
   }

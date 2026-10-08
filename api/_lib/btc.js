@@ -6,8 +6,11 @@
 const crypto = require('crypto'), db = require('./db'), P = require('./polymarket-us'), S = require('./settings');
 const TF = { '15m': 9e5, '1h': 36e5 }, DAY = 864e5;
 // The only setting is trade size: a % of the balance or a fixed $. The rest is built in:
-// minimum edge 5c after fees, both windows, and it stops for the day after losing 20% of the account.
-const DEF = { size: 'pct', pct: 2, usd: 5 }, MIN_EDGE = 5, DAILY_STOP = .2, TFS = ['15m', '1h'];
+// minimum edge 4c after fees, both windows, and it stops for the day after losing 20% of the account.
+const DEF = { size: 'pct', pct: 2, usd: 5 }, MIN_EDGE = 4, DAILY_STOP = .2, TFS = ['15m', '1h'];
+// volatility range the edge must survive, and favourites only: cheap underdogs (under 50c) are overpriced in these
+// markets (longshot bias), and the paper record agreed (1 of 8 underdog buys won, 3 of 3 favourites)
+const VOLS = [.8, 1.3], MIN_PRICE = .5;
 const fee = (n, p) => 0.0695 * n * p * (1 - p);
 const J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (_) { return d; } };
 const iso = t => new Date(t).toISOString();
@@ -54,11 +57,11 @@ async function priceAt(t) {
   if (!c && Date.now() - t < 6 * 36e5) { rows = await get(`https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60&start=${iso(t - 18e4)}&end=${iso(t)}`).catch(() => []); c = rows.find(r => r[0] * 1e3 === t - 6e4); }
   return c ? (c[1] + c[2] + c[3] + c[4]) / 4 : NaN;
 }
-// volatility per minute from the last hour of 1-minute returns, padded 25% for model error
+// volatility per minute from the last hour of 1-minute returns (raw; model error is handled by VOLS in snapshot)
 async function sigma() {
   const r = (await candles()).slice(0, 61).map(x => x[4]), L = []; for (let i = 0; i < r.length - 1; i++) L.push(Math.log(r[i] / r[i + 1]));
   const m = L.reduce((a, b) => a + b, 0) / L.length, sd = Math.sqrt(L.reduce((a, b) => a + (b - m) ** 2, 0) / (L.length - 1));
-  return Math.max(sd, 2e-4) * 1.25;
+  return Math.max(sd, 2e-4);
 }
 
 /* ---------- live Polymarket US prices: authenticated WebSocket push (falls back to paced uncached polling) ---------- */
@@ -110,10 +113,12 @@ async function snapshot() {
       w.S0 = S0.get(slug);
       const q = await quote(slug); w.open = q.open; w.upAsk = q.ask; w.downAsk = Number.isFinite(q.bid) ? 1 - q.bid : NaN; w.src = q.src; w.qAge = Date.now() - q.t;
       if (w.S0 > 0 && secs > 0) {
-        const z = Math.log(S / w.S0) / (sig * Math.sqrt(secs / 60));
-        w.fair = Math.min(.97, Math.max(.03, Phi(z))); // never fully trust the model
+        const z = Math.log(S / w.S0) / (sig * Math.sqrt(secs / 60)), cl = x => Math.min(.97, Math.max(.03, x)); // never fully trust the model
+        w.fair = cl(Phi(z));
+        // worst case over the volatility range: a side only shows an edge if it has one whether Bitcoin turns calmer or wilder
+        const ups = VOLS.map(k => cl(Phi(z / k))), upLo = Math.min(...ups), downLo = 1 - Math.max(...ups);
         const net = (pr, ch) => pr > 0 && pr < 1 ? ch - pr - fee(1, pr) : -1;
-        w.upEdge = net(w.upAsk, w.fair); w.downEdge = net(w.downAsk, 1 - w.fair);
+        w.upEdge = net(w.upAsk, upLo); w.downEdge = net(w.downAsk, downLo);
       }
     } catch (e) { w.err = String(e.message || e).slice(0, 80); }
     out.push(w);
@@ -131,7 +136,7 @@ const dayStart = () => { const d = new Date(); d.setUTCHours(0, 0, 0, 0); return
 async function decide(row, snap) {
   const uid = row.uid, c = J(row.cfg, {}), cfg = { size: c.size === 'usd' ? 'usd' : 'pct', pct: c.pct > 0 ? c.pct : DEF.pct, usd: c.usd > 0 ? c.usd : DEF.usd };
   // cheap part first: is any window tradeable right now? (no database work on the vast majority of checks)
-  const cands = snap.windows.filter(w => TFS.includes(w.tf) && w.open && w.fair > 0 && w.secs <= TF[w.tf] / 1e3 * .6 && w.secs >= 20 && w.qAge <= 5e3 && Math.max(w.upEdge, w.downEdge) * 100 >= MIN_EDGE);
+  const cands = snap.windows.filter(w => TFS.includes(w.tf) && w.open && w.fair > 0 && w.secs <= TF[w.tf] / 1e3 * .6 && w.secs >= 20 && w.qAge <= 5e3 && ((w.upEdge * 100 >= MIN_EDGE && w.upAsk >= MIN_PRICE) || (w.downEdge * 100 >= MIN_EDGE && w.downAsk >= MIN_PRICE)));
   if (!cands.length) return;
   const live = row.mode === 'live', creds = live ? await S.getCreds(uid).catch(() => null) : null;
   if (live && (!creds || process.env.TRADING_DISABLED)) return;
@@ -147,8 +152,8 @@ async function decide(row, snap) {
     const len = TF[w.tf]; if (w.secs > len / 1e3 * .6 || w.secs < 20) continue; // only once the window has played out a while
     if (await db.one('SELECT id FROM btctrades WHERE uid=$1 AND slug=$2 AND mode=$3', [uid, w.slug, row.mode])) continue; // one trade per window
     if (!(w.qAge <= 5e3)) continue; // never trade against a market price more than 5s old
-    const side = w.upEdge >= w.downEdge ? 'up' : 'down', edge = Math.max(w.upEdge, w.downEdge), price = side === 'up' ? w.upAsk : w.downAsk;
-    if (!(edge * 100 >= MIN_EDGE) || !(price >= .03 && price <= .95)) continue;
+    const side = w.upEdge >= w.downEdge && w.upAsk >= MIN_PRICE || !(w.downAsk >= MIN_PRICE) ? 'up' : 'down', edge = Math.max(w.upEdge, w.downEdge), price = side === 'up' ? w.upAsk : w.downAsk;
+    if (!(edge * 100 >= MIN_EDGE) || !(price >= MIN_PRICE && price <= .95)) continue;
     let qty = Math.floor(spend / (price + fee(1, price))); if (qty < 1) qty = 1; // a small balance still buys one contract
     if (qty * (price + fee(1, price)) > bal) continue;
     let fillQ = qty, fillP = price;
@@ -177,8 +182,14 @@ async function settle() {
     }
     const up = res.get(t.slug); if (up === null) continue;
     const won = (t.side === 'up') === up, pay = won ? t.qty : 0, pnl = pay - t.qty * t.price - t.fee;
-    await db.q('UPDATE btctrades SET status=$2, pnl=$3 WHERE id=$1', [t.id, won ? 'won' : 'lost', pnl]);
-    if (t.mode === 'paper' && pay) await db.q('UPDATE btcbot SET paper=paper+$2 WHERE uid=$1', [t.uid, pay]);
+    const done = await db.q("UPDATE btctrades SET status=$2, pnl=$3 WHERE id=$1 AND status='open' RETURNING id", [t.id, won ? 'won' : 'lost', pnl]);
+    if (done.length && t.mode === 'paper' && pay) await db.q('UPDATE btcbot SET paper=paper+$2 WHERE uid=$1', [t.uid, pay]); // only the process that settled it pays
+  }
+}
+async function reconcile() {
+  for (const b of await db.q('SELECT uid, paper, paperstart FROM btcbot')) {
+    const r = await db.one("SELECT coalesce(sum(CASE WHEN status='open' THEN -(price*qty+fee) ELSE pnl END),0) AS d FROM btctrades WHERE uid=$1 AND mode='paper'", [b.uid]);
+    const want = Number(b.paperstart) + Number(r.d); if (Math.abs(want - Number(b.paper)) > .005) await db.q('UPDATE btcbot SET paper=$2 WHERE uid=$1', [b.uid, want]);
   }
 }
 // one check for everyone. In the runner it fires on every Bitcoin or Polymarket US price move (at most 4x a second),
@@ -191,7 +202,7 @@ async function tick(given) {
     if (given || Date.now() - lastPub > 1e3) { lastPub = Date.now(); S.set('btclive', JSON.stringify(snap)).catch(() => {}); }
     if (given || Date.now() - users.t > 5e3) users = { t: Date.now(), rows: await db.q("SELECT b.* FROM btcbot b JOIN users u ON u.id=b.uid WHERE b.enabled=true AND u.verified=true") };
     for (const r of users.rows) await decide(r, snap).catch(e => console.error('btc', r.uid, e.message));
-    if (given || Date.now() - lastSettle > 5e3) { lastSettle = Date.now(); await settle(); }
+    if (given || Date.now() - lastSettle > 5e3) { lastSettle = Date.now(); await settle(); await reconcile(); }
     return snap;
   } finally { busy = false; }
 }
@@ -204,4 +215,4 @@ async function stats(uid, mode) {
   const r = await db.one("SELECT count(*)::int AS n, sum(CASE WHEN status='won' THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN status='lost' THEN 1 ELSE 0 END)::int AS l, coalesce(sum(pnl),0) AS pnl, coalesce(sum(CASE WHEN status='open' THEN price*qty+fee ELSE 0 END),0) AS openc FROM btctrades WHERE uid=$1 AND mode=$2", [uid, mode]);
   return { trades: r.n, won: r.w || 0, lost: r.l || 0, pnl: Number(r.pnl), open: Number(r.openc) };
 }
-module.exports = { DEF, TF, MIN_EDGE, DAILY_STOP, tick, start, snapshot, settle, open, stats, fee, Phi, slugOf };
+module.exports = { VOLS, MIN_PRICE, reconcile, DEF, TF, MIN_EDGE, DAILY_STOP, tick, start, snapshot, settle, open, stats, fee, Phi, slugOf };

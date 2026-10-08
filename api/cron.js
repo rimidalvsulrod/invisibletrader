@@ -5,6 +5,7 @@ const { handler, err, same } = require('./_lib/util');
 const E = require('./_lib/engine');
 module.exports = handler(async (req, body, q) => {
   if (process.env.CRON_SECRET && !same(q.key || String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''), process.env.CRON_SECRET)) throw err(401, 'bad key');
-  const [copy] = await Promise.all([E.runAll(undefined, 4e3), require('./_lib/btc').tick().catch(e => ({ error: e.message }))]);
+  const live = JSON.parse(await require('./_lib/settings').get('live').catch(() => null) || 'null'), runner = live && Date.now() - live.t < 60e3;
+  const [copy] = await Promise.all([E.runAll(undefined, 4e3), runner ? null : require('./_lib/btc').tick().catch(e => ({ error: e.message }))]); // the runner owns BTC while it's up
   return copy;
 });
