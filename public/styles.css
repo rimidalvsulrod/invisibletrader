@@ -391,3 +391,12 @@ h2{letter-spacing:-.022em}.lead{letter-spacing:-.006em}
 .sw8 i{width:20px;height:20px;border-radius:50%;background:var(--c1);flex:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
 :root[data-theme=light] .sw8 i{background:var(--c2)}
 .sw8.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.sw8:active{transform:scale(.97)}
+/* scrolling: no live blur on fixed/sticky chrome. The ribbon light animates behind it, so a backdrop blur had to be
+   recomputed every frame while scrolling and the bar stuttered. Solid fills on their own compositor layer instead. */
+.topbar,aside,#tabbar{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.topbar{transform:translateZ(0)} /* aside and #tabbar keep their own transforms (the mobile sheet slides with one) */
+:root,:root[data-theme=dark]{--chrome:rgba(4,4,5,.94)}
+:root[data-theme=light]{--chrome:rgba(244,244,246,.95)}
+.topbar{background:var(--chrome)!important}
+:root[data-theme=light] aside{background:rgba(244,244,246,.97)}
+:root[data-theme=light] #tabbar{background:rgba(252,252,253,.97)}
