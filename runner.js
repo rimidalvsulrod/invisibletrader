@@ -52,13 +52,13 @@ async function kick() {
 }
 
 (async () => {
-  await refresh(); connect();
+  await refresh(); connect(); B.start(); // BTC bot: live price streams, re-checks on every move
   let beat = 0;
   while (!stop && Date.now() < end) {
     await sleep(1000); const now = Date.now();
     if (now - lastPoll >= POLL && !running) { needPoll = true; refresh().catch(e => log('refresh', e.message)).then(kick); lastPoll = now; }
     if (up && beat % 5 === 0) try { ws.send('ping'); } catch (x) {} // the stream goes quiet without keep-alive pings
-    B.tick().catch(e => log('btc', e.message)); // BTC Up or Down bot: every second (a tick still running is skipped, never doubled)
+    B.tick().catch(e => log('btc', e.message)); // BTC bot heartbeat (price moves trigger extra checks, up to 4 a second)
     if (up && now - lastMsg > 30e3) { log('stream silent for 30s — reconnecting'); ws.close(); }
     if (++beat % 2 === 0) {
       const live = { t: now, up, watch: watch.size, rate: +(bars.reduce((a, b) => a + b, 0) / 60).toFixed(1),

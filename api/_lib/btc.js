@@ -17,13 +17,31 @@ function Phi(x) { const t = 1 / (1 + .3275911 * Math.abs(x) / Math.SQRT2), y = 1
 const get = u => fetch(u, { headers: { 'user-agent': 'mimic' } }).then(r => r.ok ? r.json() : Promise.reject(new Error(`${r.status} ${u.split('/')[2]}`)));
 
 /* ---------- Bitcoin price: average of Coinbase, Kraken, Bitstamp (the exchanges behind the CF Benchmarks index US settles on) ---------- */
+// live streams (runner only): every trade/ticker from the three exchanges, re-check on each move
+const PX = { cb: null, kr: null, bs: null }; let onMove = null;
+function streams() {
+  let WebSocket; try { WebSocket = require('ws'); } catch (_) { return; }
+  const open = (k, url, sub, read) => {
+    const w = new WebSocket(url); let alive = Date.now();
+    w.on('open', () => w.send(JSON.stringify(sub)));
+    w.on('message', d => { let m; try { m = JSON.parse(d); } catch (_) { return; } const p = read(m); if (p > 1000) { PX[k] = { p, t: Date.now() }; alive = Date.now(); if (onMove) onMove(); } });
+    const again = () => { clearInterval(watch); setTimeout(() => open(k, url, sub, read), 2e3); };
+    const watch = setInterval(() => { if (Date.now() - alive > 6e4) { try { w.terminate(); } catch (_) {} } }, 15e3); // quiet for a minute: reconnect
+    w.on('close', again); w.on('error', () => {});
+  };
+  open('cb', 'wss://ws-feed.exchange.coinbase.com', { type: 'subscribe', product_ids: ['BTC-USD'], channels: ['ticker'] }, m => m.type === 'ticker' && +m.price);
+  open('kr', 'wss://ws.kraken.com/v2', { method: 'subscribe', params: { channel: 'ticker', symbol: ['BTC/USD'] } }, m => m.channel === 'ticker' && m.data && +m.data[0].last);
+  open('bs', 'wss://ws.bitstamp.net', { event: 'bts:subscribe', data: { channel: 'live_trades_btcusd' } }, m => m.event === 'trade' && +m.data.price);
+}
 async function spot() {
-  const v = (await Promise.all([
+  // streamed prices under 15s old (median), otherwise one REST read per exchange
+  const live = Object.values(PX).filter(x => x && Date.now() - x.t < 15e3).map(x => x.p);
+  const v = live.length >= 2 ? live : (await Promise.all([
     get('https://api.exchange.coinbase.com/products/BTC-USD/ticker').then(j => +j.price),
     get('https://api.kraken.com/0/public/Ticker?pair=XBTUSD').then(j => +Object.values(j.result)[0].c[0]),
     get('https://www.bitstamp.net/api/v2/ticker/btcusd/').then(j => +j.last),
   ].map(p => p.catch(() => NaN)))).filter(x => x > 1000);
-  if (!v.length) throw new Error('no Bitcoin price'); v.sort((a, b) => a - b); return v[Math.floor(v.length / 2)]; // median
+  if (!v.length) throw new Error('no Bitcoin price'); v.sort((a, b) => a - b); return v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2; // median
 }
 let CND = { t: 0, rows: [] };
 async function candles() { // Coinbase 1-minute candles, newest first: [time, low, high, open, close, volume]
@@ -63,7 +81,7 @@ async function feed(slugs) {
     wsLast = Date.now(); let m; try { m = JSON.parse(d); } catch (_) { return; }
     const x = m.marketDataLite || m.marketData; if (m.error) wsErr = String(m.error).slice(0, 80);
     if (x?.marketSlug) { const top = a => a && a[0] && Number(a[0].px?.value), bid = Number(x.bestBid?.value ?? top(x.bids)), ask = Number(x.bestAsk?.value ?? top(x.offers));
-      WQ.set(x.marketSlug, { bid, ask, state: x.state, t: Date.now() }); if (WQ.size > 20) WQ.delete(WQ.keys().next().value); }
+      WQ.set(x.marketSlug, { bid, ask, state: x.state, t: Date.now() }); if (WQ.size > 20) WQ.delete(WQ.keys().next().value); if (onMove) onMove(); }
   });
   const down = e => { wsUp = false; if (e) wsErr = String(e.message || e).slice(0, 80); wsNext = Date.now() + wsBack; wsBack = Math.min(wsBack * 2, 6e4); };
   ws.on('close', () => down()); ws.on('error', down);
@@ -110,8 +128,11 @@ async function open(uid) {
   return { row, cfg: { size: c.size === 'usd' ? 'usd' : 'pct', pct: c.pct > 0 ? c.pct : DEF.pct, usd: c.usd > 0 ? c.usd : DEF.usd } };
 }
 const dayStart = () => { const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d.getTime(); };
-async function decide(uid, snap) {
-  const { row, cfg } = await open(uid); if (!row.enabled) return;
+async function decide(row, snap) {
+  const uid = row.uid, c = J(row.cfg, {}), cfg = { size: c.size === 'usd' ? 'usd' : 'pct', pct: c.pct > 0 ? c.pct : DEF.pct, usd: c.usd > 0 ? c.usd : DEF.usd };
+  // cheap part first: is any window tradeable right now? (no database work on the vast majority of checks)
+  const cands = snap.windows.filter(w => TFS.includes(w.tf) && w.open && w.fair > 0 && w.secs <= TF[w.tf] / 1e3 * .6 && w.secs >= 20 && w.qAge <= 5e3 && Math.max(w.upEdge, w.downEdge) * 100 >= MIN_EDGE);
+  if (!cands.length) return;
   const live = row.mode === 'live', creds = live ? await S.getCreds(uid).catch(() => null) : null;
   if (live && (!creds || process.env.TRADING_DISABLED)) return;
   const today = await db.one('SELECT coalesce(sum(pnl),0) AS p FROM btctrades WHERE uid=$1 AND mode=$2 AND status<>$3 AND ts>=$4', [uid, row.mode, 'open', dayStart()]);
@@ -121,7 +142,7 @@ async function decide(uid, snap) {
   if (!(bal > 0)) return;
   if (Number(today.p) - Number(openCost.c) <= -DAILY_STOP * (bal + Number(openCost.c) - Number(today.p))) return; // lost 20% today: done until tomorrow
   const spend = cfg.size === 'usd' ? cfg.usd : bal * cfg.pct / 100;
-  for (const w of snap.windows) {
+  for (const w of cands) {
     if (!TFS.includes(w.tf) || !w.open || !(w.fair > 0)) continue;
     const len = TF[w.tf]; if (w.secs > len / 1e3 * .6 || w.secs < 20) continue; // only once the window has played out a while
     if (await db.one('SELECT id FROM btctrades WHERE uid=$1 AND slug=$2 AND mode=$3', [uid, w.slug, row.mode])) continue; // one trade per window
@@ -160,19 +181,27 @@ async function settle() {
     if (t.mode === 'paper' && pay) await db.q('UPDATE btcbot SET paper=paper+$2 WHERE uid=$1', [t.uid, pay]);
   }
 }
-// one tick for everyone (runner calls this every few seconds)
-let busy = false;
+// one check for everyone. In the runner it fires on every Bitcoin or Polymarket US price move (at most 4x a second),
+// plus a 1-second heartbeat; a check still running is skipped, never doubled.
+let busy = false, lastPub = 0, lastSettle = 0, users = { t: 0, rows: [] };
 async function tick(given) {
   if (busy) return null; busy = true;
   try {
     const snap = given || await snapshot();
-    await S.set('btclive', JSON.stringify(snap));
-    for (const r of await db.q("SELECT b.uid FROM btcbot b JOIN users u ON u.id=b.uid WHERE b.enabled=true AND u.verified=true")) await decide(r.uid, snap).catch(e => console.error('btc', r.uid, e.message));
-    await settle(); return snap;
+    if (given || Date.now() - lastPub > 1e3) { lastPub = Date.now(); S.set('btclive', JSON.stringify(snap)).catch(() => {}); }
+    if (given || Date.now() - users.t > 5e3) users = { t: Date.now(), rows: await db.q("SELECT b.* FROM btcbot b JOIN users u ON u.id=b.uid WHERE b.enabled=true AND u.verified=true") };
+    for (const r of users.rows) await decide(r, snap).catch(e => console.error('btc', r.uid, e.message));
+    if (given || Date.now() - lastSettle > 5e3) { lastSettle = Date.now(); await settle(); }
+    return snap;
   } finally { busy = false; }
+}
+let nextAt = 0, timer = null;
+function start() { // runner: open the price streams and re-check on every move
+  streams();
+  onMove = () => { if (timer) return; const wait = Math.max(0, nextAt - Date.now()); timer = setTimeout(() => { timer = null; nextAt = Date.now() + 250; tick().catch(() => {}); }, wait); };
 }
 async function stats(uid, mode) {
   const r = await db.one("SELECT count(*)::int AS n, sum(CASE WHEN status='won' THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN status='lost' THEN 1 ELSE 0 END)::int AS l, coalesce(sum(pnl),0) AS pnl, coalesce(sum(CASE WHEN status='open' THEN price*qty+fee ELSE 0 END),0) AS openc FROM btctrades WHERE uid=$1 AND mode=$2", [uid, mode]);
   return { trades: r.n, won: r.w || 0, lost: r.l || 0, pnl: Number(r.pnl), open: Number(r.openc) };
 }
-module.exports = { DEF, TF, MIN_EDGE, DAILY_STOP, tick, snapshot, settle, open, stats, fee, Phi, slugOf };
+module.exports = { DEF, TF, MIN_EDGE, DAILY_STOP, tick, start, snapshot, settle, open, stats, fee, Phi, slugOf };
