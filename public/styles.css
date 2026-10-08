@@ -299,3 +299,45 @@ details summary{cursor:pointer;color:var(--mut);font-size:14px;list-style:none}d
 @media(max-width:430px){.topbar{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}.mobile-brand span{font-size:15px}.ph{gap:12px}.ph .live{height:28px;padding:0 10px}.feedwho{font-size:13.5px}.feedwho .pill{max-width:106px;padding:0 7px;font-size:11px}}
 @media(prefers-reduced-transparency:reduce){aside,.topbar,#tabbar,.palbox{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:var(--panel)!important}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.01ms!important}}
+
+/* ======================================================================================
+   v8 (taste-design, redesign/preserve): off-black + off-white, one gray family, ONE accent
+   (desaturated emerald) for links / active / live / focus; green & red stay semantic for gain/loss.
+   Geist first. Asymmetric overview + podium instead of three equal tiles. Sentence-case nav labels.
+   ====================================================================================== */
+:root,:root[data-theme=dark]{--bg:#0b0b0d;--panel:#111114;--panel2:#16161a;--bg2:#1b1b20;
+  --text:#ececee;--mut:#9a9aa3;--mut2:#6a6a72;--line:rgba(236,236,240,.08);--line2:rgba(236,236,240,.14);
+  --ac:#ececee;--on-ac:#0b0b0d;--accent:#3fbf86;--accentbg:rgba(63,191,134,.13);--lnk:var(--accent);
+  --up:#3fbf86;--upbg:rgba(63,191,134,.13);--down:#ef5f56;--downbg:rgba(239,95,86,.13);
+  --avbg:hsl(240 4% calc(16% + var(--avl,6%)));--glass:rgba(11,11,13,.7);
+  --shadow:0 24px 60px rgba(4,4,8,.6);--h1:none;
+  --sans:Geist,-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;--mono:"Geist Mono",ui-monospace,Menlo,monospace}
+:root[data-theme=light]{--bg:#f4f4f6;--panel:#fcfcfd;--panel2:#f8f8fa;--bg2:#ececf0;
+  --text:#121216;--mut:#62626b;--mut2:#94949c;--line:rgba(18,18,22,.08);--line2:rgba(18,18,22,.14);
+  --ac:#121216;--on-ac:#fcfcfd;--accent:#14845a;--accentbg:rgba(20,132,90,.1);--lnk:var(--accent);
+  --up:#14845a;--upbg:rgba(20,132,90,.1);--down:#c8352d;--downbg:rgba(200,53,45,.08);
+  --avbg:hsl(240 5% calc(84% + var(--avl,6%)));--glass:rgba(244,244,246,.78);--shadow:0 20px 50px rgba(30,30,50,.12)}
+body{font-family:var(--sans)}
+h1{background:none;-webkit-text-fill-color:currentColor;color:var(--text);text-wrap:balance}
+.lead,p{text-wrap:pretty}.lead{max-width:62ch}
+a[style*="--ac"],.card a.lnk,.lnk{color:var(--accent)}
+:focus-visible{outline-color:var(--accent)}
+/* avatars: one gray family, not a rainbow */
+.av{background:var(--avbg);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+/* sidebar group labels: quiet sentence case, not all-caps eyebrows */
+.navg{text-transform:none;letter-spacing:0;font-size:12px;font-weight:500;color:var(--mut2)}
+.nv.on svg{color:var(--accent)}
+.chip.on{color:var(--on-ac)}
+.live:before{background:var(--accent);box-shadow:none}
+.pill.warn{background:var(--bg2);color:var(--mut)}
+.pill.ac{background:var(--accentbg);color:var(--accent)}
+/* press feedback */
+.btn:active,.chip:active,.kbtn:active,.tbtn:active{transform:scale(.98)}
+/* overview: the Auto Trader tile leads, the two market facts stack beside it */
+.ovs{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);grid-template-rows:auto auto}
+.ovs>:first-child{grid-row:span 2;display:flex;flex-direction:column;justify-content:flex-end;background:radial-gradient(120% 90% at 100% 0%,var(--accentbg),transparent 60%),var(--panel)}
+.ovs>:first-child .v{font-size:clamp(40px,4vw,56px)}
+/* leaderboard: #1 gets the wide tile */
+.pods{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr)}
+.pods .g1 .pv{font-size:clamp(34px,3.2vw,44px)!important}
+@media(max-width:760px){.ovs{grid-template-columns:1fr}.ovs>:first-child{grid-row:auto}}

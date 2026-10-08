@@ -11,7 +11,7 @@ async function liveFetch() {
 }
 function liveDraw(fresh) {
   const el = $('#blive'); if (!el) return;
-  if (!liveOk()) { el.innerHTML = `<div class=lrow><span class="ldot off"></span><b>Runner offline</b><span class=mut>checking from this page while it's open — the GitHub runner restarts on its own</span></div>`; return; }
+  if (!liveOk()) { el.innerHTML = `<div class=lrow><span class="ldot off"></span><b>Runner offline</b><span class=mut>checking from this page while it's open. The GitHub runner restarts on its own</span></div>`; return; }
   const L = LIVE, max = Math.max(1, ...L.bars);
   el.innerHTML = `<div class=lrow><span class="ldot ${L.up ? '' : 'off'} ${fresh ? 'ping' : ''}"></span><b>${L.up ? 'Live' : 'Reconnecting to Polymarket…'}</b>
       <span class=mut>watching ${L.watch} trader${L.watch == 1 ? '' : 's'} · Polymarket stream ${L.rate} trades/s</span></div>
@@ -84,7 +84,7 @@ function botRender(S) {
       <div class=mut style="font-size:13px">${S.last ? `Last check ${rel(S.last / 1000)} · following ${S.watching} signal trader${S.watching == 1 ? '' : 's'}` : connected ? 'Turn on to start copying' : 'Connect Polymarket US to start'}</div></div></div>
       ${connected ? `<span class="pill down" style="height:26px;padding:0 12px">Polymarket US · real money</span>` : ''}</div>
     ${S.enabled ? '<div id=blive class=lv></div>' : ''}
-    ${stale ? `<div class=note style="margin-top:16px">The bot is on but hasn't checked in 5 minutes — the 24/7 runner may be restarting. It recovers on its own; tap Check now to run immediately.</div>` : ''}
+    ${stale ? `<div class=note style="margin-top:16px">The bot is on but hasn't checked in 5 minutes. The 24/7 runner may be restarting. It recovers on its own; tap Check now to run immediately.</div>` : ''}
     ${S.disabledServer ? `<div class=note style="margin-top:16px">Trading is switched off on the server (TRADING_DISABLED).</div>` : ''}
     ${S.accountError ? `<div class=note style="margin-top:16px">Polymarket US: ${esc(S.accountError)}</div>` : ''}
     ${A ? `<div class="grid g3" style="margin-top:20px"><div class=stat><div class=k>Cash</div><div class="v num">${usd(A.cash, 2)}</div><div class=s>available on Polymarket US</div></div>
@@ -110,8 +110,8 @@ function botRender(S) {
 
   const posT = `<div class="card" style="overflow:hidden"><div class="row sb pad" style="padding-bottom:8px"><h2>Positions</h2>${S.positions.some(p => p.copied) ? `<button class="btn sm danger" id=bsa>Sell all copies</button>` : ''}</div>
     <table class=tbl><tbody>${S.positions.map(p => `<tr><td><div class=ell style="font-weight:550;max-width:380px">${esc(p.title)}${p.sub ? ` <span class=mut>· ${esc(p.sub)}</span>` : ''}</div>
-      <div class=mut style="font-size:12.5px;margin-top:3px"><span class="pill ${p.side == 'yes' ? 'up' : 'down'}" style="height:19px">${p.side.toUpperCase()}</span> ${fmt(p.count)} contracts · cost ${usd(p.cost, 2)}${p.copied ? ` · <span style="color:var(--ac)">copied ${esc(p.copied.trader)}</span>` : ''}${p.status && !['active', 'open'].includes(p.status) ? ` · ${esc(p.status)} — pays out automatically` : ''}</div></td>
-      <td class="r num">${p.value != null ? usd(p.value, 2) : '—'}<div class="${p.pnl != null ? ud(p.pnl) : 'mut'}" style="font-size:12px">${p.pnl != null ? sg(p.pnl, 2) : ''}</div></td>
+      <div class=mut style="font-size:12.5px;margin-top:3px"><span class="pill ${p.side == 'yes' ? 'up' : 'down'}" style="height:19px">${p.side.toUpperCase()}</span> ${fmt(p.count)} contracts · cost ${usd(p.cost, 2)}${p.copied ? ` · <span style="color:var(--ac)">copied ${esc(p.copied.trader)}</span>` : ''}${p.status && !['active', 'open'].includes(p.status) ? ` · ${esc(p.status)}, pays out automatically` : ''}</div></td>
+      <td class="r num">${p.value != null ? usd(p.value, 2) : '-'}<div class="${p.pnl != null ? ud(p.pnl) : 'mut'}" style="font-size:12px">${p.pnl != null ? sg(p.pnl, 2) : ''}</div></td>
       <td class=r style="width:1%"><button class="btn sm" data-sell="${esc(p.tk)}">Sell</button></td></tr>`).join('') || `<tr><td class=empty>${connected ? 'No open positions on Polymarket US.' : 'Connect Polymarket US to see your positions.'}</td></tr>`}</tbody></table></div>`;
 
   const fillsT = S.fills.length ? `<div class="card" style="overflow:hidden"><div class="pad" style="padding-bottom:8px"><h2>Recent Polymarket US activity</h2></div><table class=tbl><tbody>${S.fills.map(f => `<tr>
@@ -122,9 +122,9 @@ function botRender(S) {
       const [k, l] = L[e.st] || ['n', e.st];
       return `<tr><td style="width:1%"><span class="pill ${k}">${l}</span></td><td><div class=ell style="max-width:440px">${e.act == 'sell' ? '' : e.outcome ? `${esc(e.trader)} bought <b>${esc(e.outcome)}</b>${e.pm ? ` @ ${e.pm}¢` : ''} · ` : ''}${esc(e.title)}</div>
         <div class=mut style="font-size:12.5px;margin-top:2px">${e.tk ? `<span class=num>${esc(e.tk)}</span> · ` : ''}${esc(e.note || '')}</div></td><td class="r mut hide-m" style="font-size:12.5px;white-space:nowrap">${rel(e.t / 1000)}</td></tr>`;
-    }).join('') || `<tr><td class=empty>Nothing yet — when a trader you track buys on Polymarket, the bot's decision shows up here.</td></tr>`}</tbody></table></div>`;
+    }).join('') || `<tr><td class=empty>Nothing yet. When a trader you track buys on Polymarket, the bot's decision shows up here.</td></tr>`}</tbody></table></div>`;
 
-  const cronCard = `<div class="card pad"><div class="row sb"><h3>Always on</h3><span class=live>24/7</span></div><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 0">The bot runs on GitHub's servers around the clock, listening to Polymarket's live trade feed — it reacts within about a second of a tracked trader's trade, and double-checks every 15 seconds. Your phone and this page can be closed.</p></div>`;
+  const cronCard = `<div class="card pad"><div class="row sb"><h3>Always on</h3><span class=live>24/7</span></div><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 0">The bot runs on GitHub's servers around the clock, listening to Polymarket's live trade feed. It reacts within about a second of a tracked trader's trade, and double-checks every 15 seconds. Your phone and this page can be closed.</p></div>`;
 
   app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>Follows international Polymarket wallets and executes only high-confidence matches on Polymarket US.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
     ${status}<div class=split style="margin-top:20px"><div class=grid>${connected ? posT + fillsT : ''}${logT}</div><div class=grid>${keysCard}${connected ? settings : ''}${cronCard}</div></div>`;
@@ -137,7 +137,7 @@ function botRender(S) {
     if (!S.enabled && !confirm(`Start copying signals with REAL money on your Polymarket US account?\n\nEach trade uses ${c.pct}% of your cash.`)) return;
     act(() => bapi(S.enabled ? 'stop' : 'start', {}), S.enabled ? 'Bot paused' : 'Bot started');
   });
-  $('#brun') && ($('#brun').onclick = () => act(() => bapi('runnow', {}), r => r.ran ? `Checked — ${r.trades || 0} new trade(s)` : 'Turn the bot on first'));
+  $('#brun') && ($('#brun').onclick = () => act(() => bapi('runnow', {}), r => r.ran ? `Checked: ${r.trades || 0} new trade(s)` : 'Turn the bot on first'));
   $('#bsa') && ($('#bsa').onclick = () => confirm('Sell every position the bot copied, at the current bid?') && act(() => bapi('sell', { ticker: 'all' }), 'Sell orders sent'));
   $$('[data-sell]').forEach(b => b.onclick = () => confirm(`Sell your whole ${b.dataset.sell} position at the current bid?`) && act(() => bapi('sell', { ticker: b.dataset.sell }), 'Sell order sent'));
   $('#bclr').onclick = () => act(() => bapi('clearlog', {}));
