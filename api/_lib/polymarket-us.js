@@ -33,7 +33,13 @@ async function markets({ offset = 0, limit = 500, active = true, closed = false,
   if (slug) q.append('slug', slug); const r = await pub('/v1/markets?' + q); return r.markets || [];
 }
 // live best bid/offer for one market (public); prices are YES prices: buy YES at bestAsk, buy NO at 1 - bestBid
-async function bbo(slug) { const d = (await pub(`/v1/markets/${encodeURIComponent(slug)}/bbo`)).marketData || {}; const v = x => Number(x?.value);
+// The public gateway is behind a CDN that caches prices for up to 30s. Trading decisions need the live price, so
+// fresh=true bypasses the cache; those uncached requests are paced (Polymarket US allows roughly one every ~1.5s).
+let lastFresh = 0, freshQ = Promise.resolve();
+const paced = () => (freshQ = freshQ.then(async () => { const w = lastFresh + 1500 - Date.now(); if (w > 0) await new Promise(z => setTimeout(z, w)); lastFresh = Date.now(); }));
+async function bbo(slug, fresh = true) {
+  if (fresh) await paced();
+  const d = (await pub(`/v1/markets/${encodeURIComponent(slug)}/bbo${fresh ? `?_=${Date.now()}` : ''}`)).marketData || {}; const v = x => Number(x?.value);
   return { open: d.state === 'MARKET_STATE_OPEN', state: d.state, ask: v(d.bestAsk), bid: v(d.bestBid), settle: v(d.settlementPx) }; }
 // every open non-sports market plus sports futures (single games are looked up by exact slug / event; all ~78k markets would be ~220 MB)
 const NON_SPORTS = ['politics', 'culture', 'crypto', 'macro', 'climate', 'technology', 'finance', 'geopolitics', 'science', 'economics', 'world', 'business', 'entertainment', 'mentions'];
@@ -69,4 +75,4 @@ function order(c, { slug, side, quantity, slippageBips }) {
   return call(c, 'POST', '/v1/orders', { marketSlug: slug, quantity, outcomeSide: side === 'no' ? 'OUTCOME_SIDE_NO' : 'OUTCOME_SIDE_YES', action: 'ORDER_ACTION_BUY', tif: 'TIME_IN_FORCE_IMMEDIATE_OR_CANCEL', synchronousExecution: true, maxBlockTime: '10', slippageTolerance: { bips: slippageBips }, manualOrderIndicator: 'MANUAL_ORDER_INDICATOR_AUTOMATIC' });
 }
 const closePosition = (c, slug, slippageBips) => call(c, 'POST', '/v1/order/close-position', { marketSlug: slug, synchronousExecution: true, maxBlockTime: '10', slippageTolerance: { bips: slippageBips } });
-module.exports = { API, GATEWAY, call, markets, bbo, marketBySlug, marketRaw, event, allOpenMarkets, balance, positions, activities, order, closePosition };
+module.exports = { API, GATEWAY, headers, call, markets, bbo, marketBySlug, marketRaw, event, allOpenMarkets, balance, positions, activities, order, closePosition };

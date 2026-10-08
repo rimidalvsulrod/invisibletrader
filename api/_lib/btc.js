@@ -5,7 +5,9 @@
 // Paper mode simulates fills at the live ask and settles on Polymarket US's own result.
 const crypto = require('crypto'), db = require('./db'), P = require('./polymarket-us'), S = require('./settings');
 const TF = { '15m': 9e5, '1h': 36e5 }, DAY = 864e5;
-const DEF = { usd: 5, minEdge: 5, maxLoss: 25, tfs: ['15m', '1h'] }; // $ per trade, min edge in cents after fees, daily loss cap $
+// The only setting is trade size: a % of the balance or a fixed $. The rest is built in:
+// minimum edge 5c after fees, both windows, and it stops for the day after losing 20% of the account.
+const DEF = { size: 'pct', pct: 2, usd: 5 }, MIN_EDGE = 5, DAILY_STOP = .2, TFS = ['15m', '1h'];
 const fee = (n, p) => 0.0695 * n * p * (1 - p);
 const J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (_) { return d; } };
 const iso = t => new Date(t).toISOString();
@@ -41,10 +43,46 @@ async function sigma() {
   return Math.max(sd, 2e-4) * 1.25;
 }
 
+/* ---------- live Polymarket US prices: authenticated WebSocket push (falls back to paced uncached polling) ---------- */
+const WQ = new Map(); let ws = null, wsUp = false, wsNext = 0, wsBack = 1e3, wsLast = 0, wsSubs = new Set(), wsErr = '';
+async function feedCreds() { // market data isn't account-specific: the admin's key (or the server's env key) opens the feed
+  const a = await db.one('SELECT id FROM users WHERE admin=true AND verified=true LIMIT 1').catch(() => null);
+  return (a && await S.getCreds(a.id).catch(() => null)) || (process.env.POLYMARKET_US_KEY_ID && process.env.POLYMARKET_US_SECRET_KEY ? { keyId: process.env.POLYMARKET_US_KEY_ID, secret: process.env.POLYMARKET_US_SECRET_KEY } : null);
+}
+function wsSub(slug) { if (wsSubs.has(slug) || !wsUp) return; wsSubs.add(slug); ws.send(JSON.stringify({ subscribe: { requestId: 'btc-' + slug, subscriptionType: 'SUBSCRIPTION_TYPE_MARKET_DATA_LITE', marketSlugs: [slug] } })); }
+async function feed(slugs) {
+  if (ws && wsUp && Date.now() - wsLast > 60e3) { try { ws.terminate(); } catch (_) {} } // silent for a minute: reconnect
+  if (ws && ws.readyState <= 1) { slugs.forEach(wsSub); return; }
+  if (Date.now() < wsNext || !process.env.MIMIC_RUNNER) return; // only the long-running runner holds a socket open
+  const creds = await feedCreds(); if (!creds) { wsErr = 'no Polymarket US key to open the live feed'; wsNext = Date.now() + 60e3; return; }
+  let WebSocket; try { WebSocket = require('ws'); } catch (_) { wsErr = 'ws module missing'; wsNext = Infinity; return; }
+  const path = '/v1/ws/markets'; wsSubs = new Set();
+  ws = new WebSocket('wss://api.polymarket.us' + path, { headers: P.headers(creds, 'GET', path) });
+  ws.on('open', () => { wsUp = true; wsBack = 1e3; wsLast = Date.now(); wsErr = ''; slugs.forEach(wsSub); });
+  ws.on('message', d => {
+    wsLast = Date.now(); let m; try { m = JSON.parse(d); } catch (_) { return; }
+    const x = m.marketDataLite || m.marketData; if (m.error) wsErr = String(m.error).slice(0, 80);
+    if (x?.marketSlug) { const top = a => a && a[0] && Number(a[0].px?.value), bid = Number(x.bestBid?.value ?? top(x.bids)), ask = Number(x.bestAsk?.value ?? top(x.offers));
+      WQ.set(x.marketSlug, { bid, ask, state: x.state, t: Date.now() }); if (WQ.size > 20) WQ.delete(WQ.keys().next().value); }
+  });
+  const down = e => { wsUp = false; if (e) wsErr = String(e.message || e).slice(0, 80); wsNext = Date.now() + wsBack; wsBack = Math.min(wsBack * 2, 6e4); };
+  ws.on('close', () => down()); ws.on('error', down);
+  ws.on('unexpected-response', (_, res) => down(`live feed refused (${res.statusCode})`));
+  const ping = setInterval(() => { if (ws.readyState === 1) ws.ping(); else clearInterval(ping); }, 2e4);
+}
+// best price for a window: a WebSocket quote under 30s old, else a paced uncached REST read (cached a few seconds)
+const RQ = new Map();
+async function quote(slug) {
+  const w = WQ.get(slug); if (w && Date.now() - w.t < 3e4 && Number.isFinite(w.ask)) return { ...w, open: !w.state || w.state === 'MARKET_STATE_OPEN', src: 'live' };
+  const r = RQ.get(slug); if (r && Date.now() - r.t < 3e3) return r;
+  const q = { ...(await P.bbo(slug)), t: Date.now(), src: 'poll' }; RQ.set(slug, q); if (RQ.size > 20) RQ.delete(RQ.keys().next().value); return q;
+}
+
 /* ---------- one shared snapshot of every live window ---------- */
 const S0 = new Map(); // window start price cache
 async function snapshot() {
   const now = Date.now(), [S, sig] = await Promise.all([spot(), sigma()]), out = [];
+  await feed(Object.entries(TF).map(([tf, len]) => slugOf(tf, Math.floor(now / len) * len))).catch(e => { wsErr = e.message; });
   for (const [tf, len] of Object.entries(TF)) {
     const start = Math.floor(now / len) * len, end = start + len, slug = slugOf(tf, start), secs = (end - now) / 1e3;
     const w = { tf, slug, start, end, secs, S, open: false };
@@ -52,7 +90,7 @@ async function snapshot() {
       if (!S0.has(slug) && now - start > 15e3) { const p = await priceAt(start); if (p > 0) S0.set(slug, p); }
       if (S0.size > 50) S0.delete(S0.keys().next().value);
       w.S0 = S0.get(slug);
-      const q = await P.bbo(slug); w.open = q.open; w.upAsk = q.ask; w.downAsk = Number.isFinite(q.bid) ? 1 - q.bid : NaN;
+      const q = await quote(slug); w.open = q.open; w.upAsk = q.ask; w.downAsk = Number.isFinite(q.bid) ? 1 - q.bid : NaN; w.src = q.src; w.qAge = Date.now() - q.t;
       if (w.S0 > 0 && secs > 0) {
         const z = Math.log(S / w.S0) / (sig * Math.sqrt(secs / 60));
         w.fair = Math.min(.97, Math.max(.03, Phi(z))); // never fully trust the model
@@ -62,13 +100,14 @@ async function snapshot() {
     } catch (e) { w.err = String(e.message || e).slice(0, 80); }
     out.push(w);
   }
-  return { t: now, S, sigma: sig, windows: out };
+  return { t: now, S, sigma: sig, windows: out, feed: wsUp ? 'live' : 'poll', feedErr: wsUp ? '' : wsErr };
 }
 
 /* ---------- per user ---------- */
 async function open(uid) {
   await db.q("INSERT INTO btcbot (uid, cfg, updated) VALUES ($1, '{}', $2) ON CONFLICT (uid) DO NOTHING", [uid, Date.now()]);
-  const row = await db.one('SELECT * FROM btcbot WHERE uid=$1', [uid]); return { row, cfg: { ...DEF, ...J(row.cfg, {}) } };
+  const row = await db.one('SELECT * FROM btcbot WHERE uid=$1', [uid]), c = J(row.cfg, {});
+  return { row, cfg: { size: c.size === 'usd' ? 'usd' : 'pct', pct: c.pct > 0 ? c.pct : DEF.pct, usd: c.usd > 0 ? c.usd : DEF.usd } };
 }
 const dayStart = () => { const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d.getTime(); };
 async function decide(uid, snap) {
@@ -77,14 +116,20 @@ async function decide(uid, snap) {
   if (live && (!creds || process.env.TRADING_DISABLED)) return;
   const today = await db.one('SELECT coalesce(sum(pnl),0) AS p FROM btctrades WHERE uid=$1 AND mode=$2 AND status<>$3 AND ts>=$4', [uid, row.mode, 'open', dayStart()]);
   const openCost = await db.one("SELECT coalesce(sum(price*qty+fee),0) AS c FROM btctrades WHERE uid=$1 AND mode=$2 AND status='open'", [uid, row.mode]);
-  if (Number(today.p) - Number(openCost.c) <= -cfg.maxLoss) return; // daily loss limit reached
+  // balance this trade is sized from: the paper balance, or your Polymarket US cash
+  const bal = live ? await P.balance(creds).then(r => r.ok ? require('./engine').cash(r.json) : NaN).catch(() => NaN) : row.paper;
+  if (!(bal > 0)) return;
+  if (Number(today.p) - Number(openCost.c) <= -DAILY_STOP * (bal + Number(openCost.c) - Number(today.p))) return; // lost 20% today: done until tomorrow
+  const spend = cfg.size === 'usd' ? cfg.usd : bal * cfg.pct / 100;
   for (const w of snap.windows) {
-    if (!cfg.tfs.includes(w.tf) || !w.open || !(w.fair > 0)) continue;
+    if (!TFS.includes(w.tf) || !w.open || !(w.fair > 0)) continue;
     const len = TF[w.tf]; if (w.secs > len / 1e3 * .6 || w.secs < 20) continue; // only once the window has played out a while
     if (await db.one('SELECT id FROM btctrades WHERE uid=$1 AND slug=$2 AND mode=$3', [uid, w.slug, row.mode])) continue; // one trade per window
+    if (!(w.qAge <= 5e3)) continue; // never trade against a market price more than 5s old
     const side = w.upEdge >= w.downEdge ? 'up' : 'down', edge = Math.max(w.upEdge, w.downEdge), price = side === 'up' ? w.upAsk : w.downAsk;
-    if (!(edge * 100 >= cfg.minEdge) || !(price >= .03 && price <= .95)) continue;
-    let qty = Math.floor(cfg.usd / (price + fee(1, price))); if (qty < 1) qty = 1;
+    if (!(edge * 100 >= MIN_EDGE) || !(price >= .03 && price <= .95)) continue;
+    let qty = Math.floor(spend / (price + fee(1, price))); if (qty < 1) qty = 1; // a small balance still buys one contract
+    if (qty * (price + fee(1, price)) > bal) continue;
     let fillQ = qty, fillP = price;
     if (live) {
       const r = await P.order(creds, { slug: w.slug, side: side === 'up' ? 'yes' : 'no', quantity: qty, slippageBips: 100 });
@@ -130,4 +175,4 @@ async function stats(uid, mode) {
   const r = await db.one("SELECT count(*)::int AS n, sum(CASE WHEN status='won' THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN status='lost' THEN 1 ELSE 0 END)::int AS l, coalesce(sum(pnl),0) AS pnl, coalesce(sum(CASE WHEN status='open' THEN price*qty+fee ELSE 0 END),0) AS openc FROM btctrades WHERE uid=$1 AND mode=$2", [uid, mode]);
   return { trades: r.n, won: r.w || 0, lost: r.l || 0, pnl: Number(r.pnl), open: Number(r.openc) };
 }
-module.exports = { DEF, TF, tick, snapshot, settle, open, stats, fee, Phi, slugOf };
+module.exports = { DEF, TF, MIN_EDGE, DAILY_STOP, tick, snapshot, settle, open, stats, fee, Phi, slugOf };

@@ -15,9 +15,8 @@ module.exports = handler(async (req, body, q) => {
         B.stats(uid, 'paper'), B.stats(uid, 'live'), S.getCreds(uid).catch(() => null)]);
       return { enabled: row.enabled, mode: row.mode, cfg, paper: { balance: row.paper, start: row.paperstart, ...paper }, live, keys: !!creds, trades: trades.map(t => ({ ...t, ts: Number(t.ts) })), btclive: J(await S.get('btclive'), null), now: Date.now() };
     }
-    case 'cfg': {
-      const c = body.cfg || {}, tfs = Array.isArray(c.tfs) ? c.tfs.filter(x => B.TF[x]) : cfg.tfs;
-      const next = { usd: clamp(c.usd ?? cfg.usd, 1, 10000, B.DEF.usd), minEdge: clamp(c.minEdge ?? cfg.minEdge, 1, 50, B.DEF.minEdge), maxLoss: clamp(c.maxLoss ?? cfg.maxLoss, 1, 1e6, B.DEF.maxLoss), tfs: tfs.length ? tfs : cfg.tfs };
+    case 'cfg': { // trade size: % of balance or fixed $
+      const c = body.cfg || {}, next = { size: (c.size ?? cfg.size) === 'usd' ? 'usd' : 'pct', pct: clamp(c.pct ?? cfg.pct, .5, 50, B.DEF.pct), usd: clamp(c.usd ?? cfg.usd, 1, 10000, B.DEF.usd) };
       await db.q('UPDATE btcbot SET cfg=$2, updated=$3 WHERE uid=$1', [uid, JSON.stringify(next), Date.now()]); return { ok: true, cfg: next };
     }
     case 'start': if (row.mode === 'live' && !(await S.getCreds(uid).catch(() => null))) throw err(400, 'Connect Polymarket US on the Auto page first, or use paper mode');

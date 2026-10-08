@@ -74,4 +74,4 @@ async function run(uid,ctx=runCtx(),gap=0){if(gap){const r=await db.one('SELECT 
 async function manualSell(uid,target){const s=await open(uid);if(!s.creds)throw new Error('Connect Polymarket US first');for(const cp of target==='all'?[...s.copies]:s.copies.filter(x=>x.tk===String(target)))await sell(s,cp,'sold by you');await save(s,s.row.enabled&&!s.disable)}
 // every user whose bot is on, one after another (each has its own lock, so parallel runners never double-trade)
 async function runAll(ctx=runCtx(),gap=0){const out={ran:false,trades:0,users:0,errors:[]};for(const r of await db.q('SELECT b.id FROM bot b JOIN users u ON u.id=b.id WHERE b.enabled=true AND u.verified=true')){const x=await run(r.id,ctx,gap).catch(e=>({error:String(e.message||e)}));if(x.ran){out.ran=true;out.users++;out.trades+=x.trades||0}if(x.error)out.errors.push(x.error)}if(!out.errors.length)delete out.errors;return out}
-module.exports={DEF,run,runAll,manualSell,open,account,J,orderCap,fills,fee};
+module.exports={DEF,run,runAll,manualSell,open,account,cash,J,orderCap,fills,fee};

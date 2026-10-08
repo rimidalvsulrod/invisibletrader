@@ -15,7 +15,7 @@ async function state(uid) {
   try {
     const [a, acts] = await Promise.all([E.account(s.creds), P.activities(s.creds)]);
     out.positions = [...a.pos.values()].map(p => ({ tk: p.tk, side: p.side, count: p.count, cost: p.cost, value: null, pnl: null, fees: 0, title: p.tk, sub: '', status: 'open', copied: s.copies.some(x => x.tk === p.tk) ? { trader: s.copies.find(x => x.tk === p.tk).trader } : null }));
-    await Promise.all(out.positions.map(async p => { const q = await P.bbo(p.tk).catch(() => null); if (!q) return; p.status = q.open ? 'open' : String(q.state || '').replace('MARKET_STATE_', '').toLowerCase();
+    await Promise.all(out.positions.map(async p => { const q = await P.bbo(p.tk, false).catch(() => null); if (!q) return; p.status = q.open ? 'open' : String(q.state || '').replace('MARKET_STATE_', '').toLowerCase();
       const px = Number.isFinite(q.settle) && !q.open ? (p.side === 'yes' ? q.settle : 1 - q.settle) : (p.side === 'yes' ? q.bid : 1 - q.ask); if (Number.isFinite(px) && px >= 0) { p.value = p.count * px; p.pnl = p.value - p.cost; } }));
     out.account = { cash: a.cash, positionsValue: out.positions.reduce((n, p) => n + (p.value ?? p.cost), 0), open: out.positions.filter(p => p.status === 'open').length }; out.account.total = out.account.cash + out.account.positionsValue;
     const activity = acts.json.activities || acts.json.data || [];
