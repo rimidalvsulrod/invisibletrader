@@ -19,6 +19,10 @@ const SCHEMA = [
   `ALTER TABLE botlog ADD COLUMN IF NOT EXISTS uid text`,
   // BTC Up or Down bot: one row per user (paper balance lives here) + every trade it takes, paper or live
   `CREATE TABLE IF NOT EXISTS btcbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, mode text NOT NULL DEFAULT 'paper', cfg text, paper double precision NOT NULL DEFAULT 100, paperstart double precision NOT NULL DEFAULT 100, updated bigint)`,
+  // Newsflash (Alpaca news bot): the user's Alpaca keys, bot row, and every trade/decision
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS alpaca text`,
+  `CREATE TABLE IF NOT EXISTS nbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, updated bigint)`,
+  `CREATE TABLE IF NOT EXISTS ntrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, sym text NOT NULL, headline text, url text, score double precision, notional double precision, qty double precision, entry double precision, exitp double precision, status text NOT NULL, pnl double precision, reason text, exitts bigint, newsid text)`,
   `CREATE TABLE IF NOT EXISTS btctrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, slug text NOT NULL, tf text, side text, price double precision, qty double precision, fee double precision, fair double precision, edge double precision, s0 double precision, s double precision, secs double precision, mode text, status text NOT NULL DEFAULT 'open', pnl double precision, wend bigint)`,
 ];
 // One time: the site used to have a single owner (bot row 'me', global follows/log, keys + password in settings).

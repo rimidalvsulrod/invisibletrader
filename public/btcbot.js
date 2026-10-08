@@ -10,7 +10,7 @@ const mmss = s => { s = Math.max(0, Math.round(s)); return `${Math.floor(s / 60)
 
 async function btcPage() {
   btcStop();
-  if (!OWNER) return authView('login', '', btcPage);
+  if (!OWNER) { const me = await fetch('/api/auth?op=me').then(r => r.json()).catch(() => ({})); if (me.setup) SETUP = me.setup; if (!me.user) return authView('login', '', btcPage); await signedIn(me.user); } // a direct link may load before sign-in status
   app.innerHTML = sk(320);
   try { btcS = await bbapi('state'); } catch (e) { if (e.status === 401) return authView('login', '', btcPage); app.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
   btcRender();
@@ -21,8 +21,18 @@ async function btcPage() {
   }, 1000);
 }
 
+// paper portfolio value: cash + every open trade marked at what it would sell for right now (updates every second)
+function btcValue() {
+  const el = $('#bpv'), s = btcS; if (!el || s.mode == 'live') return;
+  const W = Object.fromEntries((s.btclive?.windows || []).map(w => [w.slug, w])); let open = 0, marked = 0;
+  for (const t of s.trades) { if (t.status != 'open' || t.mode != 'paper') continue; const w = W[t.slug];
+    const bid = w ? (t.side == 'up' ? 1 - w.downAsk : 1 - w.upAsk) : NaN; // selling Up gets the Up bid (= 1 - Down ask)
+    open += t.qty * (Number.isFinite(bid) ? bid : t.price); if (Number.isFinite(bid)) marked++; }
+  const v = s.paper.balance + open, r = (v - s.paper.start) / s.paper.start;
+  el.textContent = usd(v, 2); $('#bpvs').innerHTML = `cash ${usd(s.paper.balance, 2)}${open ? ` · open trades ${usd(open, 2)}` : ''} · <span class="${ud(r)}">${r >= 0 ? '+' : ''}${(r * 100).toFixed(1)}%</span> since ${usd(s.paper.start, 2)}`;
+}
 function btcWin() { // the live model, one card per window
-  const el = $('#btcwin'), L = btcS.btclive; if (!el) return;
+  btcValue(); const el = $('#btcwin'), L = btcS.btclive; if (!el) return;
   if (!L || !L.windows) { el.innerHTML = `<div class="card pad mut">Waiting for the 24/7 runner to price the first window…</div>`; return; }
   const age = (Date.now() - L.t) / 1e3;
   el.innerHTML = L.windows.map(w => {
@@ -39,14 +49,13 @@ function btcWin() { // the live model, one card per window
 
 function btcRender() {
   const s = btcS, c = s.cfg, live = s.mode == 'live', acct = live ? s.live : s.paper, settled = acct.won + acct.lost;
-  const roi = live ? null : (s.paper.balance + s.paper.open - s.paper.start) / s.paper.start;
-  app.innerHTML = `<div class="ph fade"><div><h1>BTC Up or Down</h1><p class=lead>Trades Polymarket US's Bitcoin up-or-down windows. It doesn't guess where Bitcoin goes next: it works out the real chance of Up from how far Bitcoin has already moved and how little time is left, and buys only when the market sells that side for clearly less.</p></div></div>
+    app.innerHTML = `<div class="ph fade"><div><h1>BTC Up or Down</h1><p class=lead>Trades Polymarket US's Bitcoin up-or-down windows. It doesn't guess where Bitcoin goes next: it works out the real chance of Up from how far Bitcoin has already moved and how little time is left, and buys only when the market sells that side for clearly less.</p></div></div>
     <div class="card pad"><div class="row sb wrapf" style="gap:16px"><div class=row style="gap:16px"><button class="sw ${s.enabled ? 'on' : ''}" id=btog aria-label="BTC bot on/off"></button>
       <div><div style="font-size:22px;font-weight:650">${s.enabled ? '<span class=up>Running</span>' : 'Paused'}</div><div class=mut style="font-size:13px">${live ? 'Live: real money on your Polymarket US account' : 'Paper account: simulated money, real prices and results'}</div></div></div>
       <div class=seg id=bmode><button data-v=paper class="${live ? '' : 'on'}">Paper</button><button data-v=live class="${live ? 'on' : ''}">Live</button></div></div>
       <div class="grid g3" style="margin-top:20px">
         ${live ? `<div class=stat><div class=k>Live profit</div><div class="v num ${ud(acct.pnl)}">${sg(acct.pnl, 2)}</div><div class=s>settled trades, after fees</div></div>`
-          : `<div class=stat><div class=k>Paper balance</div><div class="v num">${usd(s.paper.balance + s.paper.open, 2)}</div><div class=s>started with ${usd(s.paper.start, 2)} · <span class="${ud(roi)}">${roi >= 0 ? '+' : ''}${(roi * 100).toFixed(1)}%</span></div></div>`}
+          : `<div class=stat><div class=k>Portfolio value</div><div class="v num" id=bpv>${usd(s.paper.balance + s.paper.open, 2)}</div><div class=s id=bpvs>cash ${usd(s.paper.balance, 2)} · started with ${usd(s.paper.start, 2)}</div></div>`}
         <div class=stat><div class=k>Win rate</div><div class="v num">${settled ? Math.round(acct.won / settled * 100) + '%' : '-'}</div><div class=s>${acct.won} won · ${acct.lost} lost${acct.open ? ` · ${usd(acct.open, 2)} in open trades` : ''}</div></div>
         <div class=stat><div class=k>Profit</div><div class="v num ${ud(acct.pnl)}">${sg(acct.pnl, 2)}</div><div class=s>${acct.trades} trade${acct.trades == 1 ? '' : 's'}</div></div></div></div>
     <div class="grid g2" id=btcwin style="margin-top:16px"></div>

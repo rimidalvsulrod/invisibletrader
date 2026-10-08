@@ -41,6 +41,6 @@ async function confirm(u, body, purpose) {
 const notify = (email, subject, text) => mail.send(email, subject, `${text}\n\nIf this wasn't you, reset your password now from the Mimic login page.`).catch(() => {});
 
 async function remove(uid) {
-  for (const sql of ['DELETE FROM ufollows WHERE uid=$1', 'DELETE FROM notes WHERE uid=$1', 'DELETE FROM botlog WHERE uid=$1', 'DELETE FROM bot WHERE id=$1', 'DELETE FROM btctrades WHERE uid=$1', 'DELETE FROM btcbot WHERE uid=$1', 'DELETE FROM users WHERE id=$1']) await db.q(sql, [uid]);
+  for (const sql of ['DELETE FROM ufollows WHERE uid=$1', 'DELETE FROM notes WHERE uid=$1', 'DELETE FROM botlog WHERE uid=$1', 'DELETE FROM bot WHERE id=$1', 'DELETE FROM btctrades WHERE uid=$1', 'DELETE FROM ntrades WHERE uid=$1', 'DELETE FROM nbot WHERE uid=$1', 'DELETE FROM btcbot WHERE uid=$1', 'DELETE FROM users WHERE id=$1']) await db.q(sql, [uid]);
 }
 module.exports = { normEmail, validEmail, byId, byEmail, pub, current, need, sendCode, checkCode, confirm, notify, remove };

@@ -4,7 +4,7 @@
 // and keeps US-account reconciliation current. Safe alongside other runners: the engine's database lock and
 // seen-trade memory make sure each trade is handled once.
 process.env.MIMIC_RUNNER = '1'; // lets the BTC bot hold a live WebSocket price feed open
-const E = require('./api/_lib/engine'), db = require('./api/_lib/db'), M = require('./api/_lib/match-us'), B = require('./api/_lib/btc');
+const E = require('./api/_lib/engine'), db = require('./api/_lib/db'), M = require('./api/_lib/match-us'), B = require('./api/_lib/btc'), N = require('./api/_lib/news');
 const end = Date.now() + (Number(process.env.RUN_MINUTES) || 130) * 6e4, POLL = 15e3;
 const sleep = ms => new Promise(z => setTimeout(z, ms)), log = (...a) => console.log(new Date().toISOString(), ...a);
 let stop = false; for (const s of ['SIGINT', 'SIGTERM']) process.on(s, () => { stop = true; });
@@ -53,11 +53,13 @@ async function kick() {
 
 (async () => {
   await refresh(); connect(); B.start(); // BTC bot: live price streams, re-checks on every move
+  N.start(); // Newsflash: trades each headline the moment it lands
   let beat = 0;
   while (!stop && Date.now() < end) {
     await sleep(1000); const now = Date.now();
     if (now - lastPoll >= POLL && !running) { needPoll = true; refresh().catch(e => log('refresh', e.message)).then(kick); lastPoll = now; }
     if (up && beat % 5 === 0) try { ws.send('ping'); } catch (x) {} // the stream goes quiet without keep-alive pings
+    if (beat % 3 === 0) N.tick().catch(e => log('news', e.message)); // Newsflash: news feed + exits every 3s
     B.tick().catch(e => log('btc', e.message)); // BTC bot heartbeat (price moves trigger extra checks, up to 4 a second)
     if (up && now - lastMsg > 30e3) { log('stream silent for 30s — reconnecting'); ws.close(); }
     if (++beat % 2 === 0) {
