@@ -404,3 +404,4 @@ h2{letter-spacing:-.022em}.lead{letter-spacing:-.006em}
 @media(max-width:760px){.card .tbl{width:100%}.card .tbl td{overflow-wrap:anywhere;word-break:break-word}.card .tbl .ell{max-width:none!important;white-space:normal}.card .tbl td:not(:nth-child(2)):not(:first-child){white-space:nowrap}}
 .card.dim{opacity:.55}
 .chip{white-space:nowrap}
+:root[data-theme=dark] .lhero .ph{text-shadow:0 0 22px #040405,0 0 10px #040405,0 0 3px #040405}
