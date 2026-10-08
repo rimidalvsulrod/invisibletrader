@@ -17,7 +17,7 @@ function neighbours(hex) {
   return [[22, .75, .5], [-22, .75, .45], [38, .6, .55], [-38, .6, .42]].map(([dh, sm, lv]) => hsl2hex((h + dh + 360) % 360, Math.min(1, sat * sm + .15), lv));
 }
 // background layer: the same thin, sharp strands as the hero (not wide blurry halos), dim, reshaping as you scroll
-const AMB = { haloOnly: 0, n: 150, lw: 1, la: .55, wMin: 60, wMax: 260, haze: 0, uniform: 0, flow: 1.2, flowFrac: .6, spark: 90, bokeh: 0, dust: 30, ef: .12, haloFrac: .1, hw: 3, ha: .12 };
+const AMB = { haloOnly: 0, n: 260, lw: 1.7, la: .6, wMin: 190, wMax: 560, haze: .35, uniform: 0, flow: 1.2, flowFrac: .6, spark: 140, bokeh: 6, dust: 40, ef: .12, haloFrac: .28, hw: 5, ha: .16 };
 const GLOW = { la: 1.3, core: 1.7, haze: 1.2, hz: .8, ha: .28, haloFrac: .24, flow: 1.45, flowFrac: .8, spark: 480, bokeh: 22, dust: 100, wob: .07, blue: .22 }; // sharp on retina; the engine steps down on its own if a device struggles
 const ink = () => { const p = paletteFromAccent(accent(), { cool: neighbours(accent()) }), k = .32, d = c => c.map(v => v * k); return { ...p, main: p.main.map(d), cool: p.cool.map(d), haze: d(p.haze), coreHot: d(p.coreHot), core: d(p.core), glitter: d(p.glitter), bokeh: d(p.bokeh), dust: d(p.dust) }; };
 
