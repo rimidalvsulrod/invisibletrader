@@ -36,17 +36,22 @@ async function buy(s,t,a,usd){const c=s.cfg,pm=Math.round(num(t.price)*100),base
   if(ask>c.maxPrice)return log(s,{...e,st:'skip',note:`US price ${ask}¢ is above your ${c.maxPrice}¢ max`});
   if(ask>pm+c.slip)return log(s,{...e,st:'skip',note:`US price ${ask}¢ is more than ${c.slip}¢ above the trader's ${pm}¢`});
   if(ask<pm-20)return log(s,{...e,st:'skip',note:`US price ${ask}¢ is too far below the trader's ${pm}¢ to trust the match`});
-  if(s.copies.some(x=>x.tk===e.tk)||a.pos.has(e.tk))return log(s,{...e,st:'skip',note:'you already hold this US market'});
+  // adding to a position is fine; only an opposite-side holding is skipped (buying the other side would just cancel it out)
+  const held=a.pos.get(e.tk)||s.copies.find(x=>x.tk===e.tk);if(held&&held.side!==e.side)return log(s,{...e,st:'skip',note:`you hold the other side (${held.side.toUpperCase()}) of this US market`});
   // size: % of buying power, taker fee included, never more than you have
   const budget=Math.min(a.cash*c.pct/100,orderCap(),Math.max(0,a.cash-.01));let n=Math.floor(budget/p);while(n>0&&n*p+fee(n,p)+.01>budget)n--;
-  if(n<1)return log(s,{...e,st:'skip',note:`${c.pct}% of $${a.cash.toFixed(2)} can't buy one contract at ${ask}¢`});
+  // a small account still copies: if the % budget is under one contract, buy one contract when you can afford it
+  if(n<1&&p+fee(1,p)+.01<=Math.min(a.cash,orderCap()))n=1;
+  if(n<1)return log(s,{...e,st:'skip',note:`not enough cash: one contract at ${ask}¢ costs more than your $${a.cash.toFixed(2)}`});
   const exposure=s.copies.reduce((x,y)=>x+y.cost,0);if(exposure+n*p>(a.cash+exposure)*c.maxUse/100)return log(s,{...e,st:'skip',note:`would put more than ${c.maxUse}% of your money in copies`});
-  if(s.orders++>=5)return log(s,{...e,st:'skip',note:'max 5 orders per check'});
+  if(s.orders++>=20)return log(s,{...e,st:'skip',note:'max 20 orders per check'});
   // immediate-or-cancel, may fill up to your limit (trader's price + your slippage, capped at your max price)
   const limit=Math.min(pm+c.slip,c.maxPrice)/100,bips=Math.max(0,Math.floor((limit-p)/p*1e4));
   const r=await P.order(s.creds,{slug:e.tk,side:e.side,quantity:n,slippageBips:bips});if(!r.ok)return bad(s,e,r);s.st.errs=0;
   const f=fills(r,e.side,p);if(f.n<=0)return log(s,{...e,count:n,st:'skip',note:`order for ${n} at ~${ask}¢ didn't fill — price moved`});
-  a.cash-=f.cost+fee(f.n,f.cost/f.n);s.copies.push({id:crypto.randomBytes(6).toString('hex'),tk:e.tk,side:e.side,count:f.n,cost:f.cost,ask,asset:t.asset,trader:e.trader,title:t.title,kt:e.kt,t:Date.now()});
+  a.cash-=f.cost+fee(f.n,f.cost/f.n);const same=s.copies.find(x=>x.tk===e.tk&&x.side===e.side);
+  // one record per US market: an add-on buy joins the existing copy, so the exit (which closes the whole US position) stays consistent
+  if(same){same.count+=f.n;same.cost+=f.cost}else s.copies.push({id:crypto.randomBytes(6).toString('hex'),tk:e.tk,side:e.side,count:f.n,cost:f.cost,ask,asset:t.asset,trader:e.trader,title:t.title,kt:e.kt,t:Date.now()});
   log(s,{...e,count:f.n,st:'bought',note:`${f.n} at ~${Math.round(f.cost/f.n*100)}¢ (≈$${(f.cost+fee(f.n,f.cost/f.n)).toFixed(2)} incl. fee)${f.n<n?` · ${n-f.n} didn't fill`:''} · ${b.how}`})}
 // close a copied position; only forget it once the exchange reports a fill, otherwise retry on the next check
 async function sell(s,cp,why){const e={trader:cp.trader,title:cp.title,tk:cp.tk,side:cp.side,count:cp.count,act:'sell'};

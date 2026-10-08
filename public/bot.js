@@ -13,7 +13,7 @@ function liveDraw(fresh) {
   const el = $('#blive'); if (!el) return;
   if (!liveOk()) { el.innerHTML = `<div class=lrow><span class="ldot off"></span><b>Runner offline</b><span class=mut>checking from this page while it's open. The GitHub runner restarts on its own</span></div>`; return; }
   const L = LIVE, max = Math.max(1, ...L.bars);
-  el.innerHTML = `<div class=lrow><span class="ldot ${L.up ? '' : 'off'} ${fresh ? 'ping' : ''}"></span><b>${L.up ? 'Live' : 'Reconnecting to Polymarket…'}</b>
+  el.innerHTML = `<div class=lrow><b>${L.up ? 'Connected to Polymarket' : 'Reconnecting to Polymarket…'}</b>
       <span class=mut>watching ${L.watch} trader${L.watch == 1 ? '' : 's'} · Polymarket stream ${L.rate} trades/s</span></div>
     <div class=lbars title="Polymarket trades per 2 seconds, last minute">${L.bars.map(b => `<i style="height:${Math.max(4, b / max * 100)}%"></i>`).join('')}</div>
     <div class="lrow mut" style="font-size:12px" id=lago></div>`;
@@ -50,7 +50,7 @@ async function botRefresh() {
   catch (e) { if (e.status === 401) return botLogin(false); app.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; }
 }
 function botNoDb() {
-  app.innerHTML = `<div class="ph fade"><div><h1>Auto <em>Trader</em></h1></div></div><div class="card pad" style="max-width:620px"><h2>Database not detected</h2>
+  app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1></div></div><div class="card pad" style="max-width:620px"><h2>Database not detected</h2>
     <p class=mut style="font-size:14px;line-height:1.6;margin:8px 0 0">The site can't see its database yet. In Vercel open your project → <b>Deployments</b> → ⋯ on the latest → <b>Redeploy</b>, then refresh this page.</p></div>`;
 }
 function botLogin(first) {
@@ -118,15 +118,15 @@ function botRender(S) {
       <td style="width:1%"><span class="pill ${f.action == 'buy' ? 'up' : 'ac'}">${f.action == 'buy' ? 'Bought' : 'Sold'}</span></td><td><div class="num ell" style="max-width:360px">${esc(f.tk)}</div><div class=mut style="font-size:12.5px">${(f.side || '').toUpperCase()} · ${fmt(f.count)} × ${Math.round(f.price * 100)}¢${f.fee ? ` · fee ${usd(f.fee, 2)}` : ''}</div></td>
       <td class="r mut" style="font-size:12.5px;white-space:nowrap">${rel(f.t / 1000)}</td></tr>`).join('')}</tbody></table></div>` : '';
 
-  const logT = `<div class="card" style="overflow:hidden"><div class="row sb pad" style="padding-bottom:8px"><h2>Bot activity</h2><button class="btn sm" id=bclr>Clear</button></div><table class=tbl><tbody>${S.log.map(e => {
+  const logT = `<div class="card" style="overflow:hidden"><div class="row sb pad" style="padding-bottom:8px"><h2>Bot activity</h2><button class="btn sm" id=bclr>Clear</button></div><table class="tbl blog"><tbody>${S.log.map(e => {
       const [k, l] = L[e.st] || ['n', e.st];
       return `<tr><td style="width:1%"><span class="pill ${k}">${l}</span></td><td><div class=ell style="max-width:440px">${e.act == 'sell' ? '' : e.outcome ? `${esc(e.trader)} bought <b>${esc(e.outcome)}</b>${e.pm ? ` @ ${e.pm}¢` : ''} · ` : ''}${esc(e.title)}</div>
         <div class=mut style="font-size:12.5px;margin-top:2px">${e.tk ? `<span class=num>${esc(e.tk)}</span> · ` : ''}${esc(e.note || '')}</div></td><td class="r mut hide-m" style="font-size:12.5px;white-space:nowrap">${rel(e.t / 1000)}</td></tr>`;
     }).join('') || `<tr><td class=empty>Nothing yet. When a trader you track buys on Polymarket, the bot's decision shows up here.</td></tr>`}</tbody></table></div>`;
 
-  const cronCard = `<div class="card pad"><div class="row sb"><h3>Always on</h3><span class=live>24/7</span></div><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 0">The bot runs on GitHub's servers around the clock, listening to Polymarket's live trade feed. It reacts within about a second of a tracked trader's trade, and double-checks every 15 seconds. Your phone and this page can be closed.</p></div>`;
+  const cronCard = `<div class="card pad"><div class="row sb"><h3>Always on</h3><span class=pill>24/7</span></div><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 0">The bot runs on GitHub's servers around the clock, listening to Polymarket's live trade feed. It reacts within about a second of a tracked trader's trade, and double-checks every 15 seconds. Your phone and this page can be closed.</p></div>`;
 
-  app.innerHTML = `<div class="ph fade"><div><h1>Auto <em>Trader</em></h1><p class=lead>Follows international Polymarket wallets and executes only high-confidence matches on Polymarket US.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
+  app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>Follows international Polymarket wallets and executes only high-confidence matches on Polymarket US.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
     ${status}<div class=split style="margin-top:20px"><div class=grid>${connected ? posT + fillsT : ''}${logT}</div><div class=grid>${keysCard}${connected ? settings : ''}${cronCard}</div></div>`;
   if (keepOpen && $('details')) $('details').open = true;
   liveDraw(false);
