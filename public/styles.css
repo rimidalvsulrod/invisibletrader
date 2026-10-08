@@ -405,4 +405,10 @@ h2{letter-spacing:-.022em}.lead{letter-spacing:-.006em}
 .card.dim{opacity:.55}
 .chip{white-space:nowrap}
 :root[data-theme=dark] .lhero .ph{text-shadow:0 0 22px #040405,0 0 10px #040405,0 0 3px #040405}
-.fxsky{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+/* storm (public/lightning.js writes --flash 0-1, --fx/--fy = where the flash is, --lit = its colour): the UI is lit by each flash */
+:root{--flash:0;--fx:50%;--fy:30%;--lit:200,190,255}
+:root[data-theme=dark] h1,:root[data-theme=dark] .lhero h1{text-shadow:0 2px 30px rgba(0,0,0,.6),0 0 calc(var(--flash) * 40px) rgba(var(--lit),calc(var(--flash) * .7))}
+/* cards: light from the bolt's real screen position (fixed = viewport-anchored, so cards near the strike light up most) and a lit rim */
+:root[data-theme=dark] .card{background:radial-gradient(circle at var(--fx) var(--fy),rgba(var(--lit),calc(var(--flash) * .2)),rgba(var(--lit),calc(var(--flash) * .04)) 45%,transparent 75%) fixed,linear-gradient(180deg,rgba(18,19,18,.74),rgba(8,9,9,.82));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),inset 0 0 0 1px rgba(var(--lit),calc(var(--flash) * .35))}
+:root[data-theme=dark] .btn.pri{box-shadow:0 0 calc(var(--flash) * 26px) rgba(var(--lit),calc(var(--flash) * .45))}

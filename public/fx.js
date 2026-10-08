@@ -42,7 +42,7 @@ function mount() {
   // the ambient canvas loses its GL context on destroy, so each page gets a fresh one
   amb?.destroy(); ambCanvas?.remove();
   ambCanvas = document.createElement('canvas'); ambCanvas.className = 'fxamb'; ambCanvas.setAttribute('aria-hidden', 'true');
-  const sky = document.querySelector('.fxsky'); sky ? sky.after(ambCanvas) : document.body.prepend(ambCanvas); // ribbon light on top of the storm clouds
+  const sky = document.querySelector('.fxstorm'); sky ? sky.after(ambCanvas) : document.body.prepend(ambCanvas); // ribbon light on top of the storm clouds
   amb = fx.ambient(ambCanvas, { selector: '#app > *, #fxstops i', opacity: dark ? .7 : .55, params: AMB, hideUntil: hc ? hc.parentElement : undefined,
     shapes: hc ? {} : { off: { p: AMBIENT.edgeRightFaint.p, o: .5 } } });
 }

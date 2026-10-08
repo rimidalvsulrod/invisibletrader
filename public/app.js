@@ -349,9 +349,11 @@ function settingsPage(){
   app.innerHTML=`<div class="ph fade"><div><h1>Settings</h1><p class=lead>How Mimic looks on this device. The colour also changes the light ribbon.</p></div></div>
    <div class=grid style="max-width:720px"><div class="card pad"><h2>Appearance</h2><div class=seg id=sth style="margin-top:12px">${Object.entries(THEMES).map(([k,l])=>`<button data-v=${k} class="${t==k?'on':''}">${l}</button>`).join('')}</div></div>
    <div class="card pad"><h2>Colour</h2><div class=swatches id=sac>${Object.entries(ACCENTS).map(([k,[l,d,lt]])=>`<button data-v=${k} class="sw8 ${a==k?'on':''}" aria-label="${l}" aria-pressed=${a==k} style="--c1:${d};--c2:${lt}"><i></i><span>${l}</span></button>`).join('')}</div></div>
+   <div class="card pad"><h2>Storm</h2><p class=mut style="font-size:13px;margin:4px 0 12px">Clouds and lightning behind the app (dark appearance). Calm swaps the flashes for slow, dim glows.</p><div class=seg id=sst>${[['on','On'],['calm','Calm'],['off','Off']].map(([k,l])=>`<button data-v=${k} class="${LS.get('storm','on')==k?'on':''}">${l}</button>`).join('')}</div></div>
    ${OWNER?`<div class="card pad row sb"><div><h2>Account</h2><div class=mut style="font-size:13px;margin-top:4px">${esc(USER?.email||'')}</div></div><a class=btn href="#/account">Manage</a></div>`:''}</div>`;
   $$('#sth button').forEach(b=>b.onclick=()=>{LS.set('theme',b.dataset.v);applyTheme();renderSide();settingsPage()});
   $$('#sac button').forEach(b=>b.onclick=()=>{LS.set('accent',b.dataset.v);applyAccent();settingsPage()});
+  $$('#sst button').forEach(b=>b.onclick=()=>{LS.set('storm',b.dataset.v);window.stormMount?.();settingsPage()});
 }
 
 /* ---------- router ---------- */

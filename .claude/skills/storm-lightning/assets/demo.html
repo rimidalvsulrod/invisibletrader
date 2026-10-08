@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stratos — Lightning Test</title>
+<style>
+  :root { --flash: 0; --fx: 50%; --fy: 30%; --lit: 200, 190, 255; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.6 system-ui, -apple-system, Segoe UI, sans-serif; color: #e6e4f2; background: #05060d; }
+  a { color: inherit; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+  nav { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; padding: 16px 20px;
+        background: rgba(6, 7, 16, .55); border-bottom: 1px solid rgba(255,255,255,.06); }
+  .logo { font-weight: 800; letter-spacing: .25em; text-shadow: 0 0 calc(var(--flash) * 24px) rgba(var(--lit), calc(var(--flash) * .9)); }
+  nav a { margin-left: 22px; text-decoration: none; opacity: .75; font-size: 14px; }
+
+  /* hero: sky shows through, ground silhouette in front of the bolts */
+  .hero { position: relative; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; cursor: crosshair; }
+  .hero h1 { font-size: clamp(42px, 8vw, 96px); line-height: 1; margin: 0 0 18px; letter-spacing: -.02em;
+             text-shadow: 0 2px 30px rgba(0,0,0,.6), 0 0 calc(var(--flash) * 40px) rgba(var(--lit), calc(var(--flash) * .7)); }
+  .hero p { max-width: 520px; font-size: 18px; opacity: .8; }
+  .btn { display: inline-block; padding: 13px 24px; border-radius: 10px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06);
+         color: #fff; font: inherit; font-weight: 600; cursor: pointer; margin: 10px 10px 0 0; transition: transform .15s;
+         box-shadow: 0 0 calc(var(--flash) * 30px) rgba(var(--lit), calc(var(--flash) * .5)); }
+  .btn.primary { background: #e9e6ff; color: #0b0a1c; border-color: transparent; }
+  .btn.struck { animation: struck .5s; }
+  @keyframes struck { 0% { transform: translate(2px,-1px); filter: brightness(2.5); } 30% { transform: translate(-2px,1px); } 100% { transform: none; filter: none; } }
+  .ground { position: absolute; left: 0; right: 0; bottom: 0; height: 26vh; pointer-events: none; }
+  .ground svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ground .lit { opacity: calc(var(--flash) * .4); }
+  .hint { position: absolute; bottom: 18px; left: 0; right: 0; text-align: center; font-size: 13px; opacity: .55; z-index: 1; }
+
+  section { padding: 110px 0; }
+  h2 { font-size: clamp(30px, 4.5vw, 48px); margin: 0 0 12px; text-shadow: 0 0 calc(var(--flash) * 30px) rgba(var(--lit), calc(var(--flash) * .6)); }
+  .sub { opacity: .7; max-width: 560px; margin-bottom: 40px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+
+  /* cards catch the flash: fixed-attachment gradient = lit from the bolt's real screen position */
+  .card { position: relative; padding: 26px; border-radius: 16px; background: rgba(9, 10, 24, .62); border: 1px solid rgba(255,255,255,.08); overflow: hidden; }
+  .card::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: var(--flash);
+                  background: radial-gradient(circle at var(--fx) var(--fy), rgba(var(--lit), .35), rgba(var(--lit), .06) 45%, transparent 75%) fixed; }
+  .card::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; opacity: var(--flash);
+                 background: radial-gradient(circle at var(--fx) var(--fy), rgba(var(--lit), .9), transparent 55%) fixed;
+                 -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  .card h3 { margin: 0 0 8px; position: relative; } .card p { margin: 0; opacity: .7; position: relative; }
+  .num { font-size: 44px; font-weight: 800; position: relative; }
+
+  .cta { text-align: center; border-radius: 22px; padding: 70px 20px; }
+
+  footer { padding: 40px 0; opacity: .5; font-size: 13px; text-align: center; }
+
+  /* controls */
+  .panel { position: fixed; right: 16px; bottom: 16px; z-index: 10; width: 250px; padding: 14px; border-radius: 12px; font-size: 13px;
+           background: rgba(8,9,20,.88); border: 1px solid rgba(255,255,255,.12); }
+  .panel label { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 6px 0; }
+  .panel input[type=range] { width: 120px; }
+  .panel .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .panel button { flex: 1; padding: 7px 4px; border-radius: 7px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.07); color: #fff; cursor: pointer; font: inherit; }
+  .panel summary { cursor: pointer; font-weight: 700; }
+  @media (max-width: 600px) { .panel { left: 16px; right: 16px; width: auto; } nav a { display: none; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">STRATOS</div>
+  <div><a href="#features">Features</a><a href="#stats">Data</a><a href="#cta">Start</a></div>
+</nav>
+
+<header class="hero" id="hero">
+  <div class="wrap">
+    <h1>Built for<br>the storm.</h1>
+    <p>Real-time lightning intelligence for the people who chase it. This is a test page — click anywhere in the sky to call a strike.</p>
+    <button class="btn primary" data-strike>Strike this button</button>
+    <a class="btn" href="#features">Explore</a>
+  </div>
+  <div class="ground" id="ground">
+    <svg viewBox="0 0 1440 260" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgb(200,190,255)"/><stop offset=".5" stop-color="rgb(200,190,255)" stop-opacity="0"/></linearGradient>
+        <path id="land" d="M0 120 C120 110 200 125 300 118 C380 112 420 96 470 100 L478 70 L486 100 C560 104 640 120 760 116 C860 112 900 92 960 94 L962 40 L966 94 L1020 96 L1022 40 L1026 96 C1120 100 1200 120 1300 112 C1360 108 1400 102 1440 104 L1440 260 L0 260 Z"/>
+      </defs>
+      <use href="#land" fill="#03040a"/>
+      <use href="#land" class="lit" fill="url(#rim)"/>
+      <!-- power lines from the footage -->
+      <path d="M962 44 Q991 60 1022 44 M962 52 Q991 68 1022 52 M1022 44 Q1230 80 1440 60" stroke="#03040a" stroke-width="1.5" fill="none"/>
+      <g fill="#03040a">
+        <circle cx="160" cy="108" r="26"/><circle cx="190" cy="100" r="30"/><circle cx="222" cy="110" r="22"/>
+        <circle cx="1180" cy="104" r="20"/><circle cx="1205" cy="96" r="26"/>
+      </g>
+    </svg>
+  </div>
+  <div class="hint">↓ scroll — cards are lit by flashes from their real direction</div>
+</header>
+
+<section id="features"><div class="wrap">
+  <h2>Every flash, mapped.</h2>
+  <p class="sub">The UI responds to the storm through CSS variables (<code>--flash</code>, <code>--fx</code>, <code>--fy</code>) set by the engine each frame.</p>
+  <div class="grid">
+    <div class="card"><h3>Stepped leaders</h3><p>Faint channels crawl out first, then the return stroke slams to full brightness in a single frame.</p></div>
+    <div class="card"><h3>Restrikes</h3><p>1–4 strokes reuse the same channel 40–160ms apart. Some hold as continuing current.</p></div>
+    <div class="card"><h3>In-cloud light</h3><p>Most flashes stay hidden inside the cloud. The billows facing the flash catch the light and the gaps glow.</p></div>
+    <div class="card"><h3>Anvil crawlers</h3><p>Long horizontal spider lightning spreads across the sky with branches that keep splitting.</p></div>
+  </div>
+</div></section>
+
+<section id="stats"><div class="wrap">
+  <div class="grid">
+    <div class="card"><div class="num">~40ms</div><p>rise to peak</p></div>
+    <div class="card"><div class="num">1–4</div><p>strokes per flash</p></div>
+    <div class="card"><div class="num">60%</div><p>flashes hidden in cloud</p></div>
+  </div>
+</div></section>
+
+<section id="cta"><div class="wrap">
+  <div class="card cta">
+    <h2>Ride the front.</h2>
+    <p class="sub" style="margin:0 auto 20px">Hit the button and the bolt finds it.</p>
+    <button class="btn primary" data-strike>Get early access</button>
+  </div>
+</div></section>
+
+<footer>Stratos test page · lightning.js demo</footer>
+
+<details class="panel" open>
+  <summary>Storm controls</summary>
+  <label>Frequency <input id="freq" type="range" min="2" max="60" value="14"></label>
+  <label>Intensity <input id="inten" type="range" min="0.2" max="1.6" step="0.05" value="1"></label>
+  <label>Clouds <input id="cover" type="range" min="0.3" max="0.95" step="0.01" value="0.72"></label>
+  <label>Palette
+    <select id="pal"><option value="night">Night (lavender)</option><option value="steel">Steel blue</option><option value="dusk">Dusk (pink)</option></select>
+  </label>
+  <label>Auto storm <input id="auto" type="checkbox" checked></label>
+  <label>Visible bolts <input id="bolts" type="checkbox" checked></label>
+  <label>Safe mode (photosensitive) <input id="safe" type="checkbox"></label>
+  <div class="row">
+    <button data-t="cg">Ground</button><button data-t="crawler">Crawler</button><button data-t="cloud">In-cloud</button>
+  </div>
+</details>
+
+<script src="lightning.js"></script>
+<script>
+  const storm = Lightning.create({ frequency: 14, ground: '#ground' });
+  const $ = (id) => document.getElementById(id);
+  $('safe').checked = storm.o.safe;
+
+  $('freq').oninput = (e) => storm.set({ frequency: +e.target.value });
+  $('inten').oninput = (e) => storm.set({ intensity: +e.target.value });
+  $('cover').oninput = (e) => storm.set({ cover: +e.target.value });
+  $('pal').onchange = (e) => {
+    storm.set({ palette: e.target.value });
+    const m = Lightning.palettes[e.target.value].mid;
+    document.documentElement.style.setProperty('--lit', m);
+  };
+  $('auto').onchange = (e) => storm.set({ auto: e.target.checked });
+  $('bolts').onchange = (e) => storm.set({ bolts: e.target.checked });
+  $('safe').onchange = (e) => storm.set({ safe: e.target.checked });
+  document.querySelectorAll('[data-t]').forEach((b) => b.onclick = () => storm.strike({ type: b.dataset.t, scale: 1 }));
+
+  // click the sky -> ground strike lands where you clicked
+  $('hero').addEventListener('click', (e) => {
+    if (e.target.closest('a,button')) return;
+    storm.strike({ type: 'cg', toX: e.clientX, toY: e.clientY, scale: 1, bloom: true });
+  });
+  // buttons with [data-strike] get hit
+  document.querySelectorAll('[data-strike]').forEach((b) => b.addEventListener('click', () => {
+    const r = b.getBoundingClientRect();
+    const st = storm.strike({ type: 'cg', toX: r.left + r.width / 2, toY: r.top, scale: 0.9, bloom: true });
+    setTimeout(() => { b.classList.remove('struck'); void b.offsetWidth; b.classList.add('struck'); }, st.leader);
+  }));
+</script>
+</body>
+</html>
