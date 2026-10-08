@@ -131,7 +131,8 @@ function score(source, target, threshold, loose = false) {
   if (extraA.some(w => caps.has(w))) return { reason: 'a name in the question is missing from the US market' };
   const overlap = common.length / a.length;
   if (overlap < threshold) return { reason: `only ${Math.round(overlap * 100)}% of key words match` };
-  const srcEnd = date(source.endDate), dstEnd = date(target.endDate);
+  // US deadline markets carry the real deadline in the slug (endDate is the later settlement date)
+  const sd = /(\d{4}-\d{2}-\d{2})$/.exec(target.slug || ''), srcEnd = date(source.endDate), dstEnd = sd ? Date.parse(sd[1] + 'T23:59:59Z') : date(target.endDate);
   if (!isNaN(srcEnd) && !isNaN(dstEnd)) { const window = srcEnd - Date.now() > 30 * DAY ? (loose ? 240 : 120) : (loose ? 10 : 3); if (Math.abs(srcEnd - dstEnd) > window * DAY) return { reason: 'resolution dates differ' }; }
   return { score: overlap * 100 + (nums.length ? 5 : 0) - extraA.length * 6 - Math.min(extraB.length, 10) };
 }

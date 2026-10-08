@@ -16,8 +16,12 @@ function headers(c, method, path) {
   return { 'X-PM-Access-Key': c.keyId, 'X-PM-Timestamp': timestamp, 'X-PM-Signature': signature, 'content-type': 'application/json' };
 }
 async function call(c, method, path, body) {
-  const r = await fetch(API + path, { method, headers: headers(c, method, path), body: body ? JSON.stringify(body) : undefined });
-  return { ok: r.ok, status: r.status, json: await json(r) };
+  // reads retry through Polymarket US hiccups (5xx / rate limits); orders are never retried (they could fill twice)
+  for (let i = 0; ; i++) {
+    const r = await fetch(API + path, { method, headers: headers(c, method, path), body: body ? JSON.stringify(body) : undefined }).catch(e => ({ ok: false, status: 0, text: async () => JSON.stringify({ message: e.message }) }));
+    if (r.ok || method !== 'GET' || i >= 3 || (r.status && r.status !== 429 && r.status < 500)) return { ok: r.ok, status: r.status, json: await json(r) };
+    await new Promise(z => setTimeout(z, 500 * 2 ** i));
+  }
 }
 async function pub(path) { // retries briefly on rate limits / server hiccups
   for (let i = 0; ; i++) { const r = await fetch(GATEWAY + path);
