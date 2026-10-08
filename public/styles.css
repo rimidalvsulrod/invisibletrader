@@ -353,7 +353,6 @@ a[style*="--ac"],.card a.lnk,.lnk{color:var(--accent)}
 :root[data-theme=light]{--panel:#fcfcfd;--panel2:#f8f8fa;--pop:rgba(255,255,255,.9)}
 main{position:relative;z-index:1;overflow-x:clip}
 .fxamb{z-index:0!important}
-:root[data-theme=light] .fxamb{display:none}
 /* type: size-specific tracking, tight leading on display sizes */
 h1{letter-spacing:-.038em;line-height:1.04;font-weight:600;font-optical-sizing:auto}
 h2{letter-spacing:-.022em}.lead{letter-spacing:-.006em}
@@ -369,7 +368,6 @@ h2{letter-spacing:-.022em}.lead{letter-spacing:-.006em}
 .lhero{position:relative;isolation:isolate}
 .lhero>canvas{position:absolute!important;top:calc(-1 * var(--nav) - 72px)!important;left:-120px!important;width:calc(100% + 240px)!important;height:calc(100% + var(--nav) + 132px)!important;z-index:-1}
 .lhero>:not(canvas){position:relative}
-:root[data-theme=light] .lhero>canvas{display:none!important}
 /* live indicator: the accent dot glows, the rest stays grey */
 :root[data-theme=dark] .live:before{box-shadow:0 0 8px rgba(63,191,134,.8)}
 /* press feedback on pointer-down, instant (Apple: respond on press, not release) */
@@ -384,3 +382,6 @@ h2{letter-spacing:-.022em}.lead{letter-spacing:-.006em}
 .blog td:nth-child(2){overflow-wrap:anywhere}
 @media(max-width:760px){.blog td:nth-child(2) .ell{max-width:none!important;white-space:normal}.blog td:first-child{vertical-align:top;padding-top:16px}}
 .fst{font-size:13px}
+:root[data-theme=light] .lhero .ph{text-shadow:0 0 18px #f4f4f6,0 0 4px #f4f4f6}
+/* light theme: cards stay slightly translucent so the ink ribbon reads behind them */
+:root[data-theme=light] .card{background:rgba(252,252,253,.86)}

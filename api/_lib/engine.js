@@ -1,6 +1,6 @@
 // International Polymarket wallet signals -> Polymarket US IOC orders.
 const crypto=require('crypto'),db=require('./db'),P=require('./polymarket-us'),S=require('./settings'),M=require('./match-us');
-const DEF={pct:5,minUsd:1000,maxPrice:85,slip:3,maxUse:100,thresh:78},DAY=864e5;
+const DEF={pct:5,minUsd:1000,maxPrice:85,slip:3,maxUse:100,thresh:78,similar:1},DAY=864e5;
 const J=(s,d)=>{try{return s?JSON.parse(s):d}catch(_){return d}},num=(x,d=0)=>Number.isFinite(Number(x))?Number(x):d;
 const tkey=t=>crypto.createHash('sha1').update(`${t.transactionHash}|${t.asset}|${t.size}|${t.side}`).digest('base64').slice(0,14);
 const orderCap=()=>Number(process.env.MAX_ORDER_USD)||Infinity,log=(s,e)=>s.logs.push({t:Date.now(),...e});
@@ -28,14 +28,17 @@ function fills(r,side,p){let n=0,cost=0;for(const x of r.json?.executions||[]){i
 // live price to BUY this side right now (Polymarket US prices are YES prices: NO costs 1 - best YES bid)
 const sidePrice=(q,side)=>side==='yes'?q.ask:1-q.bid;
 async function buy(s,t,a,usd){const c=s.cfg,pm=Math.round(num(t.price)*100),base={trader:t.name||t.pseudonym||String(t.proxyWallet).slice(0,8),title:t.title,outcome:t.outcome,pm,usd,act:'buy'};
-  const b=await M.resolve(t,c.thresh/100).catch(e=>({reason:`couldn't search Polymarket US (${String(e.message||e).slice(0,90)})`}));if(!b.m)return log(s,{...base,st:'skip',note:b.reason});
+  const b=await M.resolve(t,c.thresh/100,{similar:c.similar!==0}).catch(e=>({reason:`couldn't search Polymarket US (${String(e.message||e).slice(0,90)})`}));if(!b.m)return log(s,{...base,st:'skip',note:b.reason});
   const e={...base,tk:b.m.slug,kt:b.m.question||b.m.slug,side:b.side,asset:t.asset,how:b.how};
+  // a 95¢+ buy is a near-settled outcome in the trader's own market; that certainty doesn't carry over to a merely similar market
+  if(b.similar&&pm>=95)return log(s,{...e,st:'skip',note:`trader paid ${pm}¢ (outcome nearly settled); only an exact US market would carry that over`});
   const q=await P.bbo(b.m.slug).catch(()=>null);if(!q||!q.open)return log(s,{...e,st:'skip',note:`US market isn't open for trading${q?.state?` (${q.state.replace('MARKET_STATE_','').toLowerCase()})`:''}`});
   const p=sidePrice(q,b.side),ask=Math.round(p*100);e.ask=ask;
   if(!(p>0&&p<1))return log(s,{...e,st:'skip',note:'no sellers on Polymarket US right now'});
   if(ask>c.maxPrice)return log(s,{...e,st:'skip',note:`US price ${ask}¢ is above your ${c.maxPrice}¢ max`});
-  if(ask>pm+c.slip)return log(s,{...e,st:'skip',note:`US price ${ask}¢ is more than ${c.slip}¢ above the trader's ${pm}¢`});
-  if(ask<pm-20)return log(s,{...e,st:'skip',note:`US price ${ask}¢ is too far below the trader's ${pm}¢ to trust the match`});
+  // a similar market has its own price (different line / threshold), so the trader's price only bounds exact copies
+  if(!b.similar&&ask>pm+c.slip)return log(s,{...e,st:'skip',note:`US price ${ask}¢ is more than ${c.slip}¢ above the trader's ${pm}¢`});
+  if(!b.similar&&ask<pm-20)return log(s,{...e,st:'skip',note:`US price ${ask}¢ is too far below the trader's ${pm}¢ to trust the match`});
   // adding to a position is fine; only an opposite-side holding is skipped (buying the other side would just cancel it out)
   const held=a.pos.get(e.tk)||s.copies.find(x=>x.tk===e.tk);if(held&&held.side!==e.side)return log(s,{...e,st:'skip',note:`you hold the other side (${held.side.toUpperCase()}) of this US market`});
   // size: % of buying power, taker fee included, never more than you have
@@ -46,7 +49,7 @@ async function buy(s,t,a,usd){const c=s.cfg,pm=Math.round(num(t.price)*100),base
   const exposure=s.copies.reduce((x,y)=>x+y.cost,0);if(exposure+n*p>(a.cash+exposure)*c.maxUse/100)return log(s,{...e,st:'skip',note:`would put more than ${c.maxUse}% of your money in copies`});
   if(s.orders++>=20)return log(s,{...e,st:'skip',note:'max 20 orders per check'});
   // immediate-or-cancel, may fill up to your limit (trader's price + your slippage, capped at your max price)
-  const limit=Math.min(pm+c.slip,c.maxPrice)/100,bips=Math.max(0,Math.floor((limit-p)/p*1e4));
+  const limit=Math.min((b.similar?ask:pm)+c.slip,c.maxPrice)/100,bips=Math.max(0,Math.floor((limit-p)/p*1e4));
   const r=await P.order(s.creds,{slug:e.tk,side:e.side,quantity:n,slippageBips:bips});if(!r.ok)return bad(s,e,r);s.st.errs=0;
   const f=fills(r,e.side,p);if(f.n<=0)return log(s,{...e,count:n,st:'skip',note:`order for ${n} at ~${ask}¢ didn't fill — price moved`});
   a.cash-=f.cost+fee(f.n,f.cost/f.n);const same=s.copies.find(x=>x.tk===e.tk&&x.side===e.side);

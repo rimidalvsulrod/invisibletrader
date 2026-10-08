@@ -106,7 +106,8 @@ function botRender(S) {
       <div class="dialcap num" id=pcte>${perTrade != null ? `≈ ${usd(perTrade, 2)} per trade right now` : ''}</div></div>
     <details style="margin-top:18px"><summary>${ic('chev', 12)} Advanced</summary><div class="grid g2" style="margin-top:14px">
       ${[['minUsd', 'Copy signals over ($)', c.minUsd], ['maxPrice', 'Max US price (¢)', c.maxPrice], ['slip', 'Max price gap vs signal (¢)', c.slip], ['maxUse', 'Max % of money in copies', c.maxUse], ['thresh', 'US match strictness (%)', c.thresh]]
-        .map(([k, l, v]) => `<label><span class=lbl>${l}</span><input class=inp type=number data-k=${k} value=${v}></label>`).join('')}</div></details></div>`;
+        .map(([k, l, v]) => `<label><span class=lbl>${l}</span><input class=inp type=number data-k=${k} value=${v}></label>`).join('')}
+      <label><span class=lbl>When there's no exact US market</span><select class=inp data-k=similar><option value=1 ${c.similar !== 0 ? 'selected' : ''}>Copy into the closest similar market</option><option value=0 ${c.similar === 0 ? 'selected' : ''}>Skip the trade</option></select></label></div></details></div>`;
 
   const posT = `<div class="card" style="overflow:hidden"><div class="row sb pad" style="padding-bottom:8px"><h2>Positions</h2>${S.positions.some(p => p.copied) ? `<button class="btn sm danger" id=bsa>Sell all copies</button>` : ''}</div>
     <table class=tbl><tbody>${S.positions.map(p => `<tr><td><div class=ell style="font-weight:550;max-width:380px">${esc(p.title)}${p.sub ? ` <span class=mut>· ${esc(p.sub)}</span>` : ''}</div>
