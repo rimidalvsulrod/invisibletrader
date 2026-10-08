@@ -23,9 +23,10 @@ function newsRender() {
   const connect = s.connected ? `<div class="card pad"><div class="row sb"><h3>Alpaca</h3><span class="pill ${s.paper ? 'n' : 'down'}">${s.paper ? 'Paper' : 'Real money'}</span></div><div class=mut style="font-size:13px;margin-top:8px">Connected · key <span class=num>${esc(s.key)}</span></div><button class="btn sm danger" id=nkdel style="margin-top:12px">Disconnect</button></div>`
     : `<div class="card pad"><h2>Connect Alpaca</h2><p class=mut style="font-size:13px;line-height:1.55;margin:6px 0 12px">Create API keys at alpaca.markets (Paper Trading keys are free and use fake money). Paste them here; they're checked with Alpaca and stored encrypted.</p>
       <div class=seg id=npaper style="margin-bottom:10px"><button data-v=1 class=on>Paper keys</button><button data-v=0>Live keys</button></div>
-      <input class=inp id=nkey placeholder="API Key ID"><input class=inp id=nsec type=password placeholder="Secret Key" style="margin-top:8px">
-      <button class="btn pri" id=nksave style="width:100%;margin-top:10px">${s.emailCodes ? 'Email me a code to connect' : 'Connect'}</button>
-      <div id=nkc hidden style="margin-top:8px"><input class=inp id=nkcode inputmode=numeric placeholder="${s.emailCodes ? '6-digit code from your email' : 'Your Mimic password'}" ${s.emailCodes ? '' : 'type=password'}><button class="btn pri" id=nkgo style="width:100%;margin-top:8px">Connect</button></div><div id=nkerr class=down style="font-size:13px;margin-top:8px"></div></div>`;
+      <input class=inp id=nkey name=alpaca-key-id placeholder="API Key ID (starts with PK or AK)" autocomplete=off autocapitalize=off spellcheck=false data-lpignore=true data-1p-ignore>
+      <input class=inp id=nsec name=alpaca-secret placeholder="Secret Key" autocomplete=off autocapitalize=off spellcheck=false data-lpignore=true data-1p-ignore style="margin-top:8px;-webkit-text-security:disc">
+      <button class="btn pri" id=nkgo style="width:100%;margin-top:10px">Connect</button>
+      <div id=nkerr class=down style="font-size:13px;margin-top:8px"></div></div>`;
   app.innerHTML = `<div class="ph fade"><div><h1>Newsflash</h1><p class=lead>Trades stock headlines on your Alpaca account. Real-time Benzinga news is scored the moment it lands: strong good news about one company buys it, strong bad news sells it, and every trade exits on its own.</p></div></div>
     <div class="card pad"><div class="row sb wrapf" style="gap:16px"><div class=row style="gap:16px"><button class="sw ${s.enabled ? 'on' : ''}" id=ntog aria-label="Newsflash on/off" ${s.connected ? '' : 'disabled'}></button>
       <div><div style="font-size:22px;font-weight:650">${s.enabled ? '<span class=up>Running</span>' : 'Paused'}</div><div class=mut style="font-size:13px">${!s.connected ? 'Connect Alpaca to start' : s.paper ? 'Alpaca paper account: fake money, real market' : 'Alpaca LIVE account: real money'}</div></div></div></div>
@@ -50,13 +51,9 @@ function newsRender() {
   $('#nsz').onchange = () => act(() => napi('cfg', { cfg: { [c.size]: +$('#nsz').value } }), 'Saved');
   let paper = true; $$('#npaper button').forEach(b => b.onclick = () => { paper = b.dataset.v == '1'; $$('#npaper button').forEach(x => x.classList.toggle('on', x === b)); });
   const proof = v => s.emailCodes ? { code: v } : { password: v };
-  $('#nksave') && ($('#nksave').onclick = async () => {
-    $('#nkerr').textContent = ''; if (!$('#nkey').value.trim() || !$('#nsec').value.trim()) return $('#nkerr').textContent = 'Paste both keys first';
-    if (s.emailCodes) try { await napi('code', { purpose: 'keys' }, '/api/auth'); toast(`Code sent to ${esc(USER.email)}`); } catch (e) { return $('#nkerr').textContent = e.message; }
-    $('#nksave').hidden = true; $('#nkc').hidden = false; $('#nkcode').focus();
-  });
   $('#nkgo') && ($('#nkgo').onclick = async () => { $('#nkgo').disabled = true; $('#nkerr').textContent = '';
-    try { const r = await napi('keys', { key: $('#nkey').value, secret: $('#nsec').value, paper, ...proof($('#nkcode').value.trim()) }); toast(`Alpaca ${r.paper ? 'paper' : 'LIVE'} account connected · ${usd(r.equity, 2)}`); newsS = await napi('state'); newsRender(); }
+    if (!$('#nkey').value.trim() || !$('#nsec').value.trim()) { $('#nkerr').textContent = 'Paste both keys first'; $('#nkgo').disabled = false; return; }
+    try { const r = await napi('keys', { key: $('#nkey').value, secret: $('#nsec').value, paper }); toast(`Alpaca ${r.paper ? 'paper' : 'LIVE'} account connected · ${usd(r.equity, 2)}`); newsS = await napi('state'); newsRender(); }
     catch (e) { $('#nkerr').textContent = e.message; $('#nkgo').disabled = false; } });
   $('#nkdel') && ($('#nkdel').onclick = async () => { if (!confirm('Disconnect Alpaca? Newsflash stops. Open positions stay in your Alpaca account.')) return;
     if (s.emailCodes) try { await napi('code', { purpose: 'keys' }, '/api/auth'); } catch (e) { return toast(`<span class=down>${esc(e.message)}</span>`); }

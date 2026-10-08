@@ -77,9 +77,8 @@ function botRender(S) {
         <div class=mut style="font-size:13px;margin-top:8px">Connected · key <span class=num>${esc(S.keys.keyId)}</span>${S.keys.source == 'env' ? ' (set in Vercel)' : ''}</div>
         ${S.keys.source == 'app' ? `<button class="btn sm danger" id=kdel style="margin-top:12px">Disconnect</button>` : ''}</div>`
     : `<div class="card pad" id=kcard><h2>Connect Polymarket US</h2><p class=mut style="font-size:13px;line-height:1.55;margin:6px 0 14px">Create an API key in the Polymarket US developer portal, then paste the Key ID and Secret Key. It is verified and stored encrypted.</p>
-        <input class=inp id=kid placeholder="Key ID"><textarea class=inp id=ksecret placeholder="Secret Key" style="height:80px;padding:10px 14px;margin-top:8px;font:12px ui-monospace,monospace;resize:vertical"></textarea>
-        <button class="btn pri" id=ksave style="width:100%;margin-top:10px">${SETUP.email ? 'Email me a code to connect' : 'Verify & connect'}</button>
-        <div id=kconf hidden style="margin-top:10px"><input class=inp id=kcode inputmode=numeric autocomplete=one-time-code placeholder="${SETUP.email ? '6-digit code from your email' : 'Your Mimic password'}" ${SETUP.email ? '' : 'type=password'}><button class="btn pri" id=kgo style="width:100%;margin-top:8px">Verify & connect</button></div>
+        <input class=inp id=kid name=pmus-key-id placeholder="Key ID" autocomplete=off autocapitalize=off spellcheck=false data-lpignore=true data-1p-ignore><textarea class=inp id=ksecret placeholder="Secret Key" autocomplete=off autocapitalize=off spellcheck=false data-lpignore=true data-1p-ignore style="height:80px;padding:10px 14px;margin-top:8px;font:12px ui-monospace,monospace;resize:vertical"></textarea>
+        <button class="btn pri" id=kgo style="width:100%;margin-top:10px">Verify & connect</button>
         <div id=kerr class=down style="font-size:13px;margin-top:8px"></div></div>`;
 
   const settings = `<div class="card pad"><h2>Trade size</h2><p class=mut style="font-size:13px;margin:4px 0 12px">Turn the dial: the share of your Polymarket US cash each copied trade uses.</p>
@@ -130,14 +129,9 @@ function botRender(S) {
     const v = prompt(SETUP.email ? `Enter the 6-digit code we just emailed to ${USER.email}` : 'Enter your Mimic password'); if (!v) return;
     act(() => bapi('keysdel', proof(v.trim())), 'Disconnected');
   });
-  $('#ksave') && ($('#ksave').onclick = async () => {
-    $('#kerr').textContent = ''; if (!$('#kid').value.trim() || !$('#ksecret').value.trim()) { $('#kerr').textContent = 'Paste the Key ID and Secret Key first'; return; }
-    if (SETUP.email) { $('#ksave').disabled = true; try { await bapi('code', null, '/api/auth', { purpose: 'keys' }); toast(`Code sent to ${esc(USER.email)}`); } catch (e) { $('#kerr').textContent = e.message; $('#ksave').disabled = false; return; } }
-    $('#ksave').hidden = true; $('#kconf').hidden = false; $('#kcode').focus();
-  });
   $('#kgo') && ($('#kgo').onclick = async () => {
     $('#kgo').disabled = true; $('#kgo').textContent = 'Checking with Polymarket US…'; $('#kerr').textContent = '';
-    try { const r = await bapi('keys', { keyId: $('#kid').value, secret: $('#ksecret').value, ...proof($('#kcode').value.trim()) }); toast(`Connected your real-money Polymarket US account · cash ${usd(r.cash, 2)}`); botRefresh(); }
+    try { const r = await bapi('keys', { keyId: $('#kid').value, secret: $('#ksecret').value }); toast(`Connected your real-money Polymarket US account · cash ${usd(r.cash, 2)}`); botRefresh(); }
     catch (e) { $('#kerr').textContent = e.message; $('#kgo').disabled = false; $('#kgo').textContent = 'Verify & connect'; }
   });
   // rotary dial: 1–100% over a 270° sweep, 50 tick marks; drag, +/- buttons, arrow keys

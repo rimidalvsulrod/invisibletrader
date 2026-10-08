@@ -60,7 +60,8 @@ module.exports = handler(async (req, body, q) => {
       if (!/^[A-Za-z0-9_-]{8,160}$/.test(keyId) || !secret) throw err(400, 'Enter a Polymarket US Key ID and Secret Key');
       const creds = { keyId, secret }; let cash;
       try { cash = (await E.account(creds)).cash; } catch (e) { throw err(400, `Polymarket US rejected this key: ${e.message}`); }
-      await A.confirm(u, body, 'keys'); await S.saveCreds(uid, creds);
+      if ((await A.byId(uid))?.creds) await A.confirm(u, body, 'keys'); // first connect: just paste; replacing saved keys needs confirmation
+      await S.saveCreds(uid, creds);
       A.notify(u.email, 'Polymarket US connected to your Mimic account', `A Polymarket US key (${keyId.slice(0, 8)}…) was connected to your account.`);
       return { ok: true, cash };
     }

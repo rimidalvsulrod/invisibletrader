@@ -19,7 +19,8 @@ module.exports = handler(async (req, body, q) => {
       const c = { key: String(body.key || '').trim(), secret: String(body.secret || '').trim(), paper: body.paper !== false };
       if (!/^[A-Z0-9]{10,40}$/i.test(c.key) || c.secret.length < 10) throw err(400, 'Paste your Alpaca API Key ID and Secret Key');
       let a; try { a = await AL.account(c); } catch (e) { throw err(400, `${e.message}. Check the keys${c.paper ? ' are PAPER keys' : ' are LIVE keys'}`); }
-      await A.confirm(u, body, 'keys'); await AL.saveCreds(uid, c);
+      if (await AL.getCreds(uid).catch(() => null)) await A.confirm(u, body, 'keys'); // first connect: just paste; replacing saved keys needs confirmation
+      await AL.saveCreds(uid, c);
       A.notify(u.email, 'Alpaca connected to your Mimic account', `An Alpaca ${c.paper ? 'paper' : 'LIVE'} account (key ${c.key.slice(0, 6)}…) was connected to Newsflash.`);
       return { ok: true, equity: +a.equity, paper: c.paper };
     }
