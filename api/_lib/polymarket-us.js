@@ -40,7 +40,7 @@ const paced = () => (freshQ = freshQ.then(async () => { const w = lastFresh + 15
 async function bbo(slug, fresh = true) {
   if (fresh) await paced();
   const d = (await pub(`/v1/markets/${encodeURIComponent(slug)}/bbo${fresh ? `?_=${Date.now()}` : ''}`)).marketData || {}; const v = x => Number(x?.value);
-  return { open: d.state === 'MARKET_STATE_OPEN', state: d.state, ask: v(d.bestAsk), bid: v(d.bestBid), settle: v(d.settlementPx) }; }
+  return { open: d.state === 'MARKET_STATE_OPEN', state: d.state, ask: v(d.bestAsk), bid: v(d.bestBid), settle: v(d.settlementPx), askShares: Number(d.askShares), bidShares: Number(d.bidShares) }; }
 // every open non-sports market plus sports futures (single games are looked up by exact slug / event; all ~78k markets would be ~220 MB)
 const NON_SPORTS = ['politics', 'culture', 'crypto', 'macro', 'climate', 'technology', 'finance', 'geopolitics', 'science', 'economics', 'world', 'business', 'entertainment', 'mentions'];
 async function allOpenMarkets() {

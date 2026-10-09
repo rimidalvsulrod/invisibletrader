@@ -22,6 +22,9 @@ const SCHEMA = [
   // Meme Radar (paper-only meme coin bot): one row per user (paper balance) + every trade
   `CREATE TABLE IF NOT EXISTS membot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, paper double precision NOT NULL DEFAULT 1000, paperstart double precision NOT NULL DEFAULT 1000, updated bigint)`,
   `CREATE TABLE IF NOT EXISTS memetrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, chain text, pool text, token text, sym text, entry double precision, qty double precision, cost double precision, liq double precision, fdv double precision, score double precision, why text, status text NOT NULL DEFAULT 'open', peak double precision, last double precision, lastts bigint, lastliq double precision, slipin double precision, exitp double precision, proceeds double precision, pnl double precision, reason text, exitts bigint)`,
+  // Edge Lab (paper-only mechanical strategies): paper account + every position (a position can have several legs)
+  `CREATE TABLE IF NOT EXISTS edgebot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, paper double precision NOT NULL DEFAULT 1000, paperstart double precision NOT NULL DEFAULT 1000, updated bigint)`,
+  `CREATE TABLE IF NOT EXISTS edgetrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, strat text NOT NULL, ref text, label text, legs text, qty double precision, cost double precision, status text NOT NULL DEFAULT 'open', payoff double precision, pnl double precision, gs bigint, settledts bigint)`,
   // Newsflash (Alpaca news bot): the user's Alpaca keys, bot row, and every trade/decision
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS alpaca text`,
   `CREATE TABLE IF NOT EXISTS nbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, updated bigint)`,
