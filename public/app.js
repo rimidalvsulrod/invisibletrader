@@ -110,7 +110,7 @@ function area(el,vals,o={}){
 }
 
 /* ---------- shell ---------- */
-const NAV=[['Discover',[['','home','Overview'],['leaderboard','trophy','Leaderboard'],['feed','wave','Whale Feed']]],['Strategy',[['backtest','flask','Profit Bot'],['bot','bot','Auto Trader'],['btc','coin','BTC Up or Down'],['meme','rocket','Meme Radar'],['edge','scales','Edge Lab'],['news','paper','Newsflash']]],['You',[['journal','book','Tracking'],['analyze','spark','Analyzer'],['settings','gear','Settings']]]];
+const NAV=[['Discover',[['','home','Overview'],['leaderboard','trophy','Leaderboard'],['feed','wave','Whale Feed']]],['Strategy',[['backtest','flask','Profit Bot'],['bot','bot','Auto Trader'],['btc','coin','BTC Up or Down'],['meme','rocket','Meme Radar'],['edge','scales','Edge Lab'],['news','paper','Newsflash'],['swing','wave','Swing Trader']]],['You',[['journal','book','Tracking'],['analyze','spark','Analyzer'],['settings','gear','Settings']]]];
 let BOTON=false,TOPBAL=null;
 function renderSide(){const p=location.hash.slice(2).split('/')[0];const nf=Object.keys(fol).length;
   $('#side').innerHTML=`<div class=mobile-sheet-head><b>More</b><button class=tbtn id=sheetclose aria-label="Close menu">${ic('x',18)}</button></div><a class=logo href="#/"><img src="/icon.svg" alt="" width=34 height=34><span><b>Mimic</b></span></a>`+
@@ -357,9 +357,9 @@ function settingsPage(){
 }
 
 /* ---------- router ---------- */
-function route(){clearInterval(feedT);typeof botStopPoll=='function'&&botStopPoll();typeof btcStop=='function'&&btcStop();typeof memeStop=='function'&&memeStop();typeof edgeStop=='function'&&edgeStop();typeof newsStop=='function'&&newsStop();$('#side').classList.remove('open');renderSide();
+function route(){clearInterval(feedT);typeof botStopPoll=='function'&&botStopPoll();typeof btcStop=='function'&&btcStop();typeof memeStop=='function'&&memeStop();typeof edgeStop=='function'&&edgeStop();typeof newsStop=='function'&&newsStop();typeof swStop=='function'&&swStop();$('#side').classList.remove('open');renderSide();
   const[p,a]=location.hash.slice(2).split('/');window.scrollTo(0,0);
-  const R={'':overview,leaderboard,feed,terminal:feed,backtest,profits:backtest,bot:botPage,journal,analyze,ai:analyze,help,account:accountPage,login:accountPage,settings:settingsPage,btc:btcPage,meme:memePage,edge:edgePage,news:newsPage,search:openPal,trader:()=>trader(a)};(R[p]||overview)()}
+  const R={'':overview,leaderboard,feed,terminal:feed,backtest,profits:backtest,bot:botPage,journal,analyze,ai:analyze,help,account:accountPage,login:accountPage,settings:settingsPage,btc:btcPage,meme:memePage,edge:edgePage,news:newsPage,swing:swingPage,search:openPal,trader:()=>trader(a)};(R[p]||overview)()}
 ['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
 let lastTouchEnd=0;document.addEventListener('touchend',e=>{const n=Date.now();if(n-lastTouchEnd<300&&!e.target.closest('input,textarea'))e.preventDefault();lastTouchEnd=n},{passive:false});
 if(navigator.standalone||matchMedia('(display-mode: standalone)').matches)document.documentElement.classList.add('standalone');

@@ -27,6 +27,9 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS edgetrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, strat text NOT NULL, ref text, label text, legs text, qty double precision, cost double precision, status text NOT NULL DEFAULT 'open', payoff double precision, pnl double precision, gs bigint, settledts bigint)`,
   // Newsflash (Alpaca news bot): the user's Alpaca keys, bot row, and every trade/decision
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS alpaca text`,
+  // Swing Trader (Alpaca daily-bar swing bot): one row per user + every position it opens
+  `CREATE TABLE IF NOT EXISTS sbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, lastday text, updated bigint)`,
+  `CREATE TABLE IF NOT EXISTS swingtrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, sym text NOT NULL, why text, notional double precision, qty double precision, entry double precision, stop double precision, status text NOT NULL DEFAULT 'open', exitp double precision, pnl double precision, reason text, exitts bigint)`,
   `CREATE TABLE IF NOT EXISTS nbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, updated bigint)`,
   `CREATE TABLE IF NOT EXISTS ntrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, sym text NOT NULL, headline text, url text, score double precision, notional double precision, qty double precision, entry double precision, exitp double precision, status text NOT NULL, pnl double precision, reason text, exitts bigint, newsid text)`,
   `CREATE TABLE IF NOT EXISTS btctrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, slug text NOT NULL, tf text, side text, price double precision, qty double precision, fee double precision, fair double precision, edge double precision, s0 double precision, s double precision, secs double precision, mode text, status text NOT NULL DEFAULT 'open', pnl double precision, wend bigint)`,

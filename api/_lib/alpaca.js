@@ -19,6 +19,10 @@ module.exports = {
   close: (c, sym) => trade(c, 'DELETE', `/v2/positions/${encodeURIComponent(sym)}`),
   order: (c, id) => trade(c, 'GET', `/v2/orders/${id}`),
   asset: (c, sym) => trade(c, 'GET', `/v2/assets/${encodeURIComponent(sym)}`),
+  // daily bars (split + dividend adjusted) for several symbols, oldest first. IEX feed: the one free accounts may query.
+  async bars(c, syms, startISO) { const out = {}; let tok = '';
+    for (let i = 0; i < 12; i++) { const j = await req(c, 'GET', `${DATA}/v2/stocks/bars?symbols=${syms.map(encodeURIComponent).join(',')}&timeframe=1Day&start=${encodeURIComponent(startISO)}&limit=10000&adjustment=all&feed=iex${tok ? '&page_token=' + tok : ''}`);
+      for (const [k, a] of Object.entries(j.bars || {})) (out[k] ||= []).push(...a); tok = j.next_page_token; if (!tok) break; } return out; },
   news: (c, after) => req(c, 'GET', `${DATA}/v1beta1/news?limit=50&sort=desc${after ? `&start=${encodeURIComponent(after)}` : ''}`),
   hdr,
   async getCreds(uid) { const u = await db.one('SELECT alpaca FROM users WHERE id=$1', [uid]); if (!u?.alpaca) return null; const j = JSON.parse(u.alpaca); return { key: j.key, secret: await S.dec(j.secret), paper: !!j.paper }; },
