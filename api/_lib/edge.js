@@ -96,10 +96,17 @@ async function fillLegs(plan, qty, okAfter) { // plan: [{s, side, px, depth, q}]
     done.push({ s: l.s, side: l.side, px: l.px }); }
   return done;
 }
+// Polymarket US rate-limits live quotes (~1 per 1.5s, shared with the other bots on this runner). So: remember candidates that
+// failed their re-check, cap live quotes per round, and stop for 90s the moment the exchange answers 429.
+const BAD = new Map(); let coolUntil = 0, budget = 20;
+const bad = (k, min) => BAD.set(k, Date.now() + min * 6e4);
+const isBad = k => { const t = BAD.get(k); if (!t) return false; if (t < Date.now()) { BAD.delete(k); return false; } return true; };
+const qb = s => { if (budget-- <= 0) throw Object.assign(new Error('budget'), { quiet: true }); return P.bbo(s); };
+const fail = (tag, e) => { if (e.quiet) return; if (/429/.test(e.message)) coolUntil = Date.now() + 9e4; console.error(tag, e.message); };
 async function enterLadder(row, cfg, g) {
-  if (await db.one('SELECT id FROM edgetrades WHERE uid=$1 AND ref=$2', [row.uid, g.key]) || await openCount(row.uid, 'ladder') >= R.cap.ladder) return;
-  const a = await P.bbo(g.lo.s), b = await P.bbo(g.hi.s); if (!a.open || !b.open || !(a.bid > 0 && b.ask > 0)) return;
-  const edge = a.bid - b.ask - fee(1 - a.bid) - fee(b.ask); if (!(edge >= R.minLadder)) return;
+  if (await db.one('SELECT id FROM edgetrades WHERE uid=$1 AND ref=$2', [row.uid, g.key]) || await openCount(row.uid, 'ladder') >= R.cap.ladder || isBad(g.key)) return;
+  const a = await qb(g.lo.s), b = await qb(g.hi.s); if (!a.open || !b.open || !(a.bid > 0 && b.ask > 0)) return bad(g.key, 3);
+  const edge = a.bid - b.ask - fee(1 - a.bid) - fee(b.ask); if (!(edge >= R.minLadder)) return bad(g.key, 3);
   const eq = await equity(row), per = (1 - a.bid) + b.ask + fee(1 - a.bid) + fee(b.ask), shares = Math.min(a.bidShares || 0, b.askShares || 0);
   const qty = Math.min(R.maxQty, Math.floor(eq * cfg.ladder / 100 / per), Math.floor(shares * R.share)); if (qty < 1) return;
   const legs = await fillLegs([{ s: g.lo.s, side: 'no', px: 1 - a.bid, depth: a.bidShares }, { s: g.hi.s, side: 'yes', px: b.ask, depth: b.askShares }], qty,
@@ -107,29 +114,29 @@ async function enterLadder(row, cfg, g) {
   if (legs.length) await record(row, 'ladder', g.key, g.label, legs, qty, g.lo.gs);
 }
 async function enterSet(row, cfg, g) {
-  if (await db.one('SELECT id FROM edgetrades WHERE uid=$1 AND ref=$2 AND ts>$3', [row.uid, g.key, Date.now() - 36e5]) || await openCount(row.uid, 'set') >= R.cap.set) return;
-  const qs = []; for (const m of g.legs) { const q = await P.bbo(m.s); if (!q.open || !(q.ask > 0)) return; qs.push({ s: m.s, side: 'yes', px: q.ask, depth: q.askShares || 0, settle: q.settle }); }
-  const sett = qs.reduce((n, l) => n + l.settle, 0); if (!(Math.abs(sett - 1) <= .03)) return; // the exchange's own reference prices must add to exactly 1: proof the set is complete
-  const per = qs.reduce((n, l) => n + l.px + fee(l.px), 0); if (1 - per < R.minSet) return;
+  if (await db.one('SELECT id FROM edgetrades WHERE uid=$1 AND ref=$2 AND ts>$3', [row.uid, g.key, Date.now() - 36e5]) || await openCount(row.uid, 'set') >= R.cap.set || isBad(g.key)) return;
+  if (g.legs.length > 16) return bad(g.key, 60); // too many live quotes for one round
+  const qs = []; for (const m of g.legs) { const q = await qb(m.s); if (!q.open || !(q.ask > 0)) return bad(g.key, 30); qs.push({ s: m.s, side: 'yes', px: q.ask, depth: q.askShares || 0, settle: q.settle }); }
+  const sett = qs.reduce((n, l) => n + l.settle, 0); if (!(Math.abs(sett - 1) <= .03)) return bad(g.key, 60); // the exchange's own reference prices must add to exactly 1: proof the set is complete
+  const per = qs.reduce((n, l) => n + l.px + fee(l.px), 0); if (1 - per < R.minSet) return bad(g.key, 3);
   const eq = await equity(row), qty = Math.min(R.maxQty, Math.floor(eq * cfg.set / 100 / per), Math.floor(Math.min(...qs.map(l => l.depth)) * R.share)); if (qty < 1) return;
   const legs = await fillLegs(qs, qty, (done, rest) => 1 - done.reduce((n, l) => n + l.px + fee(l.px), 0) - rest.reduce((n, l) => n + l.px + fee(l.px), 0) >= R.abort);
   if (legs.length) await record(row, 'set', g.key, g.label, legs, qty, g.legs[0].gs);
 }
 async function enterDog(row, cfg, g) {
   if (await db.one('SELECT id FROM edgetrades WHERE uid=$1 AND ref=$2', [row.uid, g.key]) || await openCount(row.uid, 'dog') >= R.cap.dog) return;
-  const q = await P.bbo(g.m.s); if (!q.open || !(q.bid > 0 && q.ask > 0) || q.ask - q.bid > R.dogSpread) return;
-  const px = g.side === 'yes' ? q.ask : 1 - q.bid; if (!(px >= R.dogLo && px < R.dogHi)) return;
+  const px = g.px + .005; if (!(px >= R.dogLo && px < R.dogHi)) return; // the scan's quote (under 35s old) already passed the spread and price filters; +0.5c for its age
   const eq = await equity(row), qty = Math.max(1, Math.floor(eq * cfg.dog / 100 / (px + fee(px)))); if (qty * (px + fee(px)) > row.paper) return;
   await record(row, 'dog', g.key, g.label, [{ s: g.m.s, side: g.side, px }], qty, g.m.gs);
 }
 let execBusy = false;
 async function execute(cur) {
-  if (execBusy) return; execBusy = true;
+  if (execBusy || Date.now() < coolUntil) return; execBusy = true; budget = 20;
   try { const rows = await db.q('SELECT b.* FROM edgebot b JOIN users u ON u.id=b.uid WHERE b.enabled=true AND u.verified=true');
     for (const r of rows) { const { cfg } = await open(r.uid);
-      for (const g of cur.ladder.slice(0, 3)) await enterLadder(r, cfg, g).catch(e => console.error('edge ladder', e.message));
-      for (const g of cur.set.slice(0, 2)) await enterSet(r, cfg, g).catch(e => console.error('edge set', e.message));
-      for (const g of cur.dog.slice(0, 4)) await enterDog(r, cfg, g).catch(e => console.error('edge dog', e.message)); }
+      for (const g of cur.ladder.filter(g => !isBad(g.key)).slice(0, 3)) if (Date.now() >= coolUntil) await enterLadder(r, cfg, g).catch(e => fail('edge ladder', e));
+      for (const g of cur.set.filter(g => !isBad(g.key)).slice(0, 4)) if (Date.now() >= coolUntil) await enterSet(r, cfg, g).catch(e => fail('edge set', e));
+      for (const g of cur.dog.slice(0, 60)) await enterDog(r, cfg, g).catch(e => fail('edge dog', e)); }
   } finally { execBusy = false; }
 }
 
