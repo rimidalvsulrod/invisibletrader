@@ -9,7 +9,7 @@ module.exports = handler(async (req, body, q) => {
       let snap = null, snapError = null, bars = []; try { snap = await G.snapshot(); } catch (e) { snapError = e.message; }
       try { const all = (await G.spyBars()).filter(b => b.m >= 570 && b.m < 960), days = [...new Set(all.map(b => b.date))].slice(-2); bars = all.filter(b => days.includes(b.date)).map(b => [b.t, b.o, b.h, b.l, b.c]); } catch (e) { snapError = snapError || e.message; }
       const c = await AL.getCreds(uid).catch(() => null); let account = null, accountError = null; if (c) try { const a = await AL.account(c); account = { equity: +a.equity, cash: +a.cash }; } catch (e) { accountError = e.message; }
-      const trades = (await db.q('SELECT id, sig, ts, day, dir, qty, entry, stop, tp, status, exitp, pnl, reason, exitts FROM gextrades WHERE uid=$1 ORDER BY ts DESC LIMIT 100', [uid])).map(t => ({ ...t, ts: Number(t.ts), exitts: t.exitts != null ? Number(t.exitts) : null }));
+      const trades = (await db.q('SELECT t.id, t.sig, t.ts, t.day, t.dir, t.qty, t.entry, t.stop, t.tp, t.status, t.exitp, t.pnl, t.reason, t.exitts, s.level FROM gextrades t LEFT JOIN gexsig s ON s.id=t.sig WHERE t.uid=$1 ORDER BY t.ts DESC LIMIT 100', [uid])).map(t => ({ ...t, ts: Number(t.ts), exitts: t.exitts != null ? Number(t.exitts) : null }));
       return { snap, snapError, bars, log: await G.log(), stats: await G.stats(), enabled: !!row.enabled, cfg, connected: !!c, account, accountError, trades, tstats: await G.tstats(uid), sig: G.SIG, now: Date.now() };
     }
     case 'cfg': { const c = body.cfg || {}, next = { risk: clamp(c.risk ?? cfg.risk, .1, 2, G.DEF.risk), max: clamp(c.max ?? cfg.max, 5, 100, G.DEF.max), per: Math.round(clamp(c.per ?? cfg.per, 1, 6, G.DEF.per)) };
