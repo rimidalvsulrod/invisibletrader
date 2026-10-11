@@ -33,6 +33,9 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS pcash (uid text PRIMARY KEY, delta double precision NOT NULL DEFAULT 0, realized double precision NOT NULL DEFAULT 0, updated bigint)`,
   `CREATE TABLE IF NOT EXISTS ppos (uid text NOT NULL, sym text NOT NULL, qty double precision NOT NULL, avg double precision NOT NULL, PRIMARY KEY (uid, sym))`,
   `CREATE TABLE IF NOT EXISTS pord (id text PRIMARY KEY, uid text NOT NULL, grp text, ts bigint NOT NULL, sym text NOT NULL, side text NOT NULL, qty double precision NOT NULL, kind text NOT NULL, px double precision, fpx double precision, status text NOT NULL, fts bigint)`,
+  // GEX Levels (SPY options gamma exposure turned into paper signals, log only): one shared signal log + a per-user switch for the collector
+  `CREATE TABLE IF NOT EXISTS gexsig (id text PRIMARY KEY, ts bigint NOT NULL, day text, kind text NOT NULL, dir text, level double precision, entry double precision, stop double precision, target double precision, status text NOT NULL, exitp double precision, exitts bigint, pnl double precision, note text, note0 text)`,
+  `CREATE TABLE IF NOT EXISTS gexbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, updated bigint)`,
   // Supertrend bot (copies the Supertrend indicator's flips on 15-minute NQ / ES candles, in the built-in paper account)
   `CREATE TABLE IF NOT EXISTS stbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, lastbar bigint, updated bigint)`,
   `CREATE TABLE IF NOT EXISTS sttrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, day text, root text, sym text, dir text, qty double precision, entry double precision, stop double precision, orderid text, status text NOT NULL DEFAULT 'open', exitp double precision, pnl double precision, reason text, exitts bigint)`,
