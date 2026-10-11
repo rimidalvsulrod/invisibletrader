@@ -62,7 +62,7 @@ function btcRender() {
     <div class="grid g2" style="margin-top:16px">
       <div class="card pad"><h2>Trade size</h2><p class=mut style="font-size:13px;margin:6px 0 12px">How much each trade uses: a share of your ${live ? 'Polymarket US cash' : 'paper balance'}, or a fixed amount.</p>
         <div class=row style="gap:10px;flex-wrap:wrap"><div class=seg id=bsize><button data-v=pct class="${c.size == 'pct' ? 'on' : ''}">% of balance</button><button data-v=usd class="${c.size == 'usd' ? 'on' : ''}">$ per trade</button></div>
-          <label class=row style="gap:8px"><input class=inp type=number id=bsz min=${c.size == 'pct' ? .5 : 1} max=${c.size == 'pct' ? 50 : 10000} step=${c.size == 'pct' ? .5 : 1} value=${c.size == 'pct' ? c.pct : c.usd} style="width:110px"><b>${c.size == 'pct' ? '%' : '$'}</b></label></div>
+          ${c.size == 'usd' ? `<label class=row style="gap:8px"><input class=inp type=number id=bsz min=1 max=10000 step=1 value=${c.usd} style="width:110px"><b>$</b></label>` : ''}</div>${c.size == 'pct' ? '<div id=bdial style="margin-top:10px"></div>' : ''}
         <div class=mut style="font-size:12.5px;margin-top:10px">${c.size == 'pct' && !live ? `≈ ${usd(s.paper.balance * c.pct / 100, 2)} per trade right now. ` : ''}Built in: only buys the favourite side (50¢+) when it's at least 4¢ underpriced after fees, both 15-minute and 1-hour windows, and it stops for the day after losing 20% of the account.</div></div>
       <div class="card pad"><h2>Paper account</h2><p class=mut style="font-size:13px;margin:6px 0 12px">Start over with a fresh simulated balance. Paper trades are cleared; live trades are kept.</p>
         <div class=row style="gap:8px"><input class=inp type=number id=bamt value=${Math.round(s.paper.start)} min=10 style="max-width:140px"><button class=btn id=breset>Reset paper account</button></div></div>
@@ -78,6 +78,7 @@ function btcRender() {
   $('#btog').onclick = () => { if (!s.enabled && live && !confirm(`Start the BTC bot with REAL money?\n\n${c.size == 'pct' ? c.pct + '% of your cash' : '$' + c.usd} per trade; it stops for the day after losing 20%.`)) return; act(() => bbapi(s.enabled ? 'stop' : 'start', {}), s.enabled ? 'BTC bot paused' : 'BTC bot started'); };
   $$('#bmode button').forEach(b => b.onclick = () => { const m = b.dataset.v; if (m == s.mode) return; if (m == 'live' && !confirm('Switch to LIVE trading with real money on your Polymarket US account?\n\nThe bot pauses; turn it on again when ready.')) return; act(() => bbapi('mode', { mode: m }), m == 'live' ? 'Live mode. Turn the bot on when ready' : 'Paper mode'); });
   $$('#bsize button').forEach(b => b.onclick = () => b.dataset.v != c.size && act(() => bbapi('cfg', { cfg: { size: b.dataset.v } })));
-  $('#bsz').onchange = () => act(() => bbapi('cfg', { cfg: { [c.size]: +$('#bsz').value } }), 'Saved');
+  $('#bsz') && ($('#bsz').onchange = () => act(() => bbapi('cfg', { cfg: { usd: +$('#bsz').value } }), 'Saved'));
+  dialMount('#bdial', { key: 'btc-pct', value: c.pct, min: .5, max: 50, step: .5, unit: '% per trade', size: 'sm', caption: v => !live ? `≈ ${usd(s.paper.balance * v / 100, 2)} per trade right now` : '', onCommit: v => act(() => bbapi('cfg', { cfg: { pct: v } }), 'Saved') });
   $('#breset').onclick = () => confirm('Reset the paper account? Paper trades will be cleared.') && act(() => bbapi('reset', { amount: +$('#bamt').value }), 'Paper account reset');
 }

@@ -43,7 +43,7 @@ function memeRender() {
     <div class="grid g2" style="margin-top:16px">
       <div class="card pad"><h2>Trade size</h2><p class=mut style="font-size:13px;margin:6px 0 12px">How much each buy uses: a share of your paper account, or a fixed amount.</p>
         <div class=row style="gap:10px;flex-wrap:wrap"><div class=seg id=msize><button data-v=pct class="${c.size == 'pct' ? 'on' : ''}">% of account</button><button data-v=usd class="${c.size == 'usd' ? 'on' : ''}">$ per trade</button></div>
-          <label class=row style="gap:8px"><input class=inp type=number id=msz min=${c.size == 'pct' ? .5 : 1} max=${c.size == 'pct' ? 25 : 10000} step=${c.size == 'pct' ? .5 : 1} value=${c.size == 'pct' ? c.pct : c.usd} style="width:110px"><b>${c.size == 'pct' ? '%' : '$'}</b></label></div>
+          ${c.size == 'usd' ? `<label class=row style="gap:8px"><input class=inp type=number id=msz min=1 max=10000 step=1 value=${c.usd} style="width:110px"><b>$</b></label>` : ''}</div>${c.size == 'pct' ? '<div id=mdial style="margin-top:10px"></div>' : ''}
         <div class=mut style="font-size:12.5px;margin-top:10px">${c.size == 'pct' ? `≈ ${usd(val * c.pct / 100, 2)} per trade right now. ` : ''}Built in: at most 6 positions, never more than 1% of a pool's liquidity per buy, and it stops for the day after losing 15%.</div></div>
       <div class="card pad"><h2>Paper account</h2><p class=mut style="font-size:13px;margin:6px 0 12px">Start over with a fresh simulated balance. All paper trades are cleared.</p>
         <div class=row style="gap:8px"><input class=inp type=number id=mamt value=${Math.round(A.start)} min=10 style="max-width:140px"><button class=btn id=mreset>Reset paper account</button></div></div></div>
@@ -55,6 +55,7 @@ function memeRender() {
   const act = async (fn, msg) => { try { await fn(); if (msg) toast(msg); } catch (e) { toast(`<span class=down>${esc(e.message)}</span>`); } memeS = await mapi('state').catch(() => memeS); memeRender(); };
   $('#mtog').onclick = () => act(() => mapi(s.enabled ? 'stop' : 'start', {}), s.enabled ? 'Meme Radar paused' : 'Meme Radar started');
   $$('#msize button').forEach(b => b.onclick = () => b.dataset.v != c.size && act(() => mapi('cfg', { cfg: { size: b.dataset.v } })));
-  $('#msz').onchange = () => act(() => mapi('cfg', { cfg: { [c.size]: +$('#msz').value } }), 'Saved');
+  $('#msz') && ($('#msz').onchange = () => act(() => mapi('cfg', { cfg: { usd: +$('#msz').value } }), 'Saved'));
+  dialMount('#mdial', { key: 'meme-pct', value: c.pct, min: .5, max: 25, step: .5, unit: '% per trade', size: 'sm', caption: v => `≈ ${usd(val * v / 100, 2)} per trade right now`, onCommit: v => act(() => mapi('cfg', { cfg: { pct: v } }), 'Saved') });
   $('#mreset').onclick = () => confirm('Reset the paper account? All paper trades will be cleared.') && act(() => mapi('reset', { amount: +$('#mamt').value }), 'Paper account reset');
 }

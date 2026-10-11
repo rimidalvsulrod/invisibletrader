@@ -43,7 +43,7 @@ function edgeRender() {
       ${card('dog', 'Underdogs', 'A forward test, not a proven edge: pre-game sides priced 6-20¢ on winner, spread and total markets. Global history suggested they win more than their price. About 15% win, so expect long losing streaks.')}</div>
     <div class="grid g2" style="margin-top:16px">
       <div class="card pad"><h2>Trade size</h2><p class=mut style="font-size:13px;margin:6px 0 12px">Percent of the paper account per trade.</p>
-        <div class="grid" style="gap:10px">${[['ladder', 'Ladder gaps', 25], ['set', 'Set gaps', 25], ['dog', 'Underdogs', 5]].map(([k, l, mx]) => `<label class="row sb"><span>${l}</span><span class=row style="gap:6px"><input class=inp type=number data-k=${k} min=.1 max=${mx} step=.1 value=${c[k]} style="width:90px"><b>%</b></span></label>`).join('')}</div>
+        <div class=dials>${[['ladder', 'Ladder gaps'], ['set', 'Set gaps'], ['dog', 'Underdogs']].map(([k, l]) => `<div><div style="text-align:center;font-weight:550;margin-bottom:4px">${l}</div><div id=edl-${k}></div></div>`).join('')}</div>
         <div class=mut style="font-size:12.5px;margin-top:10px">Built in: gaps need 1.5¢ or more after fees (sets 2¢), a position is at most 10% of the shares showing, and legs fill one after another with a fresh price check: if the price runs away the first leg stays unhedged, like in real trading.</div></div>
       <div class="card pad"><h2>Paper account</h2><p class=mut style="font-size:13px;margin:6px 0 12px">Start over with a fresh simulated balance. All Edge Lab trades are cleared.</p>
         <div class=row style="gap:8px"><input class=inp type=number id=eamt value=${Math.round(A.start)} min=10 style="max-width:140px"><button class=btn id=ereset>Reset paper account</button></div></div></div>
@@ -52,6 +52,6 @@ function edgeRender() {
   edgeScan();
   const act = async (fn, msg) => { try { await fn(); if (msg) toast(msg); } catch (e) { toast(`<span class=down>${esc(e.message)}</span>`); } edgeS = await eapi('state').catch(() => edgeS); edgeRender(); };
   $('#etog').onclick = () => act(() => eapi(s.enabled ? 'stop' : 'start', {}), s.enabled ? 'Edge Lab paused' : 'Edge Lab started');
-  $$('input[data-k]').forEach(i => i.onchange = () => act(() => eapi('cfg', { cfg: { [i.dataset.k]: +i.value } }), 'Saved'));
+  for (const [k, mn, mx, stp] of [['ladder', .5, 25, .5], ['set', .5, 25, .5], ['dog', .1, 5, .1]]) dialMount('#edl-' + k, { key: 'edge-' + k, value: c[k], min: mn, max: mx, step: stp, unit: '% per trade', size: 'sm', onCommit: v => act(() => eapi('cfg', { cfg: { [k]: v } }), 'Saved') });
   $('#ereset').onclick = () => confirm('Reset the paper account? All Edge Lab trades will be cleared.') && act(() => eapi('reset', { amount: +$('#eamt').value }), 'Paper account reset');
 }

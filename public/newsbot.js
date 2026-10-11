@@ -37,7 +37,7 @@ function newsRender() {
     <div class="grid g2" style="margin-top:16px">${connect}
       <div class="card pad"><h2>Trade size</h2><p class=mut style="font-size:13px;margin:6px 0 12px">How much each trade uses: a share of your account value, or a fixed amount.</p>
         <div class=row style="gap:10px;flex-wrap:wrap"><div class=seg id=nsize><button data-v=pct class="${c.size == 'pct' ? 'on' : ''}">% of account</button><button data-v=usd class="${c.size == 'usd' ? 'on' : ''}">$ per trade</button></div>
-          <label class=row style="gap:8px"><input class=inp type=number id=nsz value=${c.size == 'pct' ? c.pct : c.usd} style="width:110px"><b>${c.size == 'pct' ? '%' : '$'}</b></label></div>
+          ${c.size == 'usd' ? `<label class=row style="gap:8px"><input class=inp type=number id=nsz value=${c.usd} style="width:110px"><b>$</b></label>` : ''}</div>${c.size == 'pct' ? '<div id=ndial style="margin-top:10px"></div>' : ''}
         <div class=mut style="font-size:12.5px;margin-top:10px">Built in: only strong headlines about 1 to 3 companies, under 90 seconds old, during market hours. Exits at +3%, -1.5% or after 30 minutes, and everything is sold 5 minutes before the close. At most 5 positions, one trade per stock per day, and it stops for the day if the account is down 3%.</div></div></div>
     <div class=grid style="margin-top:16px">
       <div class=card style="overflow:hidden"><div class="pad" style="padding-bottom:8px"><h2>Trades</h2></div><table class=tbl><tbody>${s.trades.map(t => `<tr><td style="width:1%"><span class="pill ${t.status == 'open' ? 'ac' : t.status == 'skip' ? 'n' : t.pnl > 0 ? 'up' : 'down'}">${t.status == 'open' ? 'Open' : t.status == 'skip' ? 'Skipped' : t.pnl > 0 ? 'Won' : 'Lost'}</span></td>
@@ -48,7 +48,8 @@ function newsRender() {
   const act = async (fn, msg) => { try { await fn(); if (msg) toast(msg); } catch (e) { toast(`<span class=down>${esc(e.message)}</span>`); } newsS = await napi('state').catch(() => newsS); newsRender(); };
   $('#ntog').onclick = () => { if (!s.enabled && !s.paper && !confirm('Start Newsflash with REAL money on your Alpaca account?')) return; act(() => napi(s.enabled ? 'stop' : 'start', {}), s.enabled ? 'Newsflash paused' : 'Newsflash started'); };
   $$('#nsize button').forEach(b => b.onclick = () => b.dataset.v != c.size && act(() => napi('cfg', { cfg: { size: b.dataset.v } })));
-  $('#nsz').onchange = () => act(() => napi('cfg', { cfg: { [c.size]: +$('#nsz').value } }), 'Saved');
+  $('#nsz') && ($('#nsz').onchange = () => act(() => napi('cfg', { cfg: { usd: +$('#nsz').value } }), 'Saved'));
+  dialMount('#ndial', { key: 'news-pct', value: c.pct, min: .5, max: 25, step: .5, unit: '% per trade', size: 'sm', caption: v => A ? `≈ ${usd(A.equity * v / 100, 2)} per trade right now` : '', onCommit: v => act(() => napi('cfg', { cfg: { pct: v } }), 'Saved') });
   let paper = true; $$('#npaper button').forEach(b => b.onclick = () => { paper = b.dataset.v == '1'; $$('#npaper button').forEach(x => x.classList.toggle('on', x === b)); });
   const proof = v => s.emailCodes ? { code: v } : { password: v };
   $('#nkgo') && ($('#nkgo').onclick = async () => { $('#nkgo').disabled = true; $('#nkerr').textContent = '';

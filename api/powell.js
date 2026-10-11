@@ -16,7 +16,7 @@ module.exports = handler(async (req, body, q) => {
     case 'state': {
       const c = await AL.getCreds(uid).catch(() => null); let account = null, accountError = null;
       if (c) try { const a = await AL.account(c); account = { equity: +a.equity, cash: +a.cash, day: +a.equity - +a.last_equity, paper: c.paper }; } catch (e) { accountError = e.message; }
-      const trades = await db.q('SELECT ts, day, fut, etf, dir, kind, rpct, qty, entry, stop, tp, status, exitp, pnl, reason FROM powelltrades WHERE uid=$1 ORDER BY ts DESC LIMIT 100', [uid]);
+      const trades = await db.q('SELECT ts, day, fut, etf, dir, kind, rpct, qty, entry, stop, tp, status, exitp, pnl, reason, exitts FROM powelltrades WHERE uid=$1 ORDER BY ts DESC LIMIT 100', [uid]);
       return { enabled: row.enabled, cfg, connected: !!c, paper: c ? c.paper : true, account, accountError, stats: await P.stats(uid), trades, today: row.lastday || null, etf: P.ETF };
     }
     case 'cfg': { const c = body.cfg || {}, sym = String(c.sym || cfg.sym).toUpperCase(), next = { sym: P.ETF[sym] ? sym : cfg.sym, risk: clamp(c.risk ?? cfg.risk, .1, 2, P.DEF.risk), max: clamp(c.max ?? cfg.max, 5, 100, P.DEF.max), inst: (c.inst ?? cfg.inst) === 'etf' ? 'etf' : 'futures' };
