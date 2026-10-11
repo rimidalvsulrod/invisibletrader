@@ -18,6 +18,11 @@ module.exports = {
   sell: (c, sym, qty) => trade(c, 'POST', '/v2/orders', { symbol: sym, qty: String(qty), side: 'sell', type: 'market', time_in_force: 'day' }),
   close: (c, sym) => trade(c, 'DELETE', `/v2/positions/${encodeURIComponent(sym)}`),
   order: (c, id) => trade(c, 'GET', `/v2/orders/${id}`),
+  orderNested: (c, id) => trade(c, 'GET', `/v2/orders/${id}?nested=true`), // includes the stop / target legs of a bracket
+  cancel: (c, id) => trade(c, 'DELETE', `/v2/orders/${id}`),
+  // market entry with a protective stop and a profit target attached (whole shares only; Alpaca does not allow fractional brackets)
+  bracket: (c, o) => trade(c, 'POST', '/v2/orders', { symbol: o.symbol, qty: String(o.qty), side: o.side, type: 'market', time_in_force: 'day', order_class: 'bracket',
+    take_profit: { limit_price: o.tp.toFixed(2) }, stop_loss: { stop_price: o.sl.toFixed(2) } }),
   asset: (c, sym) => trade(c, 'GET', `/v2/assets/${encodeURIComponent(sym)}`),
   // daily bars (split + dividend adjusted) for several symbols, oldest first. IEX feed: the one free accounts may query.
   async bars(c, syms, startISO) { const out = {}; let tok = '';
