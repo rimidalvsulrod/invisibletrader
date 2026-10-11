@@ -4,7 +4,7 @@
 //   SHORT = it wicks ABOVE a level (the opening-range high, else the latest prior swing high) and closes back BELOW it.
 // Entry = that candle's close. Stop = 1 tick beyond the sweep wick. Target = 2R. One signal per day at most.
 // Data: Yahoo Finance's free chart endpoint (NQ=F, ES=F, 5m, extended hours). Shared by the chart tab, the backtest and the bot.
-const crypto = require('crypto'), db = require('./db'), AL = require('./alpaca');
+const crypto = require('crypto'), db = require('./db'), AL = require('./alpaca'), PBK = require('./paperbroker');
 const UA = { 'user-agent': 'Mozilla/5.0 (compatible; MimicPowell/1.0)', accept: 'application/json' };
 const SYMS = { NQ: 'NQ=F', ES: 'ES=F', MNQ: 'MNQ=F', MES: 'MES=F' }, TICK = .25, MIN_R = .0002, MAX_R = .008, OPEN_M = 480, SIG_M = 600, LAST_M = 955;
 const etp = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -60,18 +60,30 @@ function summary(rows) { // backtest across every day that had a tradable signal
    Alpaca does not offer futures, so the signal comes from NQ / ES and the trade is placed in the matching ETF (NQ -> QQQ,
    ES -> SPY) with the SAME percentage stop and 2R target, as a bracket order (entry + stop + target). Anything still open
    at 15:55 ET is closed. Whole shares only (brackets cannot be fractional). It never trades an ETF the account already holds. */
-const ETF = { NQ: 'QQQ', MNQ: 'QQQ', ES: 'SPY', MES: 'SPY' }, DEF = { sym: 'NQ', risk: .5, max: 25 }, WINDOW = [606, 630], FLAT_M = 955; // act 10:06-10:30 ET, flatten 15:55
+const ETF = { NQ: 'QQQ', MNQ: 'QQQ', ES: 'SPY', MES: 'SPY' }, DEF = { sym: 'NQ', risk: .5, max: 25, inst: 'futures' }, WINDOW = [606, 630], FLAT_M = 955; // act 10:06-10:30 ET, flatten 15:55
 const J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (_) { return d; } };
 async function open(uid) {
   await db.q("INSERT INTO pbot (uid, cfg, updated) VALUES ($1, '{}', $2) ON CONFLICT (uid) DO NOTHING", [uid, Date.now()]);
   const row = await db.one('SELECT * FROM pbot WHERE uid=$1', [uid]), c = J(row.cfg, {});
-  return { row, cfg: { sym: ETF[c.sym] ? c.sym : DEF.sym, risk: c.risk > 0 ? c.risk : DEF.risk, max: c.max > 0 ? c.max : DEF.max } };
+  return { row, cfg: { sym: ETF[c.sym] ? c.sym : DEF.sym, risk: c.risk > 0 ? c.risk : DEF.risk, max: c.max > 0 ? c.max : DEF.max, inst: c.inst === 'etf' ? 'etf' : 'futures' } };
 }
 const rec = (uid, x) => db.q('INSERT INTO powelltrades (id, uid, ts, day, fut, etf, dir, kind, rpct, qty, entry, stop, tp, orderid, status, reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)',
   [crypto.randomBytes(8).toString('hex'), uid, Date.now(), x.day, x.fut, x.etf, x.dir, x.kind, x.rpct, x.qty || null, x.entry || null, x.stop || null, x.tp || null, x.orderid || null, x.status || 'open', x.reason || null]);
 const wait = async (c, o) => { let f = o; for (let i = 0; i < 8 && f.status !== 'filled'; i++) { await new Promise(z => setTimeout(z, 500)); f = await AL.order(c, o.id).catch(() => f); } return f; };
 const cents = x => Math.round(x * 100) / 100;
 
+// NQ / ES futures in the built-in paper account: real contract sizes ($20 / $50 a point, micros $2 / $5), the signal's own stop and 2R target.
+// The paper account rides on the real broker's balance, so position size follows it.
+async function futuresTrade(uid, c, cfg, sg, base) {
+  const long = sg.dir === 'long', F = PBK.FUT, skip = async why => (await rec(uid, { ...base, status: 'skip', reason: why }), { skipped: why });
+  const acct = await AL.account(c), eq = Number(acct.equity), lastEq = Number(acct.last_equity); if (!(eq > 0)) return skip('no account balance'); if (lastEq > 0 && (eq - lastEq) / lastEq <= -.03) return skip('daily loss limit (3%) reached');
+  const root = cfg.sym, micro = F[root].micro, risk = eq * cfg.risk / 100; let sym = root, qty = Math.min(10, Math.floor(risk / (sg.R * F[root].mult)));
+  if (qty < 1) { sym = micro; qty = Math.min(50, Math.floor(risk / (sg.R * F[micro].mult))); } if (!(qty >= 1)) return skip('risk too small for one micro contract');
+  if ((await AL.positions(c)).find(p => [root, micro].includes(p.symbol))) return skip(`already in ${root}`);
+  const px = await AL.last(c, sym); if (!(px > 0) || Math.abs(px - sg.entry) > .5 * sg.R) return skip('price ran away from the signal');
+  const snap = x => Math.round(x / .25) * .25; let o; try { o = await AL.bracket(c, { symbol: sym, qty, side: long ? 'buy' : 'sell', tp: snap(sg.tp), sl: snap(sg.stop) }); } catch (e) { return skip('the paper account refused the order: ' + String(e.message).slice(0, 100)); }
+  const entry = Number(o.filled_avg_price) || px; await rec(uid, { ...base, etf: sym, qty, entry, stop: sg.stop, tp: sg.tp, orderid: o.id }); return { traded: `${sg.dir} ${qty} ${sym} @ ${entry} (built-in paper)` };
+}
 // the decision for one user (called once the 10:00 candle has closed); returns what happened
 async function decide(uid, c, cfg, day) {
   const d = await candles(cfg.sym, 5e3), cs = d.days.get(day.date); if (!cs) return { wait: 'no candles yet' };
@@ -79,6 +91,7 @@ async function decide(uid, c, cfg, day) {
   const sg = g.signal; if (!sg) return { none: g.note || 'no sweep today' };
   const base = { day: day.date, fut: cfg.sym, etf: ETF[cfg.sym], dir: sg.dir, kind: sg.kind, rpct: sg.rpct };
   if (sg.skip) return await rec(uid, { ...base, status: 'skip', reason: sg.skip }), { skipped: sg.skip };
+  if (cfg.inst !== 'etf') return futuresTrade(uid, c, cfg, sg, base); // the real contracts, in the built-in paper account
   const long = sg.dir === 'long', etf = base.etf, acct = await AL.account(c), eq = Number(acct.equity), cash = Number(acct.cash), lastEq = Number(acct.last_equity);
   const skip = async why => (await rec(uid, { ...base, status: 'skip', reason: why }), { skipped: why });
   if (lastEq > 0 && (eq - lastEq) / lastEq <= -.03) return skip('daily loss limit (3%) reached');
@@ -101,7 +114,7 @@ async function manage() {
     const c = await AL.getCreds(uid).catch(() => null); if (!c) continue;
     for (const t of ts) { try {
       const o = await AL.orderNested(c, t.orderid), long = t.dir === 'long', sign = long ? 1 : -1;
-      const done = (px, why) => db.q("UPDATE powelltrades SET status='closed', exitp=$2, pnl=$3, reason=$4, exitts=$5 WHERE id=$1 AND status='open'", [t.id, px, t.entry && px ? (px - t.entry) * t.qty * sign : null, why, Date.now()]);
+      const done = (px, why) => db.q("UPDATE powelltrades SET status='closed', exitp=$2, pnl=$3, reason=$4, exitts=$5 WHERE id=$1 AND status='open'", [t.id, px, t.entry && px ? (px - t.entry) * t.qty * sign * PBK.mult(t.etf) : null, why, Date.now()]);
       if (['canceled', 'rejected', 'expired'].includes(o.status) && !Number(o.filled_qty)) { await done(null, 'order was not filled'); continue; }
       if (!t.entry && Number(o.filled_avg_price)) { t.entry = Number(o.filled_avg_price); await db.q('UPDATE powelltrades SET entry=$2 WHERE id=$1', [t.id, t.entry]); }
       const hit = (o.legs || []).find(l => l.status === 'filled'); if (hit) { await done(Number(hit.filled_avg_price), hit.type === 'stop' || hit.type === 'stop_limit' ? 'stop' : 'target'); continue; }

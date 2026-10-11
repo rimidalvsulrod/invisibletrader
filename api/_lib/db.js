@@ -29,6 +29,10 @@ const SCHEMA = [
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS alpaca text`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS broker text`, // 'alpaca' (default) or 'webull'
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS webull text`, // Webull API credentials (secret encrypted), chosen account, lock state, per-order cap
+  // Built-in paper trading: a simulated account that follows the real broker's balance. Used for anything the broker cannot trade (futures, refused shorts, untradable symbols).
+  `CREATE TABLE IF NOT EXISTS pcash (uid text PRIMARY KEY, delta double precision NOT NULL DEFAULT 0, realized double precision NOT NULL DEFAULT 0, updated bigint)`,
+  `CREATE TABLE IF NOT EXISTS ppos (uid text NOT NULL, sym text NOT NULL, qty double precision NOT NULL, avg double precision NOT NULL, PRIMARY KEY (uid, sym))`,
+  `CREATE TABLE IF NOT EXISTS pord (id text PRIMARY KEY, uid text NOT NULL, grp text, ts bigint NOT NULL, sym text NOT NULL, side text NOT NULL, qty double precision NOT NULL, kind text NOT NULL, px double precision, fpx double precision, status text NOT NULL, fts bigint)`,
   // Powell bot (10 AM sweep strategy on NQ/ES signals, traded through Alpaca ETF proxies): one row per user + every trade
   `CREATE TABLE IF NOT EXISTS pbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, lastday text, updated bigint)`,
   `CREATE TABLE IF NOT EXISTS powelltrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, day text, fut text, etf text, dir text, kind text, rpct double precision, qty double precision, entry double precision, stop double precision, tp double precision, orderid text, status text NOT NULL DEFAULT 'open', exitp double precision, pnl double precision, reason text, exitts bigint)`,

@@ -4,7 +4,7 @@
 // and keeps US-account reconciliation current. Safe alongside other runners: the engine's database lock and
 // seen-trade memory make sure each trade is handled once.
 process.env.MIMIC_RUNNER = '1'; // lets the BTC bot hold a live WebSocket price feed open
-const E = require('./api/_lib/engine'), db = require('./api/_lib/db'), M = require('./api/_lib/match-us'), B = require('./api/_lib/btc'), N = require('./api/_lib/news'), MM = require('./api/_lib/meme'), EL = require('./api/_lib/edge'), SW = require('./api/_lib/swing'), PW = require('./api/_lib/powell');
+const E = require('./api/_lib/engine'), db = require('./api/_lib/db'), M = require('./api/_lib/match-us'), B = require('./api/_lib/btc'), N = require('./api/_lib/news'), MM = require('./api/_lib/meme'), EL = require('./api/_lib/edge'), SW = require('./api/_lib/swing'), PW = require('./api/_lib/powell'), AL = require('./api/_lib/alpaca');
 const end = Date.now() + (Number(process.env.RUN_MINUTES) || 130) * 6e4, POLL = 15e3;
 const sleep = ms => new Promise(z => setTimeout(z, ms)), log = (...a) => console.log(new Date().toISOString(), ...a);
 let stop = false; for (const s of ['SIGINT', 'SIGTERM']) process.on(s, () => { stop = true; });
@@ -61,6 +61,7 @@ async function kick() {
     if (up && beat % 5 === 0) try { ws.send('ping'); } catch (x) {} // the stream goes quiet without keep-alive pings
     if (beat % 3 === 0) N.tick().catch(e => log('news', e.message)); // Newsflash: news feed + exits every 3s
     EL.tick().catch(e => log('edge', e.message)); // Edge Lab: scans every 60s, settles every 2 min
+    if (beat % 5 === 0) AL.paper.settle().catch(e => log('paper', e.message)); // built-in paper account: stops and targets
     PW.tick().catch(e => log('powell', e.message)); // Powell bot: acts 10:06-10:30 ET, checks fills every 15s, flattens at 15:55
     SW.tick().catch(e => log('swing', e.message)); // Swing Trader: decides once a day, checks stops every 20s
     MM.tick().catch(e => log('meme', e.message)); // Meme Radar: scans every 30s, manages positions every 8s

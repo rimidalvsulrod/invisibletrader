@@ -19,7 +19,7 @@ module.exports = handler(async (req, body, q) => {
       const trades = await db.q('SELECT ts, day, fut, etf, dir, kind, rpct, qty, entry, stop, tp, status, exitp, pnl, reason FROM powelltrades WHERE uid=$1 ORDER BY ts DESC LIMIT 100', [uid]);
       return { enabled: row.enabled, cfg, connected: !!c, paper: c ? c.paper : true, account, accountError, stats: await P.stats(uid), trades, today: row.lastday || null, etf: P.ETF };
     }
-    case 'cfg': { const c = body.cfg || {}, sym = String(c.sym || cfg.sym).toUpperCase(), next = { sym: P.ETF[sym] ? sym : cfg.sym, risk: clamp(c.risk ?? cfg.risk, .1, 2, P.DEF.risk), max: clamp(c.max ?? cfg.max, 5, 100, P.DEF.max) };
+    case 'cfg': { const c = body.cfg || {}, sym = String(c.sym || cfg.sym).toUpperCase(), next = { sym: P.ETF[sym] ? sym : cfg.sym, risk: clamp(c.risk ?? cfg.risk, .1, 2, P.DEF.risk), max: clamp(c.max ?? cfg.max, 5, 100, P.DEF.max), inst: (c.inst ?? cfg.inst) === 'etf' ? 'etf' : 'futures' };
       await db.q('UPDATE pbot SET cfg=$2, updated=$3 WHERE uid=$1', [uid, JSON.stringify(next), Date.now()]); return { ok: true, cfg: next }; }
     case 'start': if (!(await AL.getCreds(uid).catch(() => null))) throw err(400, 'Connect Alpaca first (in the Newsflash tab)');
       await db.q('UPDATE pbot SET enabled=true, updated=$2 WHERE uid=$1', [uid, Date.now()]); return { ok: true };

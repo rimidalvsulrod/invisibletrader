@@ -52,6 +52,9 @@ module.exports = handler(async (req, body, q) => {
       await W.adapter.account(c); await W.adapter.positions(c); // must read cleanly right now
       await saveW(uid, { ...w, unlocked: true, capUsd: clamp(body.capUsd, 50, 100000, 1000) }); return { ok: true }; }
     case 'webull-lock': await saveW(uid, { ...w, unlocked: false }); if (broker === 'webull') await Promise.all(['nbot', 'sbot', 'pbot'].map(t => db.q(`UPDATE ${t} SET enabled=false WHERE uid=$1`, [uid]))); return { ok: true };
+    case 'paper': { const o = await AL.paper.overlay(uid), pos = await AL.paper.positions(uid), cc = await AL.getCreds(uid).catch(() => null); let base = null; if (cc) try { const a = await AL.account(cc); base = { equity: +a.equity, cash: +a.cash }; } catch (_) {}
+      return { pnl: o.total, realized: o.realized, unrealized: o.total - o.realized, open: o.open, positions: pos.map(p => ({ symbol: p.symbol, qty: +p.qty, avg: +p.avg_entry_price, last: +p.current_price })), account: base }; }
+    case 'paper-reset': await db.q("UPDATE pbot SET enabled=false WHERE uid=$1", [uid]); await AL.paper.reset(uid); return { ok: true };
     case 'webull-cap': await saveW(uid, { ...w, capUsd: clamp(body.capUsd, 50, 100000, 1000) }); return { ok: true };
     default: throw err(400, 'unknown op');
   }
