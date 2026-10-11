@@ -4,7 +4,7 @@
 //   Fills: stocks at the live price +/- 2 basis points; futures at the live price +/- 1 tick.
 //   Brackets: entry fills now; the stop and the target are checked every few seconds (futures: against each 5-minute candle's high and low).
 const crypto = require('crypto'), db = require('./db');
-const FUT = { NQ: { mult: 20, tick: .25, micro: 'MNQ' }, MNQ: { mult: 2, tick: .25 }, ES: { mult: 50, tick: .25, micro: 'MES' }, MES: { mult: 5, tick: .25 } };
+const FUT = { NQ: { mult: 20, tick: .25, micro: 'MNQ', fee: 2.25 }, MNQ: { mult: 2, tick: .25, fee: .62 }, ES: { mult: 50, tick: .25, micro: 'MES', fee: 2.25 }, MES: { mult: 5, tick: .25, fee: .62 } }; // fee = commission and exchange fees per contract per side
 const isFut = s => !!FUT[s], mult = s => FUT[s]?.mult || 1, tick = s => FUT[s]?.tick || .01, SLIP = .0002;
 const id = () => 'paper:' + crypto.randomBytes(6).toString('hex'), bad = (m, status = 400) => Object.assign(new Error(m), { status });
 const src = { stock: async () => { throw bad('no stock price source'); }, futures: null }; // set by alpaca.js: stock(uid, sym) -> last price. futures (tests only): sym -> { px, day, cs }
@@ -21,7 +21,8 @@ async function apply(uid, sym, side, qty, px) { // one fill moves the position a
   const m = mult(sym), dq = side === 'buy' ? qty : -qty, p = await db.one('SELECT * FROM ppos WHERE uid=$1 AND sym=$2', [uid, sym]); let q = p ? Number(p.qty) : 0, avg = p ? Number(p.avg) : 0, real = 0;
   if (q === 0 || Math.sign(q) === Math.sign(dq)) { avg = (Math.abs(q) * avg + qty * px) / (Math.abs(q) + qty); q += dq; }
   else { const closing = Math.min(Math.abs(q), qty); real = closing * (px - avg) * Math.sign(q) * m; q += dq; if (Math.abs(q) < 1e-9) q = 0; else if (Math.sign(q) === Math.sign(dq)) avg = px; } // reduced, closed or flipped
-  await bumpCash(uid, isFut(sym) ? real : -dq * px * m + 0, real); // futures only move cash when profit is realised; stocks move the notional
+  const fee = isFut(sym) ? (FUT[sym].fee || 0) * qty : 0; // futures commissions come out of the account on every fill
+  await bumpCash(uid, (isFut(sym) ? real : -dq * px * m) - fee, real - fee); // futures only move cash when profit is realised; stocks move the notional
   if (q === 0) await db.q('DELETE FROM ppos WHERE uid=$1 AND sym=$2', [uid, sym]); else await db.q('INSERT INTO ppos (uid, sym, qty, avg) VALUES ($1,$2,$3,$4) ON CONFLICT (uid, sym) DO UPDATE SET qty=$3, avg=$4', [uid, sym, q, avg]);
   return real;
 }
@@ -36,14 +37,16 @@ async function market(c, side, sym, qty, grp) {
 }
 async function bracket(c, o) { // entry now + take-profit + stop, linked
   const side = o.side, out = side === 'buy' ? 'sell' : 'buy', m = await market(c, side, o.symbol, o.qty), tp = id(), sl = id();
-  await rec({ id: tp, uid: c.uid, grp: m.id, sym: o.symbol, side: out, qty: Number(o.qty), kind: 'tp', px: o.tp, status: 'open' }); await rec({ id: sl, uid: c.uid, grp: m.id, sym: o.symbol, side: out, qty: Number(o.qty), kind: 'sl', px: o.sl, status: 'open' });
-  return { ...m, id: [m.id, tp, sl].join('|') };
+  if (o.tp != null) await rec({ id: tp, uid: c.uid, grp: m.id, sym: o.symbol, side: out, qty: Number(o.qty), kind: 'tp', px: o.tp, status: 'open' }); await rec({ id: sl, uid: c.uid, grp: m.id, sym: o.symbol, side: out, qty: Number(o.qty), kind: 'sl', px: o.sl, status: 'open' });
+  return { ...m, id: [m.id, o.tp != null ? tp : '', sl].join('|') }; // no take-profit: the middle id is empty
 }
 const row = oid => db.one('SELECT * FROM pord WHERE id=$1', [oid]);
 const view = r => ({ id: r.id, status: r.status === 'open' ? 'new' : r.status, filled_qty: r.status === 'filled' ? String(r.qty) : '0', filled_avg_price: r.fpx != null ? String(r.fpx) : '' });
 const order = async (c, oid) => { const r = await row(String(oid).split('|')[0]); if (!r) throw bad('paper order not found', 404); return view(r); };
-async function orderNested(c, oid) { const [m, tp, sl] = String(oid).split('|'), top = await order(c, m); if (!tp) return top;
-  const [a, b] = await Promise.all([row(tp), row(sl)]); return { ...top, id: oid, legs: [{ id: tp, type: 'limit', status: view(a).status, filled_avg_price: view(a).filled_avg_price }, { id: sl, type: 'stop', status: view(b).status, filled_avg_price: view(b).filled_avg_price }] }; }
+async function orderNested(c, oid) { const [m, tp, sl] = String(oid).split('|'), top = await order(c, m); if (!tp && !sl) return top; const legs = [];
+  if (tp) { const a = view(await row(tp)); legs.push({ id: tp, type: 'limit', status: a.status, filled_avg_price: a.filled_avg_price }); } if (sl) { const b = view(await row(sl)); legs.push({ id: sl, type: 'stop', status: b.status, filled_avg_price: b.filled_avg_price }); }
+  return { ...top, id: oid, legs }; }
+const moveStop = async (uid, legId, px) => { await db.q("UPDATE pord SET px=$3 WHERE id=$1 AND uid=$2 AND kind='sl' AND status='open'", [String(legId), uid, px]); }; // trailing stop
 const cancel = async (c, oid) => { await db.q("UPDATE pord SET status='canceled' WHERE id=$1 AND status='open'", [String(oid).split('|')[0]]); return {}; };
 
 /* ---------- account view ---------- */
@@ -78,4 +81,4 @@ async function settle() {
   } catch (e) { console.error('paper settle', l.sym, e.message); } }
   return n;
 }
-module.exports = { FUT, isFut, mult, tick, configure, price, market, bracket, order, orderNested, cancel, positions, pos, overlay, reset, settle, futuresLast };
+module.exports = { moveStop, FUT, isFut, mult, tick, configure, price, market, bracket, order, orderNested, cancel, positions, pos, overlay, reset, settle, futuresLast };

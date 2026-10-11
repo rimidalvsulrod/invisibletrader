@@ -114,7 +114,7 @@ async function manage() {
     const c = await AL.getCreds(uid).catch(() => null); if (!c) continue;
     for (const t of ts) { try {
       const o = await AL.orderNested(c, t.orderid), long = t.dir === 'long', sign = long ? 1 : -1;
-      const done = (px, why) => db.q("UPDATE powelltrades SET status='closed', exitp=$2, pnl=$3, reason=$4, exitts=$5 WHERE id=$1 AND status='open'", [t.id, px, t.entry && px ? (px - t.entry) * t.qty * sign * PBK.mult(t.etf) : null, why, Date.now()]);
+      const done = (px, why) => db.q("UPDATE powelltrades SET status='closed', exitp=$2, pnl=$3, reason=$4, exitts=$5 WHERE id=$1 AND status='open'", [t.id, px, t.entry && px ? (px - t.entry) * t.qty * sign * PBK.mult(t.etf) - 2 * (PBK.FUT[t.etf]?.fee || 0) * t.qty : null, why, Date.now()]);
       if (['canceled', 'rejected', 'expired'].includes(o.status) && !Number(o.filled_qty)) { await done(null, 'order was not filled'); continue; }
       if (!t.entry && Number(o.filled_avg_price)) { t.entry = Number(o.filled_avg_price); await db.q('UPDATE powelltrades SET entry=$2 WHERE id=$1', [t.id, t.entry]); }
       const hit = (o.legs || []).find(l => l.status === 'filled'); if (hit) { await done(Number(hit.filled_avg_price), hit.type === 'stop' || hit.type === 'stop_limit' ? 'stop' : 'target'); continue; }
