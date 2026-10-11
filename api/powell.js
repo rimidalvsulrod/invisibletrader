@@ -1,6 +1,6 @@
 // Powell Strategy: chart data for the tab (free Yahoo Finance 5-minute futures candles) and controls for the Powell bot.
 const { handler, err } = require('./_lib/util');
-const db = require('./_lib/db'), ST = require('./_lib/supertrend'), P = require('./_lib/powell'), AL = require('./_lib/alpaca'), A = require('./_lib/accounts');
+const db = require('./_lib/db'), ICT = require('./_lib/ictbot'), ST = require('./_lib/supertrend'), P = require('./_lib/powell'), AL = require('./_lib/alpaca'), A = require('./_lib/accounts');
 const clamp = (v, lo, hi, d) => Number.isFinite(Number(v)) ? Math.min(hi, Math.max(lo, Number(v))) : d;
 // Supertrend bot (same tab family, so no extra server function): ops st-data, st-state, st-cfg, st-start, st-stop
 async function stApi(uid, op, body) {
@@ -18,9 +18,26 @@ async function stApi(uid, op, body) {
     default: throw err(400, 'unknown op');
   }
 }
+// Sweep Bot (ICT rules, same tab family): ops ict-data, ict-state, ict-cfg, ict-start, ict-stop
+async function ictApi(uid, op, body) {
+  const { cfg } = await ICT.open(uid);
+  switch (op) {
+    case 'data': try { return { ...(await ICT.chartData(cfg.sym, cfg)), cfg }; } catch (e) { throw err(e.status || 502, e.message); }
+    case 'state': { const c = await AL.getCreds(uid).catch(() => null), row = await db.one('SELECT enabled FROM ictbot WHERE uid=$1', [uid]); let account = null, accountError = null;
+      if (c) try { const a = await AL.account(c); account = { equity: +a.equity, cash: +a.cash }; } catch (e) { accountError = e.message; }
+      const trades = (await db.q('SELECT id, ts, day, root, sym, dir, qty, entry, stop, tp, status, exitp, pnl, reason, exitts FROM icttrades WHERE uid=$1 ORDER BY ts DESC LIMIT 100', [uid])).map(t => ({ ...t, ts: Number(t.ts), exitts: t.exitts != null ? Number(t.exitts) : null }));
+      return { enabled: !!row?.enabled, cfg, connected: !!c, account, accountError, stats: await ICT.stats(uid), trades, now: Date.now() }; }
+    case 'cfg': { const c = body.cfg || {}, next = ICT.norm({ sym: String(c.sym ?? cfg.sym).toUpperCase(), risk: clamp(c.risk ?? cfg.risk, .1, 2, ICT.DEF.risk), rr: clamp(c.rr ?? cfg.rr, 1, 4, ICT.DEF.rr), max: Math.round(clamp(c.max ?? cfg.max, 1, 4, ICT.DEF.max)), model: c.model ?? cfg.model, pd: (c.pd ?? cfg.pd) !== false, int: (c.int ?? cfg.int) !== false });
+      await db.q('UPDATE ictbot SET cfg=$2, updated=$3 WHERE uid=$1', [uid, JSON.stringify(next), Date.now()]); return { ok: true, cfg: next }; }
+    case 'start': if (!(await AL.getCreds(uid).catch(() => null))) throw err(400, 'Connect Alpaca first (in the Newsflash tab)'); await db.q('UPDATE ictbot SET enabled=true, updated=$2 WHERE uid=$1', [uid, Date.now()]); return { ok: true };
+    case 'stop': await db.q('UPDATE ictbot SET enabled=false, updated=$2 WHERE uid=$1', [uid, Date.now()]); return { ok: true };
+    default: throw err(400, 'unknown op');
+  }
+}
 module.exports = handler(async (req, body, q) => {
   const u = await A.need(req), uid = u.id, op = q.op || body.op;
   if (op && op.startsWith('st-')) return stApi(uid, op.slice(3), body);
+  if (op && op.startsWith('ict-')) return ictApi(uid, op.slice(4), body);
   if (op === 'data') {
     const sym = String(q.sym || 'NQ').toUpperCase(); if (!P.SYMS[sym]) throw err(400, 'Pick NQ, ES, MNQ or MES');
     let d; try { d = await P.candles(sym); } catch (e) { throw err(e.status || 502, e.message); }

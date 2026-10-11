@@ -38,6 +38,9 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS gexbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, updated bigint)`,
   `ALTER TABLE gexbot ADD COLUMN IF NOT EXISTS cfg text`, // the risk dials
   `CREATE TABLE IF NOT EXISTS gextrades (id text PRIMARY KEY, uid text NOT NULL, sig text, ts bigint NOT NULL, day text, dir text, qty double precision, entry double precision, stop double precision, tp double precision, orderid text, status text NOT NULL DEFAULT 'open', exitp double precision, pnl double precision, reason text, exitts bigint, UNIQUE (uid, sig))`, // each user's paper trades of the pin-fade signals (one per user and signal)
+  // Sweep Bot (ICT liquidity sweep + market structure shift + fair value gap on 5-minute NQ / ES, in the built-in paper account)
+  `CREATE TABLE IF NOT EXISTS ictbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, updated bigint)`,
+  `CREATE TABLE IF NOT EXISTS icttrades (id text PRIMARY KEY, uid text NOT NULL, key text, ts bigint NOT NULL, day text, root text, sym text, dir text, qty double precision, entry double precision, stop double precision, tp double precision, orderid text, status text NOT NULL DEFAULT 'open', exitp double precision, pnl double precision, reason text, exitts bigint, UNIQUE (uid, key))`,
   // Supertrend bot (copies the Supertrend indicator's flips on 15-minute NQ / ES candles, in the built-in paper account)
   `CREATE TABLE IF NOT EXISTS stbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, lastbar bigint, updated bigint)`,
   `CREATE TABLE IF NOT EXISTS sttrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, day text, root text, sym text, dir text, qty double precision, entry double precision, stop double precision, orderid text, status text NOT NULL DEFAULT 'open', exitp double precision, pnl double precision, reason text, exitts bigint)`,
