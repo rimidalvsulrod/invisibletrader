@@ -6,14 +6,18 @@
 // both ways, and a pulled-liquidity exit sells into the crash like a real rug would.
 const crypto = require('crypto'), db = require('./db'), S = require('./settings');
 const CHAINS = { solana: 'solana', base: 'base' }, UA = { 'user-agent': 'Mozilla/5.0 (mimic)', accept: 'application/json' };
-const DEF = { size: 'pct', pct: 5, usd: 25 }, FEE = .01, MAX_OPEN = 6, DAILY_STOP = .15;
+const DEF = { size: 'pct', pct: 2, usd: 25 }, FEE = .01, MAX_OPEN = 6;
+const L = { daily: .05, weekly: .10, heat: .15, smallFdv: 1e5, smallMult: .4 }; // risk limits: stop for the day at -5%, for the week at -10%; at most 15% of the account open at once; sub-$100k coins get 40% size
 const R = { minAge: 15, maxAge: 720, minLiq: 15e3, minFdv: 25e3, maxFdv: 8e6, maxFdvLiq: 60, buy: 6 }; // entry rules
 const X = { sl: -.25, liqDrop: .6, trail1: [.3, .8], trail2: [1, .85], stale: [40 * 6e4, .05], hold: 4 * 36e5 }; // exit rules
 const J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (_) { return d; } };
 const num = x => { x = Number(x); return Number.isFinite(x) ? x : 0; };
 const get = async u => { const r = await fetch(u, { headers: UA, signal: AbortSignal.timeout(12e3) }); if (!r.ok) throw new Error(`${r.status} ${new URL(u).host}`); return r.json(); };
-// price impact of a swap of $usd in a pool holding $liq (constant product: ~2*usd/liq) plus 0.5% routing slop
-const slip = (usd, liq) => Math.min(.9, .005 + 2 * usd / Math.max(liq, 1));
+// price impact of a swap of $usd in a pool holding $liq (constant product: ~2*usd/liq) plus 2% slop (landing late, bots in front: the meme-coin research puts the adverse fill at 2-5% a side on thin pools)
+const slip = (usd, liq) => Math.min(.9, .02 + 2 * usd / Math.max(liq, 1));
+// the loss limits and exposure cap in one place: -> reason to skip new buys, or null
+const halt = (equity, day, week, openCost) => day <= -L.daily * equity ? 'down 5% today' : week <= -L.weekly * equity ? 'down 10% this week' : openCost >= L.heat * equity ? 'a 15% share of the account is already open' : null;
+const sized = (want, fdv) => want * (fdv < L.smallFdv ? L.smallMult : 1);
 
 /* ---------- the signal ---------- */
 // one pool -> { ok, score, why[], fails[] }
@@ -79,9 +83,13 @@ const SAFE = new Map(); // token -> { t, v }
 async function safety(chain, token) { // -> { ok, why: [red flags], checked }  (a token that cannot be checked is not traded)
   const hit = SAFE.get(token); if (hit && Date.now() - hit.t < (hit.v.checked ? 30 * 6e4 : 3 * 6e4)) return hit.v; let v;
   try {
-    if (chain === 'solana') { const j = await get(`https://api.rugcheck.xyz/v1/tokens/${token}/report/summary`), risks = (j.risks || []).filter(r => r.level === 'danger').map(r => r.name); v = { ok: !risks.length, why: risks, checked: true, score: num(j.score_normalised) }; }
-    else { const j = await get(`https://api.gopluslabs.io/api/v1/token_security/8453?contract_addresses=${token.toLowerCase()}`), d = j.result && j.result[token.toLowerCase()]; if (!d) throw new Error('no GoPlus report');
+    if (chain === 'solana') { const j = await get(`https://api.rugcheck.xyz/v1/tokens/${token}/report`), bad = (j.risks || []).filter(r => r.level === 'danger').map(r => r.name);
+      if (j.rugged) bad.push('flagged as rugged'); if (j.mintAuthority) bad.push('mint authority not revoked'); if (j.freezeAuthority) bad.push('freeze authority not revoked'); if (num(j.transferFee?.pct) > 10) bad.push('transfer fee over 10%');
+      const dev = (j.topHolders || []).find(h => j.creator && h.owner === j.creator); if (dev && num(dev.pct) > 10) bad.push(`dev still holds ${Math.round(num(dev.pct))}%`);
+      v = { ok: !bad.length, why: [...new Set(bad)], checked: true, score: num(j.score_normalised) }; }
+    else { const j = await get(`https://api.gopluslabs.io/api/v1/token_security/8453?contract_addresses=${token.toLowerCase()}`), d = j.result && j.result[token.toLowerCase()]; if (!d || d.is_honeypot === undefined) throw new Error('no GoPlus report'); // no verdict = not safe
       const bad = []; if (d.is_honeypot === '1') bad.push('honeypot'); if (d.cannot_sell_all === '1') bad.push('cannot sell all'); if (d.hidden_owner === '1') bad.push('hidden owner'); if (d.owner_change_balance === '1') bad.push('owner can change balances'); if (d.selfdestruct === '1') bad.push('can self-destruct'); if (num(d.sell_tax) > .1 || num(d.buy_tax) > .1) bad.push('tax over 10%');
+      if (d.is_mintable === '1') bad.push('owner can mint more'); if (d.transfer_pausable === '1') bad.push('transfers can be paused'); if (d.is_blacklisted === '1') bad.push('has a blacklist'); if (d.is_whitelisted === '1') bad.push('has a whitelist'); if (d.can_take_back_ownership === '1') bad.push('ownership can be taken back'); if (d.is_open_source === '0') bad.push('code not published');
       v = { ok: !bad.length, why: bad, checked: true }; }
   } catch (e) { v = { ok: false, why: ['could not be checked: ' + String(e.message).slice(0, 60)], checked: false }; }
   SAFE.set(token, { t: Date.now(), v }); if (SAFE.size > 500) SAFE.delete(SAFE.keys().next().value); return v;
@@ -96,17 +104,23 @@ async function track(list) {
     const sf = c.ok ? await safety(c.chain, c.token) : null;
     await db.q('INSERT INTO memesig (id, ts, chain, pool, token, sym, price, liq, fdv, age, score, ok, nfail, f, safe) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)', [crypto.randomBytes(8).toString('hex'), Date.now(), c.chain, c.pool, c.token, c.sym, c.price, c.liq, c.fdv, c.age, c.score, !!c.ok, c.nfails, JSON.stringify(c.f || {}), sf ? JSON.stringify({ ok: sf.ok, why: sf.why, checked: sf.checked }) : null]); }
 }
-// one logged signal against its next 4 hours of 1-minute candles (newest first: [time, o, h, l, c, v]); same exits as the bot, same costs, a $50 position
-function simulate(sig, rows) {
-  const entryT = Number(sig.ts) / 1000, c = rows.filter(r => r[0] >= entryT - 30).sort((a, b) => a[0] - b[0]); if (c.length < 5) return { err: 'no candles' };
-  const liq = num(sig.liq), fill = num(sig.price) * (1 + slip(STAKE, liq)), qty = STAKE * (1 - FEE) / fill; let peak = fill, last = fill, mdd = 0, out = null;
-  const exit = (px, why, t) => { const f = px * (1 - slip(qty * px, liq)), proceeds = qty * f * (1 - FEE); return { ret: proceeds / STAKE - 1, why, held: Math.round((t - entryT) / 60), peak: peak / fill - 1, mdd, n: c.length }; };
+// one logged signal against its next 4 hours of 1-minute candles (newest first: [time, o, h, l, c, v]); same exits as the bot, same costs, a $50 position.
+// ladder > 0 tests "take the initial out": half is sold when the price is up by that much (the stake comes back), the rest rides the same exits.
+function run(sig, c, entryT, ladder) {
+  const liq = num(sig.liq), fill = num(sig.price) * (1 + slip(STAKE, liq)); let qty = STAKE * (1 - FEE) / fill, banked = 0, taken = !ladder, peak = fill, last = fill, mdd = 0, out = null;
+  const exit = (px, why, t) => { const f = px * (1 - slip(qty * px, liq)), proceeds = banked + qty * f * (1 - FEE); return { ret: proceeds / STAKE - 1, why, held: Math.round((t - entryT) / 60), peak: peak / fill - 1, mdd, n: c.length }; };
   for (const [t, o, h, l, cl] of c) { if (t <= entryT) { last = cl; continue; } const held = (t - entryT) * 1000; peak = Math.max(peak, h); mdd = Math.min(mdd, l / fill - 1);
     if (l <= last * .2) { out = exit(last * .1, 'pool vanished (likely rug)', t); break; }
     const stop = fill * (1 + X.sl); if (l <= stop) { out = exit(Math.min(o, stop), `stop ${Math.round(X.sl * 100)}%`, t); break; }
+    if (!taken && h >= fill * (1 + ladder)) { const px = Math.max(o, fill * (1 + ladder)), half = qty / 2; banked += half * px * (1 - slip(half * px, liq)) * (1 - FEE); qty -= half; taken = true; }
     const up = peak / fill - 1; if (up >= X.trail2[0] && l <= peak * X.trail2[1]) { out = exit(Math.min(o, peak * X.trail2[1]), 'trailing stop', t); break; } if (up >= X.trail1[0] && l <= peak * X.trail1[1]) { out = exit(Math.min(o, peak * X.trail1[1]), 'trailing stop', t); break; }
     if (held > X.stale[0] && cl / fill - 1 < X.stale[1]) { out = exit(cl, 'no follow-through', t); break; } if (held > X.hold) { out = exit(cl, 'held 4 hours', t); break; } last = cl; }
-  if (!out) out = exit(last, 'end of data', c[c.length - 1][0]); const at = m => { const r = c.find(x => x[0] >= entryT + m * 60); return r ? r[4] / num(sig.price) - 1 : null; }; out.fwd = { m15: at(15), h1: at(60), h4: at(240) }; return out;
+  return out || exit(last, 'end of data', c[c.length - 1][0]);
+}
+function simulate(sig, rows) {
+  const entryT = Number(sig.ts) / 1000, c = rows.filter(r => r[0] >= entryT - 30).sort((a, b) => a[0] - b[0]); if (c.length < 5) return { err: 'no candles' };
+  const out = run(sig, c, entryT, 0), at = m => { const r = c.find(x => x[0] >= entryT + m * 60); return r ? r[4] / num(sig.price) - 1 : null; };
+  out.fwd = { m15: at(15), h1: at(60), h4: at(240) }; out.alt = { l2: run(sig, c, entryT, 1).ret, l3: run(sig, c, entryT, 2).ret }; return out; // alt: the same signal if half were sold at 2x / 3x
 }
 let evBusy = false, lastEv = 0;
 async function evalSignals() { // runner: one matured signal every 5 seconds, politely (the free API allows about 30 requests a minute and the scanner uses 8)
@@ -119,13 +133,22 @@ async function evalSignals() { // runner: one matured signal every 5 seconds, po
 }
 // the backtest: every logged signal in the period that has been followed to the end, grouped by what the bot would have done with it
 const agg = rows => { const r = rows.map(x => x.ev.ret), n = r.length, w = r.filter(x => x > 0).length, sum = r.reduce((a, b) => a + b, 0), gw = r.filter(x => x > 0).reduce((a, b) => a + b, 0), gl = -r.filter(x => x < 0).reduce((a, b) => a + b, 0), sorted = r.slice().sort((a, b) => a - b);
-  return { n, win: n ? w / n : null, avg: n ? sum / n : null, median: n ? sorted[Math.floor(n / 2)] : null, best: n ? sorted[n - 1] : null, worst: n ? sorted[0] : null, pf: gl ? gw / gl : n ? null : null, rugs: rows.filter(x => /vanished/.test(x.ev.why)).length }; };
+  const cut = n >= 30 ? 5 : 1, rest = sorted.slice(0, Math.max(0, n - cut)); // the checks from the backtesting rules: drop the best few signals and see what is left
+  return { n, win: n ? w / n : null, avg: n ? sum / n : null, median: n ? sorted[Math.floor(n / 2)] : null, best: n ? sorted[n - 1] : null, worst: n ? sorted[0] : null, pf: gl ? gw / gl : null, rugs: rows.filter(x => /vanished/.test(x.ev.why)).length, cut, exBest: rest.length ? rest.reduce((a, b) => a + b, 0) / rest.length : null }; };
+// the kill conditions, written down in advance: enough signals, positive after costs, still positive without the best few, a profit factor above 1.2
+const verdict = g => !g.n ? { ok: null, text: 'No signals met the rules yet.' } : g.n < 100 ? { ok: null, text: `Only ${g.n} signal${g.n == 1 ? '' : 's'}. Meme results are so uneven that fewer than 100 prove nothing either way.` }
+  : g.avg <= 0 ? { ok: false, text: 'Loses money after costs. Do not put real money behind it.' } : g.exBest <= 0 ? { ok: false, text: `The profit comes from its ${g.cut} best signal${g.cut == 1 ? '' : 's'}: without them it loses. That is luck, not a method.` }
+  : g.pf != null && g.pf < 1.2 ? { ok: false, text: `Profit factor ${g.pf.toFixed(2)} is too thin to survive real-world fills.` } : { ok: true, text: 'Passes these checks, which is still not proof: this is one stretch of market and the same signals picked the rules.' };
 async function backtest(days, uid) {
   const cut = Date.now() - days * 864e5, all = await db.q('SELECT ts, ok, nfail, f, safe, ev FROM memesig WHERE ts >= $1', [cut]), pending = all.filter(r => !r.ev).length;
-  const rows = all.filter(r => r.ev).map(r => ({ ok: r.ok, nfail: num(r.nfail), f: J(r.f, {}), safe: J(r.safe, null), ev: J(r.ev, {}) })).filter(r => r.ev.ret != null);
+  const rows = all.filter(r => r.ev).map(r => ({ ts: Number(r.ts), ok: r.ok, nfail: num(r.nfail), f: J(r.f, {}), safe: J(r.safe, null), ev: J(r.ev, {}) })).filter(r => r.ev.ret != null);
   const g = (name, note, f) => ({ name, note, ...agg(rows.filter(f)) }); const A = rows;
   const groups = [g('Everything the scanner found', 'every pool that met the basic bar (age, liquidity, market cap)', () => true), g("The bot's rules", 'what the bot would have bought', r => r.ok), g("The bot's rules, plus the safety check", 'with no red flags on RugCheck / GoPlus', r => r.ok && r.safe && r.safe.ok), g('Near misses', 'failed exactly one rule', r => !r.ok && r.nfail === 1)];
-  const V = [['Volume 3x its hourly pace or more', r => r.f.accel >= 3], ['75% or more of trades are buys', r => r.f.ratio15 >= .75], ['Distinct buyers 80%+ of buys', r => r.f.breadth >= .8], ['Up 3-30% in 15 minutes', r => r.f.m15 >= 3 && r.f.m15 <= 30], ['Under 2 hours old', r => r.f.age <= 120], ['Over 3 hours old', r => r.f.age >= 180], ['Liquidity $50k or more', r => r.f.liq >= 5e4], ['Market cap under $500k', r => r.f.fdv < 5e5]].map(([name, f]) => ({ name, ...agg(A.filter(f)) })).filter(x => x.n >= 10);
+  for (const x of groups) x.verdict = verdict(x);
+  // exit test: the same signals if half were sold at 2x or 3x so the stake comes back ("take the initial out"), against selling everything on the bot's rules
+  const lad = rows.filter(r => r.ok && r.ev.alt && r.ev.alt.l2 != null), swap = k => lad.map(r => ({ ...r, ev: { ...r.ev, ret: r.ev.alt[k] } }));
+  if (lad.length >= 5) groups.push({ name: 'Exit test: same signals, sell everything on the bot\'s rules', note: 'for comparison with the next two rows', ...agg(lad) }, { name: 'Exit test: half sold at 2x', note: 'the stake comes back, the rest rides', ...agg(swap('l2')) }, { name: 'Exit test: half sold at 3x', note: 'the stake comes back at three times', ...agg(swap('l3')) });
+  const V = [['Volume 3x its hourly pace or more', r => r.f.accel >= 3], ['75% or more of trades are buys', r => r.f.ratio15 >= .75], ['Distinct buyers 80%+ of buys', r => r.f.breadth >= .8], ['Up 3-30% in 15 minutes', r => r.f.m15 >= 3 && r.f.m15 <= 30], ['Under 2 hours old', r => r.f.age <= 120], ['Over 3 hours old', r => r.f.age >= 180], ['Liquidity $50k or more', r => r.f.liq >= 5e4], ['Market cap under $500k', r => r.f.fdv < 5e5], ['Weekday daytime in the US (13:00-21:00 UTC)', r => { const d = new Date(r.ts); return d.getUTCDay() % 6 > 0 && d.getUTCHours() >= 13 && d.getUTCHours() < 21; }], ['Nights and weekends', r => { const d = new Date(r.ts); return d.getUTCDay() % 6 === 0 || d.getUTCHours() < 13 || d.getUTCHours() >= 21; }]].map(([name, f]) => ({ name, ...agg(A.filter(f)) })).filter(x => x.n >= 10);
   const mine = uid ? await db.one("SELECT count(*)::int AS n, coalesce(sum(pnl),0) AS pnl, sum(CASE WHEN status='won' THEN 1 ELSE 0 END)::int AS w FROM memetrades WHERE uid=$1 AND status<>'open' AND ts>=$2", [uid, cut]) : null;
   return { days, logged: all.length, evaluated: rows.length, pending, groups, variants: V, mine: mine ? { n: mine.n, pnl: num(mine.pnl), won: mine.w || 0 } : null };
 }
@@ -140,9 +163,9 @@ const dayStart = () => { const d = new Date(); d.setUTCHours(0, 0, 0, 0); return
 async function enter(row, cands) {
   const uid = row.uid, c = J(row.cfg, {}), cfg = { size: c.size === 'usd' ? 'usd' : 'pct', pct: c.pct > 0 ? c.pct : DEF.pct, usd: c.usd > 0 ? c.usd : DEF.usd };
   const open = await db.q("SELECT cost FROM memetrades WHERE uid=$1 AND status='open'", [uid]); if (open.length >= MAX_OPEN) return;
-  const day = await db.one("SELECT coalesce(sum(pnl),0) AS p FROM memetrades WHERE uid=$1 AND status<>'open' AND exitts>=$2", [uid, dayStart()]);
-  const openCost = open.reduce((n, t) => n + num(t.cost), 0), equity = row.paper + openCost;
-  if (num(day.p) <= -DAILY_STOP * equity) return; // down 15% today: done until tomorrow
+  const [day, week] = await Promise.all([dayStart(), Date.now() - 7 * 864e5].map(t => db.one("SELECT coalesce(sum(pnl),0) AS p FROM memetrades WHERE uid=$1 AND status<>'open' AND exitts>=$2", [uid, t])));
+  let openCost = open.reduce((n, t) => n + num(t.cost), 0); const equity = row.paper + openCost;
+  if (halt(equity, num(day.p), num(week.p), openCost)) return; // loss limits and the cap on how much is open at once (a rough week means rest, not revenge)
   const fresh = await quotes(cands.map(x => ({ chain: x.chain, pool: x.pool }))); let n = 0;
   for (const x of cands.sort((a, b) => b.score - a.score)) {
     if (n >= 2 || open.length + n >= MAX_OPEN) break;
@@ -150,10 +173,10 @@ async function enter(row, cands) {
     const q = fresh.get(x.pool.toLowerCase()); if (!q || !(q.liq >= R.minLiq)) continue;
     const sf = await safety(x.chain, x.token); if (!sf.ok) continue; // a token with red flags (or one that cannot be checked) is never bought
     if (Math.abs(q.price / x.price - 1) > .06 || q.m5 < -1) continue; // the two sources must agree, and it can't be turning over right now
-    const spend = Math.min(cfg.size === 'usd' ? cfg.usd : equity * cfg.pct / 100, row.paper * .98, q.liq * .01); // never more than 1% of the pool
+    const spend = Math.min(sized(cfg.size === 'usd' ? cfg.usd : equity * cfg.pct / 100, x.fdv), row.paper * .98, q.liq * .01, L.heat * equity - openCost); // smaller for tiny coins, never more than 1% of the pool, never past the cap on what is open
     if (!(spend >= 1)) continue;
     const fill = q.price * (1 + slip(spend, q.liq)), qty = spend * (1 - FEE) / fill;
-    const done = await db.q('UPDATE membot SET paper=paper-$2 WHERE uid=$1 AND paper>=$2 RETURNING paper', [uid, spend]); if (!done.length) continue; row.paper = num(done[0].paper);
+    const done = await db.q('UPDATE membot SET paper=paper-$2 WHERE uid=$1 AND paper>=$2 RETURNING paper', [uid, spend]); if (!done.length) continue; row.paper = num(done[0].paper); openCost += spend;
     await db.q('INSERT INTO memetrades (id, uid, ts, chain, pool, token, sym, entry, qty, cost, liq, fdv, score, why, status, peak, last, lastts, slipin) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)',
       [crypto.randomBytes(8).toString('hex'), uid, Date.now(), x.chain, x.pool, x.token, x.sym, fill, qty, spend, q.liq, x.fdv, x.score, x.why.join(' · ') + ' · no red flags on the safety check', 'open', q.price, q.price, Date.now(), fill / q.price - 1]); n++;
   }
@@ -196,4 +219,4 @@ async function stats(uid) {
   const r = await db.one("SELECT count(*)::int AS n, sum(CASE WHEN status='won' THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN status='lost' THEN 1 ELSE 0 END)::int AS l, coalesce(sum(pnl),0) AS pnl, coalesce(sum(CASE WHEN status='open' THEN cost ELSE 0 END),0) AS openc FROM memetrades WHERE uid=$1", [uid]);
   return { trades: r.n, won: r.w || 0, lost: r.l || 0, pnl: num(r.pnl), open: num(r.openc) };
 }
-module.exports = { safety, track, simulate, evalSignals, backtest, STAKE, DEF, FEE, R, X, judge, slip, scan, quotes, enter, manage, close, tick, open, stats };
+module.exports = { L, halt, sized, verdict, agg, run, safety, track, simulate, evalSignals, backtest, STAKE, DEF, FEE, R, X, judge, slip, scan, quotes, enter, manage, close, tick, open, stats };

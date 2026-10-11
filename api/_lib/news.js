@@ -3,7 +3,13 @@
 // scored with a weighted phrase list; a strong positive score buys, a strong negative one sells a position the bot holds.
 // Exits are automatic: +3% take profit, -1.5% stop, 30 minutes max, everything flat 5 minutes before the close.
 const crypto = require('crypto'), db = require('./db'), S = require('./settings'), AL = require('./alpaca');
-const DEF = { size: 'pct', pct: 2, usd: 100 }, BUY_AT = 3, MAX_OPEN = 5, TP = .03, SL = -.015, HOLD = 30 * 6e4, DAILY_STOP = .03, FRESH = 90e3;
+const DEF = { size: 'pct', pct: 2, usd: 100 }, BUY_AT = 3, MAX_OPEN = 12, EXPOSURE = .4, PER_DAY = 3, TP = .03, SL = -.015, HOLD = 30 * 6e4, DAILY_STOP = .03, FRESH = 3 * 6e4, CLOSE_BUFFER = 6 * 6e4;
+// What can still stop a qualifying headline from becoming a trade: the market is closed or the stock is halted/untradable, there is no cash, the bot's own
+// losses today passed 3% of the account, 12 positions / 40% of the account are already open, or the stock was traded 3 times today. Everything else (a slow
+// API, a rate limit, a failed clock look-up, two headlines at once, a dropped stream) is retried or queued, never dropped.
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const TRANSIENT = /fetch failed|timeout|timed out|ECONN|ETIMEDOUT|EAI_AGAIN|socket|too many requests|rate limit|Alpaca: (5\d\d|.*(unavailable|temporar|gateway|internal))/i;
+async function retry(fn, tries = 3) { for (let i = 1; ; i++) { try { return await fn(); } catch (e) { if (i >= tries || !TRANSIENT.test(String(e && e.message))) throw e; await sleep(250 * i); } } }
 const J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (_) { return d; } };
 
 /* ---------- scoring ---------- */
@@ -47,7 +53,7 @@ async function stream() {
   let WebSocket; try { WebSocket = require('ws'); } catch (_) { return; }
   ws = new WebSocket('wss://stream.data.alpaca.markets/v1beta1/news', { headers: AL.hdr(c) });
   ws.on('message', d => { let a; try { a = JSON.parse(d); } catch (_) { return; } for (const m of [].concat(a)) {
-    if (m.T === 'success' && m.msg === 'authenticated') { wsUp = true; wsErr = ''; ws.send(JSON.stringify({ action: 'subscribe', news: ['*'] })); }
+    if (m.T === 'success' && m.msg === 'authenticated') { wsUp = true; wsErr = ''; lastPoll = 0; /* catch up on anything that landed while it was down */ ws.send(JSON.stringify({ action: 'subscribe', news: ['*'] })); }
     else if (m.T === 'error') { wsErr = `Alpaca news: ${m.msg || m.code}`; }
     else if (m.T === 'n') ingest(m); } });
   const down = e => { wsUp = false; if (e) wsErr = String(e.message || e).slice(0, 80); wsNext = Date.now() + 5e3; };
@@ -55,8 +61,8 @@ async function stream() {
   ws.on('unexpected-response', (_, res) => down(`Alpaca news stream refused (${res.statusCode})`));
 }
 function unent(t) { return String(t || '').replace(/&#(\d+);/g, (_, d) => String.fromCharCode(d)).replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'); }
-async function poll() { // fallback when the stream isn't up: newest headlines every 5s
-  if (wsUp || Date.now() - lastPoll < 5e3) return; lastPoll = Date.now();
+async function poll() { // newest headlines every 5s while the stream is down; every 15s as a safety net while it is up (a stream that goes quiet without closing would otherwise lose headlines)
+  if (Date.now() - lastPoll < (wsUp ? 15e3 : 5e3)) return; lastPoll = Date.now();
   const c = await feedCreds(); if (!c) return;
   const j = await AL.news(c).catch(e => { wsErr = e.message; return null; }); if (!j?.news) return;
   for (const n of j.news.slice().reverse()) ingest(n);
@@ -69,44 +75,67 @@ async function open(uid) {
   return { row, cfg: { size: c.size === 'usd' ? 'usd' : 'pct', pct: c.pct > 0 ? c.pct : DEF.pct, usd: c.usd > 0 ? c.usd : DEF.usd } };
 }
 const dayStart = () => { const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d.getTime(); };
-const CLOCK = new Map(); // per key: market clock, cached 60s
-async function marketOpen(c) { const k = c.key, x = CLOCK.get(k); if (x && Date.now() - x.t < 6e4) return x.v; const v = await AL.clock(c).catch(() => null); CLOCK.set(k, { t: Date.now(), v }); return v; }
+const CLOCK = new Map(); // per key: the market clock, cached 60s but never across an open or a close
+// regular hours from the calendar (Mon-Fri 9:30-16:00 New York), used only when Alpaca's clock cannot be read: a failed look-up is not "market closed"
+function schedule(now = Date.now()) {
+  const f = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23' }).formatToParts(new Date(now)).map(x => [x.type, x.value]));
+  const mins = (+f.hour % 24) * 60 + +f.minute, wk = !/Sat|Sun/.test(f.weekday), open = wk && mins >= 570 && mins < 960;
+  return { is_open: open, next_close: new Date(now + ((960 - mins) * 60 - +f.second) * 1e3).toISOString(), next_open: null, fallback: true };
+}
+async function marketOpen(c) {
+  const k = c.key, x = CLOCK.get(k), now = Date.now(); if (x && now - x.t < 6e4 && Date.parse(x.v.is_open ? x.v.next_close : x.v.next_open) - now > 5e3) return x.v;
+  try { const v = await retry(() => AL.clock(c)); if (v && typeof v.is_open === 'boolean') { CLOCK.set(k, { t: now, v }); return v; } } catch (_) {}
+  return schedule(now);
+}
 const rec = (uid, n, sym, extra) => db.q('INSERT INTO ntrades (id, uid, ts, sym, headline, url, score, status, reason, newsid, notional, qty, entry) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
   [crypto.randomBytes(8).toString('hex'), uid, Date.now(), sym, n.headline, n.url, n.score, extra.status, extra.reason || null, n.id, extra.notional || null, extra.qty || null, extra.entry || null]);
+const skip = (uid, n, sym, reason) => rec(uid, n, sym, { status: 'skip', reason });
 
-const BUSY = new Set();
-async function act(uid, n) {
-  const k = uid + '|' + (n.syms[0] || ''); if (BUSY.has(k)) return; BUSY.add(k); try { return await act1(uid, n); } finally { BUSY.delete(k); }
+// one stock's headlines are handled one after another per user (a second headline waits for the first instead of being dropped); different users run side by side
+const QUEUE = new Map();
+function act(uid, n) {
+  const k = uid + '|' + (n.syms[0] || ''), next = (QUEUE.get(k) || Promise.resolve()).catch(() => {}).then(() => act1(uid, n)); QUEUE.set(k, next);
+  next.catch(() => {}).then(() => { if (QUEUE.get(k) === next) QUEUE.delete(k); }); return next;
+}
+// place the buy; if the network or Alpaca hiccups, look the order up by its id before sending it again so it can never be bought twice
+async function placeBuy(c, sym, notional, qty, cid) {
+  const send = () => qty ? AL.buyQty(c, sym, qty, cid) : AL.buy(c, sym, notional, cid);
+  for (let i = 1; ; i++) { try { return await send(); } catch (e) {
+    if (c.broker !== 'webull') { if (/client_order_id/i.test(e.message)) { const ex = await AL.byCid(c, cid).catch(() => null); if (ex && ex.id) return ex; } }
+    if (i >= 3 || !TRANSIENT.test(String(e.message))) throw e; await sleep(300 * i);
+    if (c.broker !== 'webull') { const ex = await AL.byCid(c, cid).catch(() => null); if (ex && ex.id) return ex; } } }
 }
 async function act1(uid, n) {
   const { row, cfg } = await open(uid); if (!row.enabled) return; const c = await AL.getCreds(uid); if (!c) return;
-  if (Date.now() - n.t > FRESH) return; // old news: the move already happened
-  if (!n.syms.length || n.syms.length > 3) return; // market-wide or roundup stories aren't about one company
-  if (Math.abs(n.score) < BUY_AT) return;
-  const clk = await marketOpen(c); if (!clk?.is_open) return rec(uid, n, n.syms[0], { status: 'skip', reason: 'market closed' });
-  if (Date.parse(clk.next_close) - Date.now() < 15 * 6e4) return rec(uid, n, n.syms[0], { status: 'skip', reason: 'too close to the market close' });
+  if (!n.syms.length || Math.abs(n.score) < BUY_AT) return; // untagged stories and weak headlines aren't trades
+  if (Date.now() - n.t > FRESH) return; // old news (a catch-up after an outage): the move already happened
+  const sym = n.syms[0]; // the first tagged company is the subject
+  if (n.syms.length > 3) return skip(uid, n, sym, `about ${n.syms.length} companies, not one`);
+  if (await db.one('SELECT id FROM ntrades WHERE uid=$1 AND newsid=$2 AND sym=$3', [uid, String(n.id), sym])) return; // this headline was already handled (two runners overlapping): never twice
+  const clk = await marketOpen(c); if (!clk.is_open) return skip(uid, n, sym, 'market closed');
   if (n.score <= -BUY_AT) { // bad news: get out of anything the bot holds in these stocks
-    for (const t of await db.q("SELECT * FROM ntrades WHERE uid=$1 AND status='open' AND sym = ANY($2)", [uid, n.syms])) await exit(uid, c, t, 'negative headline');
+    for (const t of await db.q("SELECT * FROM ntrades WHERE uid=$1 AND status='open' AND sym = ANY($2)", [uid, n.syms])) await exit(uid, c, t, 'negative headline').catch(e => console.error('news exit', t.sym, e.message));
     return;
   }
-  const acct = await AL.account(c), eq = Number(acct.equity), cash = Number(acct.cash), lastEq = Number(acct.last_equity);
-  if (lastEq > 0 && (eq - lastEq) / lastEq <= -DAILY_STOP) return rec(uid, n, n.syms[0], { status: 'skip', reason: 'daily loss limit (3%) reached' });
-  const openN = (await db.one("SELECT count(*)::int AS n FROM ntrades WHERE uid=$1 AND status='open'", [uid])).n;
-  for (const sym of n.syms.slice(0, 1)) { // the first tagged company is the subject
-    if (openN >= MAX_OPEN) return rec(uid, n, sym, { status: 'skip', reason: `already ${MAX_OPEN} positions open` });
-    if (await db.one("SELECT id FROM ntrades WHERE uid=$1 AND sym=$2 AND ts>=$3 AND status IN ('open','closed')", [uid, sym, dayStart()])) return rec(uid, n, sym, { status: 'skip', reason: 'already traded this stock today' });
-    const notional = Math.min(cfg.size === 'usd' ? cfg.usd : eq * cfg.pct / 100, cash * .95);
-    if (notional < 1) return rec(uid, n, sym, { status: 'skip', reason: 'not enough cash' });
-    try {
-      const a = await AL.asset(c, sym); if (!a.tradable) return rec(uid, n, sym, { status: 'skip', reason: 'not tradable on Alpaca' });
-      let o; if (a.fractionable) o = await AL.buy(c, sym, notional);
-      else { // no fractional shares for this stock: buy whole shares worth about the same
-        const px = await AL.last(c, sym), qty = px > 0 ? Math.max(1, Math.floor(notional / px)) : 0;
-        if (!qty || qty * px > cash * .95) return rec(uid, n, sym, { status: 'skip', reason: `one share ($${px?.toFixed?.(2)}) costs more than the cash available` });
-        o = await AL.buyQty(c, sym, qty); } let f = o; for (let i = 0; i < 6 && f.status !== 'filled'; i++) { await new Promise(z => setTimeout(z, 500)); f = await AL.order(c, o.id).catch(() => f); }
-      await rec(uid, n, sym, { status: 'open', notional, qty: Number(f.filled_qty) || null, entry: Number(f.filled_avg_price) || null });
-    } catch (e) { await rec(uid, n, sym, { status: 'skip', reason: String(e.message).slice(0, 120) }); }
-  }
+  try {
+    if (Date.parse(clk.next_close) - Date.now() < CLOSE_BUFFER) return await skip(uid, n, sym, 'too close to the market close');
+    const acct = await retry(() => AL.account(c)), eq = Number(acct.equity), cash = Number(acct.cash);
+    const lost = await db.one("SELECT coalesce(sum(pnl),0) AS p FROM ntrades WHERE uid=$1 AND status='closed' AND exitts>=$2", [uid, dayStart()]); // the bot's own results, not the rest of your account
+    if (eq > 0 && Number(lost.p) <= -DAILY_STOP * eq) return await skip(uid, n, sym, 'daily loss limit: the bot is down 3% of the account today');
+    const open = await db.q("SELECT sym, notional FROM ntrades WHERE uid=$1 AND status='open'", [uid]), used = open.reduce((a, t) => a + (Number(t.notional) || 0), 0);
+    if (open.length >= MAX_OPEN) return await skip(uid, n, sym, `already ${MAX_OPEN} positions open`);
+    if (open.some(t => t.sym === sym)) return await skip(uid, n, sym, 'already holding it');
+    if ((await db.one("SELECT count(*)::int AS n FROM ntrades WHERE uid=$1 AND sym=$2 AND ts>=$3 AND status IN ('open','closed')", [uid, sym, dayStart()])).n >= PER_DAY) return await skip(uid, n, sym, `already traded this stock ${PER_DAY} times today`);
+    const room = EXPOSURE * eq - used, notional = Math.min(cfg.size === 'usd' ? cfg.usd : eq * cfg.pct / 100, cash * .95, room);
+    if (notional < 1) return await skip(uid, n, sym, room < 1 ? `${Math.round(EXPOSURE * 100)}% of the account is already in open trades` : 'not enough cash');
+    const a = await retry(() => AL.asset(c, sym)); if (!a.tradable) return await skip(uid, n, sym, 'not tradable on Alpaca');
+    const cid = `nf-${String(n.id).slice(0, 40)}-${sym}`; let o, qty = 0;
+    if (!a.fractionable) { // no fractional shares for this stock: buy whole shares worth about the same
+      const px = await retry(() => AL.last(c, sym)); qty = px > 0 ? Math.max(1, Math.floor(notional / px)) : 0;
+      if (!qty || qty * px > cash * .95) return await skip(uid, n, sym, `one share ($${px?.toFixed?.(2)}) costs more than the cash available`); }
+    o = await placeBuy(c, sym, notional, qty, cid); let f = o; for (let i = 0; i < 6 && f.status !== 'filled'; i++) { await sleep(500); f = await AL.order(c, o.id).catch(() => f); }
+    await rec(uid, n, sym, { status: 'open', notional, qty: Number(f.filled_qty) || null, entry: Number(f.filled_avg_price) || null });
+  } catch (e) { await skip(uid, n, sym, String(e.message).slice(0, 120)); } // the reason is always on record
 }
 const SELLING = new Map();
 async function exit(uid, c, t, why) {
@@ -144,12 +173,12 @@ async function manage() {
 let busy = false;
 async function tick() { // runner: every few seconds
   if (busy) return; busy = true;
-  try { await stream().catch(e => { wsErr = e.message; }); await poll().catch(() => {}); await manage();
+  try { await stream().catch(e => { wsErr = e.message; }); await poll().catch(() => {}); await manage().catch(e => console.error('news manage', e.message));
     await S.set('newslive', JSON.stringify({ t: Date.now(), feed: wsUp ? 'stream' : 'poll', err: wsUp ? '' : wsErr, news: FEED.slice(0, 25) }));
   } finally { busy = false; }
 }
 function start() { // react to each headline the moment it lands
   onNews = async n => { if (Math.abs(n.score) < BUY_AT) return;
-    for (const r of await db.q("SELECT n.uid FROM nbot n JOIN users u ON u.id=n.uid WHERE n.enabled=true AND u.verified=true AND u.alpaca IS NOT NULL").catch(() => [])) await act(r.uid, n).catch(e => console.error('news', r.uid, e.message)); };
+    await Promise.all((await db.q("SELECT n.uid FROM nbot n JOIN users u ON u.id=n.uid WHERE n.enabled=true AND u.verified=true AND u.alpaca IS NOT NULL").catch(() => [])).map(r => act(r.uid, n).catch(e => console.error('news', r.uid, e.message)))); }; // everyone at once: nobody waits behind another account's order
 }
-module.exports = { DEF, BUY_AT, score, ingest, act, manage, tick, start, open, FEED };
+module.exports = { schedule, retry, TRANSIENT, QUEUE, DEF, BUY_AT, MAX_OPEN, EXPOSURE, PER_DAY, FRESH, score, ingest, act, manage, tick, start, open, FEED };

@@ -9,7 +9,7 @@ const crypto = require('crypto'), db = require('./db'), P = require('./polymarke
 const TF = { '15m': 9e5, '1h': 36e5 }, DAY = 864e5;
 // The only setting is trade size: a % of the balance or a fixed $. The rest is built in: the favourite only, at least 2c of edge after fees against the calibrated lower bound,
 // never above 98.5c, a lead of at least 2 volatilities (below that the favourite is near a coin flip and our feed's own error is as big as any edge), skip when the market is 20+ points away from our number or the last 5 minutes are much wilder than the last hour, and stop for the day after losing 20%.
-const DEF = { size: 'pct', pct: 2, usd: 5 }, MIN_EDGE = 2, MIN_Z = 2, MAX_PRICE = .985, SANITY = .2, DAILY_STOP = .2, TFS = ['15m', '1h'], MIN_PRICE = .5;
+const DEF = { size: 'pct', pct: 2, usd: 5 }, MIN_EDGE = 2, MIN_Z = 2, MAX_PRICE = .985, SANITY = .2, DAILY_STOP = .05, KELLY = .25, HEALTH = { n: 15, z: 2.5, days: 14 }, TFS = ['15m', '1h'], MIN_PRICE = .5;
 let CAL = null; // the calibration table (loaded from settings by the runner every few minutes)
 const fee = (n, p) => 0.0695 * n * p * (1 - p);
 const J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (_) { return d; } };
@@ -187,6 +187,15 @@ async function open(uid) {
   return { row, cfg: { size: c.size === 'usd' ? 'usd' : 'pct', pct: c.pct > 0 ? c.pct : DEF.pct, usd: c.usd > 0 ? c.usd : DEF.usd } };
 }
 const dayStart = () => { const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d.getTime(); };
+// the kill condition, written down in advance: does the bot win as often as it said it would? Over the last two weeks of finished trades, if it has won
+// 2.5 standard deviations fewer than the sum of its own win probabilities, its model is wrong right now and it stops buying until the bad stretch ages out.
+async function health(uid, mode) {
+  const r = await db.one("SELECT count(*)::int AS n, sum(CASE WHEN status='won' THEN 1 ELSE 0 END)::int AS w, coalesce(sum(fair),0) AS e, coalesce(sum(fair-fair*fair),0) AS v FROM btctrades WHERE uid=$1 AND mode=$2 AND status IN ('won','lost') AND fair>0 AND ts>=$3", [uid, mode, Date.now() - HEALTH.days * 864e5]);
+  const n = r.n, wins = r.w || 0, expected = Number(r.e), sd = Math.sqrt(Number(r.v));
+  return { n, wins, expected, sd, tripped: n >= HEALTH.n && wins < expected - HEALTH.z * sd, days: HEALTH.days };
+}
+// fractional Kelly: the most worth staking on a $1-if-right contract, from the 95% lower-bound win chance and the all-in price (a quarter of full Kelly, never above the size dial)
+const kellyCap = (bal, pLB, allIn) => bal * KELLY * Math.max(0, (pLB - allIn) / (1 - allIn));
 async function decide(row, snap) {
   const uid = row.uid, c = J(row.cfg, {}), cfg = { size: c.size === 'usd' ? 'usd' : 'pct', pct: c.pct > 0 ? c.pct : DEF.pct, usd: c.usd > 0 ? c.usd : DEF.usd };
   // cheap part first: is any window tradeable right now? (no database work on the vast majority of checks)
@@ -199,12 +208,13 @@ async function decide(row, snap) {
   // balance this trade is sized from: the paper balance, or your Polymarket US cash
   const bal = live ? await P.balance(creds).then(r => r.ok ? require('./engine').cash(r.json) : NaN).catch(() => NaN) : row.paper;
   if (!(bal > 0)) return;
-  if (Number(today.p) - Number(openCost.c) <= -DAILY_STOP * (bal + Number(openCost.c) - Number(today.p))) return; // lost 20% today: done until tomorrow
+  if (Number(today.p) - Number(openCost.c) <= -DAILY_STOP * (bal + Number(openCost.c) - Number(today.p))) return; // lost 5% today: done until tomorrow
+  if ((await health(uid, row.mode)).tripped) return; // winning far less often than it claimed: stand down
   const spend = cfg.size === 'usd' ? cfg.usd : bal * cfg.pct / 100;
   for (const w of cands) {
     if (!ready(w)) continue; if (await db.one('SELECT id FROM btctrades WHERE uid=$1 AND slug=$2 AND mode=$3', [uid, w.slug, row.mode])) continue; // one trade per window
     const side = w.fav, edge = w.edge, price = w.favAsk;
-    let qty = Math.floor(spend / (price + fee(1, price))); if (qty < 1) qty = 1; // a small balance still buys one contract
+    const allIn = price + fee(1, price); let qty = Math.floor(Math.min(spend, kellyCap(bal, w.pLB, allIn)) / allIn); if (qty < 1) qty = 1; // a small balance still buys one contract
     if (qty * (price + fee(1, price)) > bal) continue;
     let fillQ = qty, fillP = price;
     if (live) {
@@ -265,4 +275,4 @@ async function stats(uid, mode) {
   const r = await db.one("SELECT count(*)::int AS n, sum(CASE WHEN status='won' THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN status='lost' THEN 1 ELSE 0 END)::int AS l, coalesce(sum(pnl),0) AS pnl, coalesce(sum(CASE WHEN status='open' THEN price*qty+fee ELSE 0 END),0) AS openc FROM btctrades WHERE uid=$1 AND mode=$2", [uid, mode]);
   return { trades: r.n, won: r.w || 0, lost: r.l || 0, pnl: Number(r.pnl), open: Number(r.openc) };
 }
-module.exports = { range, past, recorded, refreshCal, loadCal, logObs, obsSettle, MAX_PRICE, SANITY, MIN_Z, MIN_PRICE, reconcile, DEF, TF, MIN_EDGE, DAILY_STOP, tick, start, snapshot, settle, open, stats, fee, Phi, slugOf };
+module.exports = { health, kellyCap, KELLY, HEALTH, range, past, recorded, refreshCal, loadCal, logObs, obsSettle, MAX_PRICE, SANITY, MIN_Z, MIN_PRICE, reconcile, DEF, TF, MIN_EDGE, DAILY_STOP, tick, start, snapshot, settle, open, stats, fee, Phi, slugOf };

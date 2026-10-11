@@ -20,7 +20,7 @@ module.exports = handler(async (req, body, q) => {
       const [trades, paper, live, creds] = await Promise.all([
         db.q('SELECT ts, slug, tf, side, price, qty, fee, fair, edge, s0, s, secs, mode, status, pnl FROM btctrades WHERE uid=$1 ORDER BY ts DESC LIMIT 100', [uid]),
         B.stats(uid, 'paper'), B.stats(uid, 'live'), S.getCreds(uid).catch(() => null)]);
-      return { enabled: row.enabled, mode: row.mode, cfg, paper: { balance: row.paper, start: row.paperstart, ...paper }, live, keys: !!creds, trades: trades.map(t => ({ ...t, ts: Number(t.ts) })), btclive: J(await S.get('btclive'), null), now: Date.now() };
+      return { enabled: row.enabled, mode: row.mode, cfg, paper: { balance: row.paper, start: row.paperstart, ...paper }, live, keys: !!creds, trades: trades.map(t => ({ ...t, ts: Number(t.ts) })), btclive: J(await S.get('btclive'), null), health: await B.health(uid, row.mode), limits: { daily: B.DAILY_STOP, kelly: B.KELLY }, now: Date.now() };
     }
     case 'cfg': { // trade size: % of balance or fixed $
       const c = body.cfg || {}, next = { size: (c.size ?? cfg.size) === 'usd' ? 'usd' : 'pct', pct: clamp(c.pct ?? cfg.pct, .5, 50, B.DEF.pct), usd: clamp(c.usd ?? cfg.usd, 1, 10000, B.DEF.usd) };

@@ -13,8 +13,9 @@ const raw = {
   account: c => trade(c, 'GET', '/v2/account'),
   clock: c => trade(c, 'GET', '/v2/clock'),
   positions: c => trade(c, 'GET', '/v2/positions'),
-  buy: (c, sym, notional) => trade(c, 'POST', '/v2/orders', { symbol: sym, notional: notional.toFixed(2), side: 'buy', type: 'market', time_in_force: 'day' }),
-  buyQty: (c, sym, qty) => trade(c, 'POST', '/v2/orders', { symbol: sym, qty: String(qty), side: 'buy', type: 'market', time_in_force: 'day' }),
+  buy: (c, sym, notional, cid) => trade(c, 'POST', '/v2/orders', { symbol: sym, notional: notional.toFixed(2), side: 'buy', type: 'market', time_in_force: 'day', ...(cid ? { client_order_id: cid } : {}) }),
+  buyQty: (c, sym, qty, cid) => trade(c, 'POST', '/v2/orders', { symbol: sym, qty: String(qty), side: 'buy', type: 'market', time_in_force: 'day', ...(cid ? { client_order_id: cid } : {}) }),
+  byCid: (c, cid) => trade(c, 'GET', `/v2/orders:by_client_order_id?client_order_id=${encodeURIComponent(cid)}`), // an order looked up by the id we gave it
   last: (c, sym) => req(c, 'GET', `${DATA}/v2/stocks/${encodeURIComponent(sym)}/trades/latest`).then(j => Number(j.trade?.p)),
   sell: (c, sym, qty) => trade(c, 'POST', '/v2/orders', { symbol: sym, qty: String(qty), side: 'sell', type: 'market', time_in_force: 'day' }),
   close: (c, sym) => trade(c, 'DELETE', `/v2/positions/${encodeURIComponent(sym)}`),
@@ -65,9 +66,9 @@ out.asset = async (c, s) => {
   if ((!a || !a.tradable) && c?.uid) { NOALP.set(c.uid + '|' + s, 'untradable'); return { tradable: true, fractionable: false, shortable: true, paper: true }; }
   if (a && a.shortable === false && c?.uid) { NOALP.set(c.uid + '|' + s, 'noshort'); return { ...a, shortable: true }; } return a || { tradable: false };
 };
-out.buyQty = async (c, s, q) => (await toPaper(c, s, 'buy', q)) ? PB.market(c, 'buy', s, q) : base.buyQty(c, s, q);
+out.buyQty = async (c, s, q, cid) => (await toPaper(c, s, 'buy', q)) ? PB.market(c, 'buy', s, q) : base.buyQty(c, s, q, cid);
 out.sell = async (c, s, q) => (await toPaper(c, s, 'sell', q)) ? PB.market(c, 'sell', s, q) : base.sell(c, s, q);
-out.buy = async (c, s, notional) => (await toPaper(c, s, 'buy', 0)) ? PB.market(c, 'buy', s, notional / await PB.price(c.uid, s)) : base.buy(c, s, notional);
+out.buy = async (c, s, notional, cid) => (await toPaper(c, s, 'buy', 0)) ? PB.market(c, 'buy', s, notional / await PB.price(c.uid, s)) : base.buy(c, s, notional, cid);
 out.close = async (c, s) => { const p = c?.uid ? await PB.pos(c.uid, s) : null; return p ? PB.market(c, p.qty > 0 ? 'sell' : 'buy', s, Math.abs(p.qty)) : base.close(c, s); };
 out.bracket = async (c, o) => (await toPaper(c, o.symbol, o.side, o.qty)) ? PB.bracket(c, o) : base.bracket(c, o);
 out.last = async (c, s) => PB.isFut(s) ? PB.price(c.uid, s) : base.last(c, s);
