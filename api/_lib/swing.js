@@ -114,7 +114,7 @@ async function tick() { // runner: cheap, checks every 15s
       finally { RUNNING.delete(r.uid); }
     }
     if (Date.now() - lastPub > 30 * 6e4 || (users.length && !CACHE.sigs.length && Date.now() - lastPub > 6e4)) { // keep the watchlist fresh for the tab
-      const who = await db.q("SELECT id FROM users WHERE alpaca IS NOT NULL AND verified=true ORDER BY admin DESC LIMIT 1"), c = who[0] ? await AL.getCreds(who[0].id).catch(() => null) : null;
+      const who = await db.q("SELECT id FROM users WHERE alpaca IS NOT NULL AND verified=true ORDER BY admin DESC LIMIT 1"), c = who[0] ? await AL.getAlpacaCreds(who[0].id).catch(() => null) : null;
       if (c) { lastPub = Date.now(); await scan(c, true).catch(e => console.error('swing bars', e.message)); await publish(); } }
   } finally { busy = false; }
 }

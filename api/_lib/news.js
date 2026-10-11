@@ -34,7 +34,7 @@ function score(n) {
 const SEEN = new Set(), FEED = []; let ws = null, wsUp = false, wsErr = '', wsNext = 0, lastPoll = 0, onNews = null;
 async function feedCreds() { // news is the same for everyone: any connected key can carry the stream (the admin's first)
   const r = await db.q("SELECT id FROM users WHERE alpaca IS NOT NULL AND verified=true ORDER BY admin DESC LIMIT 1").catch(() => []);
-  return r[0] ? AL.getCreds(r[0].id).catch(() => null) : null;
+  return r[0] ? AL.getAlpacaCreds(r[0].id).catch(() => null) : null;
 }
 function ingest(n) {
   const id = String(n.id); if (SEEN.has(id)) return; SEEN.add(id); if (SEEN.size > 5000) SEEN.delete(SEEN.values().next().value);

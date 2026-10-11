@@ -27,6 +27,8 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS edgetrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, strat text NOT NULL, ref text, label text, legs text, qty double precision, cost double precision, status text NOT NULL DEFAULT 'open', payoff double precision, pnl double precision, gs bigint, settledts bigint)`,
   // Newsflash (Alpaca news bot): the user's Alpaca keys, bot row, and every trade/decision
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS alpaca text`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS broker text`, // 'alpaca' (default) or 'webull'
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS webull text`, // Webull API credentials (secret encrypted), chosen account, lock state, per-order cap
   // Powell bot (10 AM sweep strategy on NQ/ES signals, traded through Alpaca ETF proxies): one row per user + every trade
   `CREATE TABLE IF NOT EXISTS pbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, lastday text, updated bigint)`,
   `CREATE TABLE IF NOT EXISTS powelltrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, day text, fut text, etf text, dir text, kind text, rpct double precision, qty double precision, entry double precision, stop double precision, tp double precision, orderid text, status text NOT NULL DEFAULT 'open', exitp double precision, pnl double precision, reason text, exitts bigint)`,

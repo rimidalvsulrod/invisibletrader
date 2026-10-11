@@ -88,7 +88,8 @@ async function decide(uid, c, cfg, day) {
   const stop = cents(long ? px * (1 - sg.rpct) : px * (1 + sg.rpct)), tp = cents(long ? px * (1 + 2 * sg.rpct) : px * (1 - 2 * sg.rpct)), perShare = Math.abs(px - stop);
   let qty = Math.floor(Math.min(eq * cfg.risk / 100 / perShare, eq * cfg.max / 100 / px)); if (long) qty = Math.min(qty, Math.floor(cash * .95 / px));
   if (!(qty >= 1) || !(perShare >= .05)) return skip(qty >= 1 ? 'stop too tight for this ETF' : 'not enough cash for one share at this risk');
-  const o = await AL.bracket(c, { symbol: etf, qty, side: long ? 'buy' : 'sell', tp, sl: stop }), f = await wait(c, o), entry = Number(f.filled_avg_price) || px;
+  let o; try { o = await AL.bracket(c, { symbol: etf, qty, side: long ? 'buy' : 'sell', tp, sl: stop }); } catch (e) { return skip('the broker refused the order: ' + String(e.message).slice(0, 110)); } // recorded, and the day is used (no retry loop)
+  const f = await wait(c, o).catch(() => o), entry = Number(f.filled_avg_price) || px;
   await rec(uid, { ...base, qty, entry, stop, tp, orderid: o.id }); return { traded: `${sg.dir} ${qty} ${etf} @ ${entry}` };
 }
 

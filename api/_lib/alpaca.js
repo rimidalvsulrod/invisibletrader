@@ -7,8 +7,9 @@ async function req(c, method, url, body) {
   const t = await r.text(); let j; try { j = t ? JSON.parse(t) : {}; } catch (_) { j = { message: t.slice(0, 200) }; }
   if (!r.ok) throw err(r.status === 401 || r.status === 403 ? 400 : 502, `Alpaca: ${j.message || r.status}`); return j;
 }
+const alpacaFrom = async s => { const j = JSON.parse(s); return { key: j.key, secret: await S.dec(j.secret), paper: !!j.paper }; };
 const trade = (c, m, p, b) => req(c, m, TRADE(c.paper) + p, b);
-module.exports = {
+const raw = {
   account: c => trade(c, 'GET', '/v2/account'),
   clock: c => trade(c, 'GET', '/v2/clock'),
   positions: c => trade(c, 'GET', '/v2/positions'),
@@ -30,7 +31,22 @@ module.exports = {
       for (const [k, a] of Object.entries(j.bars || {})) (out[k] ||= []).push(...a); tok = j.next_page_token; if (!tok) break; } return out; },
   news: (c, after) => req(c, 'GET', `${DATA}/v1beta1/news?limit=50&sort=desc${after ? `&start=${encodeURIComponent(after)}` : ''}`),
   hdr,
-  async getCreds(uid) { const u = await db.one('SELECT alpaca FROM users WHERE id=$1', [uid]); if (!u?.alpaca) return null; const j = JSON.parse(u.alpaca); return { key: j.key, secret: await S.dec(j.secret), paper: !!j.paper }; },
+  async getCreds(uid) { // the account's chosen broker: Alpaca (paper or live) or Webull (real money, only once unlocked in Settings)
+    const u = await db.one('SELECT alpaca, broker, webull FROM users WHERE id=$1', [uid]); if (!u) return null;
+    const a = u.alpaca ? await alpacaFrom(u.alpaca) : null;
+    if (u.broker === 'webull') { let w = null; try { w = JSON.parse(u.webull); } catch (_) {} if (!w?.appKey || !w.accountId || !w.unlocked) return null; // locked or incomplete: the bots see "not connected"
+      return { broker: 'webull', paper: false, key: w.appKey, appKey: w.appKey, secret: await S.dec(w.secret), token: w.token ? await S.dec(w.token) : null, accountId: w.accountId, capUsd: w.capUsd ?? 1000, data: a,
+        lastPrice: sym => a ? raw.last(a, sym) : Promise.reject(Object.assign(new Error('Webull needs a free Alpaca connection for market data'), { status: 400 })) }; }
+    return a; },
+  async getAlpacaCreds(uid) { const u = await db.one('SELECT alpaca FROM users WHERE id=$1', [uid]); return u?.alpaca ? alpacaFrom(u.alpaca) : null; },
   async saveCreds(uid, c) { await db.q('UPDATE users SET alpaca=$2 WHERE id=$1', [uid, JSON.stringify({ key: c.key, secret: await S.enc(c.secret), paper: !!c.paper })]); },
   clearCreds: uid => db.q('UPDATE users SET alpaca=NULL WHERE id=$1', [uid]),
 };
+
+// One interface for every bot. Orders and account reads go to the chosen broker; market data (clock, prices, bars, news) always comes from
+// the free Alpaca connection, so Webull users keep Alpaca connected for data.
+const W = require('./webull'), out = { ...raw };
+const needData = c => { if (!c.data) throw err(400, 'Connect Alpaca (free) for market data: Webull has no data feed here'); return c.data; };
+for (const k of ['account', 'positions', 'asset', 'buy', 'buyQty', 'sell', 'close', 'order', 'orderNested', 'cancel', 'bracket']) out[k] = (c, ...a) => c?.broker === 'webull' ? W.adapter[k](c, ...a) : raw[k](c, ...a);
+for (const k of ['clock', 'last', 'bars', 'news', 'hdr']) out[k] = (c, ...a) => raw[k](c?.broker === 'webull' ? needData(c) : c, ...a);
+module.exports = out;
