@@ -1,5 +1,5 @@
 // Newsflash tab: connect Alpaca, on/off, trade size, live scored headlines, trades.
-let newsT = null, newsS = null;
+let newsT = null, newsS = null, nwSym = null, nwCh = null, nwN = 0;
 const newsStop = () => { clearInterval(newsT); newsT = null; };
 const napi = async (op, body, url = '/api/news') => {
   const r = await fetch(url + (body ? '' : '?op=' + op), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op, ...body }) } : {});
@@ -10,7 +10,7 @@ async function newsPage() {
   app.innerHTML = sk(320);
   try { newsS = await napi('state'); } catch (e) { if (e.status === 401) return authView('login', '', newsPage); app.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
   newsRender(); let n = 0;
-  newsT = setInterval(async () => { if (!$('#nfeed')) return newsStop(); try { if (++n % 10 === 0) { newsS = await napi('state'); newsRender(); } else { newsS.live = (await napi('live')).live; newsFeed(); } } catch (e) {} }, 2000);
+  newsT = setInterval(async () => { if (!$('#nfeed')) return newsStop(); if (++nwN % 10 === 0) { nwCh = null; nwChart(); } try { if (++n % 10 === 0) { newsS = await napi('state'); newsRender(); } else { newsS.live = (await napi('live')).live; newsFeed(); } } catch (e) {} }, 2000);
 }
 function newsFeed() {
   const el = $('#nfeed'), L = newsS.live; if (!el) return;
@@ -39,12 +39,16 @@ function newsRender() {
         <div class=row style="gap:10px;flex-wrap:wrap"><div class=seg id=nsize><button data-v=pct class="${c.size == 'pct' ? 'on' : ''}">% of account</button><button data-v=usd class="${c.size == 'usd' ? 'on' : ''}">$ per trade</button></div>
           ${c.size == 'usd' ? `<label class=row style="gap:8px"><input class=inp type=number id=nsz value=${c.usd} style="width:110px"><b>$</b></label>` : ''}</div>${c.size == 'pct' ? '<div id=ndial style="margin-top:10px"></div>' : ''}
         <div class=mut style="font-size:12.5px;margin-top:10px">Built in: only strong headlines about 1 to 3 companies, under 3 minutes old, during market hours. Exits at +3%, -1.5% or after 30 minutes, and everything is sold 5 minutes before the close. Up to 12 positions and 40% of the account open at once, up to 3 trades per stock per day, and it rests for the day if its own trades lose 3% of the account. A slow connection or a rate limit is retried, not skipped: a skip now means the market was closed, the stock could not be traded, or one of those limits was reached, and the reason is always shown.</div></div></div>
+    <div class="card pad" style="margin-top:16px"><div class="row sb wrapf" style="gap:12px"><h2>Chart</h2><div class=bcsel><select class=inp id=nwsel style="width:auto"></select></div></div>
+      <div class=mut style="font-size:13px;margin-top:8px;line-height:1.55" id=nwinfo></div><div id=nwcv style="margin-top:10px"></div><div id=nwleg></div></div>
+    ${bcProfitCard('nwpc')}
     ${btCard('nwbt', { opts: [[3, 'Last 3 days'], [7, 'Last 7 days'], [14, 'Last 14 days'], [30, 'Last 30 days'], [90, 'Last 90 days']], def: 30, note: 'Newsflash trades headlines in the first seconds after they appear, and free sources do not keep that timing, so it cannot be replayed honestly. This shows the recorded results of its own trades over the period you pick (the last 100 trades are loaded).' })}
     <div class=grid style="margin-top:16px">
       <div class=card style="overflow:hidden"><div class="pad" style="padding-bottom:8px"><h2>Trades</h2></div><table class=tbl><tbody>${s.trades.map(t => `<tr><td style="width:1%"><span class="pill ${t.status == 'open' ? 'ac' : t.status == 'skip' ? 'n' : t.pnl > 0 ? 'up' : 'down'}">${t.status == 'open' ? 'Open' : t.status == 'skip' ? 'Skipped' : t.pnl > 0 ? 'Won' : 'Lost'}</span></td>
         <td><div><b>${esc(t.sym)}</b> · ${esc(t.headline || '')}</div><div class=mut style="font-size:12.5px;margin-top:2px">score ${t.score > 0 ? '+' : ''}${t.score}${t.entry ? ` · bought ${usd(t.notional || t.qty * t.entry, 2)} at ${usd(t.entry, 2)}` : ''}${t.exitp ? ` · sold at ${usd(t.exitp, 2)}` : ''}${t.reason ? ` · ${esc(t.reason)}` : ''}</div></td>
         <td class=r><div class="num ${t.pnl == null ? 'mut' : ud(t.pnl)}" style="font-weight:600">${t.pnl == null ? (t.status == 'open' ? '…' : '') : sg(t.pnl, 2)}</div><div class=mut style="font-size:12px">${rel(t.ts / 1000)}</div></td></tr>`).join('') || `<tr><td class=empty>No trades yet. It only acts on strong, fresh headlines during market hours.</td></tr>`}</tbody></table></div>
       <div class=card style="overflow:hidden"><div class="pad" style="padding-bottom:4px"><h2>Live headlines</h2></div><div id=nfeed></div></div></div>`;
+  nwChart(); bcProfitDraw('nwpc', s.trades.filter(t => t.status == 'closed'), { label: t => t.sym });
   btWire('nwbt', { run: async n => btForwardHtml(newsS.trades, +n) });
   newsFeed();
   const act = async (fn, msg) => { try { await fn(); if (msg) toast(msg); } catch (e) { toast(`<span class=down>${esc(e.message)}</span>`); } newsS = await napi('state').catch(() => newsS); newsRender(); };
@@ -61,4 +65,33 @@ function newsRender() {
   $('#nkdel') && ($('#nkdel').onclick = async () => { if (!confirm('Disconnect Alpaca? Newsflash stops. Open positions stay in your Alpaca account.')) return;
     if (s.emailCodes) try { await napi('code', { purpose: 'keys' }, '/api/auth'); } catch (e) { return toast(`<span class=down>${esc(e.message)}</span>`); }
     const v = prompt(s.emailCodes ? `Enter the 6-digit code we emailed to ${USER.email}` : 'Enter your Mimic password'); if (v) act(() => napi('keysdel', proof(v.trim())), 'Alpaca disconnected'); });
+}
+
+/* ---------- chart: the stock's minute candles with the headline, the bot's entry and exits, and the score drawn as an indicator ---------- */
+const nwET = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' });
+const nwMin = t => { const p = nwET.formatToParts(new Date(t * 1000)); return +p[0].value % 24 * 60 + +p[2].value; };
+async function nwChart() {
+  const sel = $('#nwsel'); if (!sel) return; const tr = newsS.trades.filter(t => t.status != 'skip'), feed = ((newsS.live && newsS.live.news) || []).filter(x => Math.abs(x.score) >= 3 && x.syms.length);
+  const syms = [...new Set([...tr.map(t => t.sym), ...feed.map(x => x.syms[0])])].slice(0, 14);
+  if (!syms.length) { sel.innerHTML = ''; $('#nwcv').innerHTML = '<div class=empty style="padding:30px 0">Nothing to chart yet. Once the bot trades a headline, or a strong headline appears in the live feed, its stock shows here with the entry, the exits and the news.</div>'; $('#nwinfo').textContent = ''; $('#nwleg').innerHTML = ''; return; }
+  if (!nwSym || !syms.includes(nwSym)) nwSym = syms[0]; sel.innerHTML = syms.map(x => `<option value="${x}" ${x == nwSym ? 'selected' : ''}>${x}${tr.some(t => t.sym == x && t.status == 'open') ? ' · open position' : tr.some(t => t.sym == x) ? ' · traded' : ' · strong headline'}</option>`).join(''); sel.onchange = () => { nwSym = sel.value; nwCh = null; nwChart(); };
+  if (!nwCh || nwCh.sym != nwSym) { try { nwCh = await napi('chart&sym=' + nwSym); } catch (e) { $('#nwcv').innerHTML = `<div class=empty style="padding:30px 0">Prices unavailable right now (${esc(e.message)})</div>`; return; } }
+  if (!$('#nwcv') || nwCh.sym != nwSym) return; const C = nwCh, my = C.trades, last = my.length ? my[my.length - 1] : null, focus = last ? last.ts / 1000 : C.news.length ? C.news[C.news.length - 1].t / 1000 : C.bars[C.bars.length - 1].t;
+  // window: from an hour before the first thing that happened that day to the end of the data
+  const day0 = Math.min(focus - 3600, ...C.news.filter(x => x.t / 1000 > focus - 6 * 3600).map(x => x.t / 1000 - 1800)), all = C.bars.filter(b => b.t >= day0 - 600 && b.t <= focus + 4 * 3600); const B = all.length >= 20 ? all : C.bars.slice(-240), n = B.length;
+  const rth = B.map(b => { const m = nwMin(b.t); return m >= 570 && m < 960; }), shade = []; for (let i = 0; i < n; i++) if (!rth[i]) { let j = i; while (j + 1 < n && !rth[j + 1]) j++; shade.push({ i0: i, i1: j, color: 'rgba(127,127,127,.10)' }); i = j; }
+  const R = C.rules, scores = new Array(n).fill(null), cols = new Array(n).fill(null), S = { bars: B, h: 330, shade, yfmt: v => v.toFixed(2), last: B[n - 1].c, levels: [], marks: [], vlines: [], overlays: [],
+    tf: t => new Date(t * 1000).toLocaleTimeString([], { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit' }), tfFull: t => new Date(t * 1000).toLocaleString([], { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' ET' };
+  for (const x of C.news) { if (x.t / 1000 < B[0].t - 300 || x.t / 1000 > B[n - 1].t + 300) continue; const i = bcIdx(B, x.t / 1000); scores[i] = (scores[i] || 0) + x.score; cols[i] = scores[i] > 0 ? 'var(--up)' : 'var(--down)';
+    S.vlines.push({ i, name: (x.score > 0 ? '+' : '') + x.score, color: x.score > 0 ? 'var(--up)' : 'var(--down)', dash: '2 3', tip: '<b>' + esc(x.headline).slice(0, 90) + '</b>', row: S.vlines.length % 3 }); }
+  for (const t of my) { if (t.status == 'skip') continue; const i = bcIdx(B, t.ts / 1000), e = t.entry || B[i].c, end = t.status == 'closed' && t.exitts ? bcIdx(B, t.exitts / 1000) : n - 1;
+    S.marks.push({ i, y: e, kind: 'up', color: 'var(--up)', name: 'bought', tip: `Bought ${t.notional ? usd(t.notional, 2) : ''} at ${usd(e, 2)}` });
+    S.levels.push({ y: e, name: 'in ' + e.toFixed(2), color: 'var(--text)', dash: '', i0: i, i1: end, fit: true }, { y: e * (1 + R.tp), name: 'target +3%', color: 'var(--up)', i0: i, i1: end, fit: true }, { y: e * (1 + R.sl), name: 'stop -1.5%', color: 'var(--down)', i0: i, i1: end, fit: true });
+    const hi = bcIdx(B, t.ts / 1000 + R.hold / 1000); if (t.ts / 1000 + R.hold / 1000 <= B[n - 1].t && hi > i) S.vlines.push({ i: hi, name: '30 min limit', color: 'var(--mut)', row: 4 });
+    if (t.status == 'closed' && t.exitts) S.marks.push({ i: end, y: t.exitp || B[end].c, kind: 'down', color: t.pnl > 0 ? 'var(--up)' : 'var(--down)', name: 'sold', tip: `Sold at ${usd(t.exitp, 2)} · ${esc(t.reason || '')}` }); }
+  S.panes = [{ name: 'Headline score (the bot acts at +3 or more, sells at -3 or less)', short: 'Headline score', h: 70, type: 'bars', vals: scores, colors: cols, levels: [{ y: 3, name: '+3', color: 'var(--up)' }, { y: -3, name: '-3', color: 'var(--down)' }, { y: 0, name: '', color: 'var(--mut2)', dash: '2 4' }], min: -8, max: 8, fmt: v => (v > 0 ? '+' : '') + v.toFixed(0) },
+    { name: 'Volume', h: 52, type: 'bars', vals: B.map(b => b.v), colors: B.map(b => b.c >= b.o ? 'var(--up)' : 'var(--down)'), fmt: v => v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? Math.round(v / 1e3) + 'k' : String(v) }];
+  $('#nwinfo').innerHTML = `<b>${esc(C.sym)}</b> · ${last ? `${last.status == 'open' ? '<b>open position</b>' : last.pnl > 0 ? '<span class=up>won</span>' : '<span class=down>lost</span>'}${last.pnl != null ? ` <b class="${ud(last.pnl)}">${sg(last.pnl, 2)}</b>` : ''}${last.reason ? ` · ${esc(last.reason)}` : ''}<br><span class=mut>${esc(last.headline || '')}</span>` : `<span class=mut>${esc((C.news[C.news.length - 1] || {}).headline || '')}</span>`}`;
+  bcChart($('#nwcv'), S);
+  $('#nwleg').innerHTML = bcLegend([['var(--up)', 'good headline (dotted line)', 'tri'], ['var(--down)', 'bad headline (dotted line)'], ['var(--text)', 'entry price'], ['var(--up)', 'target +3%'], ['var(--down)', 'stop -1.5%'], ['rgba(127,127,127,.5)', 'grey = pre-market / after-hours', 'box']]) + '<div class=mut style="font-size:12px;margin-top:6px">1-minute candles, New York time (Yahoo Finance, a few minutes delayed at times). The bot only buys during regular hours; every trade ends at the target, the stop, 30 minutes, or 5 minutes before the close.</div>';
 }

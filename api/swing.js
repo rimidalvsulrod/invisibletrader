@@ -7,13 +7,14 @@ module.exports = handler(async (req, body, q) => {
   const u = await A.need(req), uid = u.id, op = q.op || body.op;
   if (op === 'live') return { live: J(await S.get('swinglive'), null) };
   if (op === 'bt') { try { return await W.backtest(clamp(body.years, 1, 3, 2)); } catch (e) { throw err(e.status || 502, e.message); } } // backtest of the rules on Yahoo daily prices
+  if (op === 'chart') { try { return await W.chart(uid, String(q.sym || 'SPY').toUpperCase()); } catch (e) { throw err(e.status || 502, e.message); } } // candles + the rule's indicators
   const { row, cfg } = await W.open(uid);
   switch (op) {
     case 'state': {
       const c = await AL.getCreds(uid).catch(() => null); let account = null, accountError = null, pos = [];
       if (c) try { const a = await AL.account(c); account = { equity: +a.equity, cash: +a.cash, day: +a.equity - +a.last_equity, paper: c.paper }; pos = await AL.positions(c).catch(() => []); } catch (e) { accountError = e.message; }
       const px = new Map((Array.isArray(pos) ? pos : []).map(p => [p.symbol, Number(p.current_price)]));
-      const trades = (await db.q('SELECT ts, sym, why, notional, qty, entry, stop, status, exitp, pnl, reason FROM swingtrades WHERE uid=$1 ORDER BY ts DESC LIMIT 100', [uid]))
+      const trades = (await db.q('SELECT ts, sym, why, notional, qty, entry, stop, status, exitp, pnl, reason, exitts FROM swingtrades WHERE uid=$1 ORDER BY ts DESC LIMIT 100', [uid]))
         .map(t => ({ ...t, last: t.status === 'open' ? px.get(t.sym) ?? null : null }));
       return { enabled: row.enabled, cfg, connected: !!c, paper: c ? c.paper : true, account, accountError, stats: await W.stats(uid), trades, rules: { rsi: W.R.rsiBuy, trend: W.R.trend, exitMA: W.R.exitMA, maxDays: W.R.maxDays, stop: W.R.stop * 100, universe: W.UNIVERSE.length }, live: J(await S.get('swinglive'), null) };
     }

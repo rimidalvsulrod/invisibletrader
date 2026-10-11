@@ -153,6 +153,16 @@ async function backtest(days, uid) {
   return { days, logged: all.length, evaluated: rows.length, pending, groups, variants: V, mine: mine ? { n: mine.n, pnl: num(mine.pnl), won: mine.w || 0 } : null };
 }
 
+/* ---------- chart data: 1-minute (or 5-minute) candles of one pool, cached 15s ---------- */
+const CH = new Map();
+async function chart(chain, pool, agg) {
+  if (!CHAINS[chain] || !/^(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$/.test(String(pool))) throw Object.assign(new Error('bad pool'), { status: 400 });
+  const a = Number(agg) === 5 ? 5 : 1, k = chain + pool + a, hit = CH.get(k); if (hit && Date.now() - hit.t < 15e3) return hit.v;
+  const j = await get(`https://api.geckoterminal.com/api/v2/networks/${CHAINS[chain]}/pools/${pool}/ohlcv/minute?aggregate=${a}&limit=300&currency=usd`);
+  const v = { agg: a, candles: (j.data?.attributes?.ohlcv_list || []).map(r => r.slice(0, 6).map(Number)).sort((x, y) => x[0] - y[0]) };
+  CH.set(k, { t: Date.now(), v }); if (CH.size > 200) CH.delete(CH.keys().next().value); return v;
+}
+
 /* ---------- per user ---------- */
 async function open(uid) {
   await db.q("INSERT INTO membot (uid, cfg, updated) VALUES ($1, '{}', $2) ON CONFLICT (uid) DO NOTHING", [uid, Date.now()]);
@@ -219,4 +229,4 @@ async function stats(uid) {
   const r = await db.one("SELECT count(*)::int AS n, sum(CASE WHEN status='won' THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN status='lost' THEN 1 ELSE 0 END)::int AS l, coalesce(sum(pnl),0) AS pnl, coalesce(sum(CASE WHEN status='open' THEN cost ELSE 0 END),0) AS openc FROM memetrades WHERE uid=$1", [uid]);
   return { trades: r.n, won: r.w || 0, lost: r.l || 0, pnl: num(r.pnl), open: num(r.openc) };
 }
-module.exports = { L, halt, sized, verdict, agg, run, safety, track, simulate, evalSignals, backtest, STAKE, DEF, FEE, R, X, judge, slip, scan, quotes, enter, manage, close, tick, open, stats };
+module.exports = { chart, L, halt, sized, verdict, agg, run, safety, track, simulate, evalSignals, backtest, STAKE, DEF, FEE, R, X, judge, slip, scan, quotes, enter, manage, close, tick, open, stats };

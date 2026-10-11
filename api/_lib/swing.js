@@ -113,6 +113,15 @@ function series(b) { // the indicators the rule uses, one value per day: 200-day
     if (i >= 1) { const d = b[i].c - b[i - 1].c, up = Math.max(d, 0), dn = Math.max(-d, 0); if (i <= 2) { au += up / 2; ad += dn / 2; } else { au = (au * 1 + up) / 2; ad = (ad * 1 + dn) / 2; } if (i >= 2) r2[i] = ad === 0 ? 100 : 100 - 100 / (1 + au / ad); } }
   return { s200, s5, r2 };
 }
+// the chart tab: one year of daily candles for a symbol with the rule's own indicators, the days the rule would have bought, and this user's trades in it
+async function chart(uid, sym) {
+  if (!/^[A-Z][A-Z.\-]{0,5}$/.test(sym)) throw Object.assign(new Error('bad symbol'), { status: 400 });
+  const b = await yahooDaily(sym, Math.floor(Date.now() / 1000) - 600 * 86400), I = series(b), cut = Math.max(0, b.length - 252), nz = x => Number.isFinite(x) ? x : null;
+  const bars = b.slice(cut), s200 = I.s200.slice(cut).map(nz), s5 = I.s5.slice(cut).map(nz), r2 = I.r2.slice(cut).map(nz), buys = [];
+  bars.forEach((x, i) => { if (s200[i] != null && r2[i] != null && x.c > s200[i] && r2[i] < R.rsiBuy) buys.push(i); });
+  const trades = (await db.q('SELECT ts, entry, exitp, exitts, pnl, status, reason, stop FROM swingtrades WHERE uid=$1 AND sym=$2 ORDER BY ts DESC LIMIT 20', [uid, sym])).map(t => ({ ...t, ts: Number(t.ts), exitts: t.exitts == null ? null : Number(t.exitts) }));
+  return { sym, bars, s200, s5, r2, buys, trades, rules: { rsi: R.rsiBuy, trend: R.trend, exitMA: R.exitMA, stop: R.stop } };
+}
 async function backtest(years) {
   years = Math.min(3, Math.max(1, Number(years) || 2)); const p1 = Math.floor((Date.now() - (years + 1) * 365.25 * 864e5) / 1000), from = nyDay(Date.now() - years * 365.25 * 864e5), SLIP = .0005;
   const data = new Map(), got = await Promise.all(UNIVERSE.map(sym => yahooDaily(sym, p1).then(v => [sym, v]).catch(() => [sym, null]))); for (const [sym, v] of got) if (v && v.length > 260) data.set(sym, v);
@@ -168,4 +177,4 @@ async function stats(uid) {
   const st = await db.one("SELECT count(*)::int AS n, coalesce(sum(pnl),0) AS pnl, sum(CASE WHEN pnl>0 THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN pnl<=0 THEN 1 ELSE 0 END)::int AS l FROM swingtrades WHERE uid=$1 AND status='closed' AND pnl IS NOT NULL", [uid]);
   return { n: st.n, pnl: Number(st.pnl), won: st.w || 0, lost: st.l || 0 };
 }
-module.exports = { backtest, DEF, R, UNIVERSE, signal, smaLast, rsiLast, scan, runDay, manage, tick, open, stats, publish, heldDays };
+module.exports = { chart, backtest, DEF, R, UNIVERSE, signal, smaLast, rsiLast, scan, runDay, manage, tick, open, stats, publish, heldDays };

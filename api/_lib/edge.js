@@ -41,7 +41,7 @@ function ladders(M) {
 function ladderGaps(L, now) {
   const out = [];
   for (const [key, v] of L) { const it = v.filter(x => x.m.bb > 0 && x.m.ba > 0 && x.m.gs > now + R.lead).sort((a, b) => a.val - b.val); let best = null;
-    for (let i = 0; i < it.length; i++) for (let j = i + 1; j < it.length; j++) { const lo = it[i].m, hi = it[j].m, edge = lo.bb - hi.ba - fee(1 - lo.bb) - fee(hi.ba); if (edge > R.minLadder && (!best || edge > best.edge)) best = { kind: 'ladder', key: lo.s + '|' + hi.s, edge, lo, hi, label: key.split('|')[0] }; }
+    for (let i = 0; i < it.length; i++) for (let j = i + 1; j < it.length; j++) { const lo = it[i].m, hi = it[j].m, edge = lo.bb - hi.ba - fee(1 - lo.bb) - fee(hi.ba); if (edge > R.minLadder && (!best || edge > best.edge)) best = { kind: 'ladder', key: lo.s + '|' + hi.s, edge, lo, hi, label: key.split('|')[0], rungs: it.map(x => ({ v: x.val, s: x.m.s, bb: x.m.bb, ba: x.m.ba })) }; }
     if (best) out.push(best); }
   return out.sort((a, b) => b.edge - a.edge);
 }
@@ -158,8 +158,9 @@ async function tick() { // runner: every second; scans every 60s, settles every 
   try {
     if (Date.now() - lastScan >= 6e4) { lastScan = Date.now(); try { const cur = await scan(); execute(cur).catch(() => {}); } catch (e) { scanErr = e.message; } }
     if (Date.now() - lastSettle >= 12e4) { lastSettle = Date.now(); await settle().catch(e => { scanErr = e.message; }); }
-    if (Date.now() - lastPub > 5e3 && CUR.t) { lastPub = Date.now(); const f = g => ({ kind: g.kind, label: g.label, edge: g.edge, key: g.key, age: SEEN.get(g.key) ? Date.now() - SEEN.get(g.key).first : 0 });
-      await S.set('edgelive', JSON.stringify({ t: Date.now(), scanned: CUR.t, err: scanErr, stats: CUR.stats, gaps: [...CUR.ladder.slice(0, 8), ...CUR.set.slice(0, 5)].map(f), dogs: CUR.dog.length, hist: HIST.slice(0, 15) })).catch(() => {}); }
+    if (Date.now() - lastPub > 5e3 && CUR.t) { lastPub = Date.now(); const f = g => ({ kind: g.kind, label: g.label, edge: g.edge, key: g.key, age: SEEN.get(g.key) ? Date.now() - SEEN.get(g.key).first : 0, // the pictures: the whole ladder with its two offending lines, or every outcome of the set
+        rungs: g.rungs, lo: g.lo && g.lo.s, hi: g.hi && g.hi.s, legs: g.legs && g.legs.map(m => ({ q: m.q, ba: m.ba })) });
+      await S.set('edgelive', JSON.stringify({ t: Date.now(), scanned: CUR.t, err: scanErr, stats: CUR.stats, gaps: [...CUR.ladder.slice(0, 8), ...CUR.set.slice(0, 5)].map(f), dogs: CUR.dog.length, dogList: CUR.dog.slice(0, 14).map(d => ({ label: d.label, side: d.side, px: d.px, gs: d.m.gs })), hist: HIST.slice(0, 15) })).catch(() => {}); }
   } finally { busy = false; }
 }
 async function stats(uid) {

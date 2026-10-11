@@ -1,5 +1,5 @@
 // BTC Up or Down tab: live model for the current windows, the paper (or live) account, settings and every trade.
-let btcT = null, btcS = null;
+let btcT = null, btcS = null, btcMH = {}, btcML = {}, btcMN = 0;
 const btcStop = () => { clearInterval(btcT); btcT = null; typeof pmStop == 'function' && pmStop(); };
 const bbapi = async (op, body) => {
   const r = await fetch('/api/btc' + (body ? '' : '?op=' + op), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op, ...body }) } : {});
@@ -13,11 +13,11 @@ async function btcPage() {
   if (!OWNER) { const me = await fetch('/api/auth?op=me').then(r => r.json()).catch(() => ({})); if (me.setup) SETUP = me.setup; if (!me.user) return authView('login', '', btcPage); await signedIn(me.user); } // a direct link may load before sign-in status
   app.innerHTML = sk(320);
   try { btcS = await bbapi('state'); } catch (e) { if (e.status === 401) return authView('login', '', btcPage); app.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
-  btcFeed(btcS.btclive, btcS.now); btcRender();
+  btcFeed(btcS.btclive, btcS.now); btcModelFeed(btcS.btclive); btcRender();
   let n = 0;
   btcT = setInterval(async () => {
     if (!$('#btcwin')) return btcStop();
-    try { if (++n % 15 === 0) { btcS = await bbapi('state'); btcFeed(btcS.btclive, btcS.now); btcRender(); } else { const l = await bbapi('live'); btcS.btclive = l.live; btcS.now = l.now; btcFeed(l.live, l.now); btcWin(); btcPm(); } } catch (e) {}
+    try { if (++n % 15 === 0) { btcS = await bbapi('state'); btcFeed(btcS.btclive, btcS.now); btcRender(); } else { const l = await bbapi('live'); btcS.btclive = l.live; btcS.now = l.now; btcFeed(l.live, l.now); btcModelFeed(l.live); btcWin(); btcPm(); if (++btcMN % 2 == 0) btcModel(); } } catch (e) {}
   }, 1000);
 }
 
@@ -73,6 +73,8 @@ function btcRender() {
         <div class=stat><div class=k>Win rate</div><div class="v num">${settled ? Math.round(acct.won / settled * 100) + '%' : '-'}</div><div class=s>${acct.won} won · ${acct.lost} lost${acct.open ? ` · ${usd(acct.open, 2)} in open trades` : ''}</div></div>
         <div class=stat><div class=k>Profit</div><div class="v num ${ud(acct.pnl)}">${sg(acct.pnl, 2)}</div><div class=s>${acct.trades} trade${acct.trades == 1 ? '' : 's'}</div></div></div></div>
     ${btcPmHtml()}
+    <div class="card pad" style="margin-top:16px"><div class="row sb wrapf" style="gap:12px"><h2>Model vs market</h2><span class=mut style="font-size:12.5px" id=btmn></span></div><div class=mut style="font-size:12.5px;margin:6px 0 8px;line-height:1.5" id=btmi></div><div id=btmcv></div><div id=btmleg></div></div>
+    ${bcProfitCard('btpc')}
     <div class="grid g2" id=btcwin style="margin-top:16px"></div>
     ${btCard('btbt', { opts: [[3, 'Last 3 days'], [7, 'Last 7 days'], [14, 'Last 14 days'], [30, 'Last 30 days']], def: 14, note: 'Tests the strategy on real minute-by-minute Bitcoin history, calibrating on the first part and judging on the rest, then shows what the recorded Polymarket US quotes would have paid. Polymarket US keeps no price history, so the quotes are recorded by the runner from now on.' })}
     <div class="grid g2" style="margin-top:16px">
@@ -90,7 +92,7 @@ function btcRender() {
       <div class="card pad"><h3>How it decides</h3><p class=mut style="font-size:13px;line-height:1.6;margin:8px 0 0">On every price move (up to 4 times a second): Bitcoin's price (median of Coinbase, Kraken and Bitstamp, streamed live) versus the window's start price, its recent volatility and the time left say how many volatilities ahead the favourite is. Instead of the textbook formula, the bot looks that up in a table measured on real minute-by-minute history, with the error of our price feed built in and cut to a 95% lower bound (rebuilt every 6 hours). It buys at most once per window, only the favourite, only with a lead of at least 2 volatilities, only if that bound beats the ask by 2¢ after Polymarket US's fee, only if the market is within 20 points of our number, and only when the last 5 minutes are not much wilder than the last hour. It holds to the result, which settles on Polymarket US's own outcome.</p></div>
     </div>`;
   btWire('btbt', { run: async d => btBtHtml(await bbapi('bt', { days: +d })) });
-  btcWin(); btcPmInit();
+  btcWin(); btcPmInit(); btcModel(); bcProfitDraw('btpc', s.trades.filter(t => t.mode == s.mode), { label: t => `${t.tf} ${t.side}` });
   const act = async (fn, msg) => { try { await fn(); if (msg) toast(msg); } catch (e) { toast(`<span class=down>${esc(e.message)}</span>`); } btcS = await bbapi('state').catch(() => btcS); btcRender(); };
   $('#btog').onclick = () => { if (!s.enabled && live && !confirm(`Start the BTC bot with REAL money?\n\n${c.size == 'pct' ? c.pct + '% of your cash' : '$' + c.usd} per trade; it stops for the day after losing 5%.`)) return; act(() => bbapi(s.enabled ? 'stop' : 'start', {}), s.enabled ? 'BTC bot paused' : 'BTC bot started'); };
   $$('#bmode button').forEach(b => b.onclick = () => { const m = b.dataset.v; if (m == s.mode) return; if (m == 'live' && !confirm('Switch to LIVE trading with real money on your Polymarket US account?\n\nThe bot pauses; turn it on again when ready.')) return; act(() => bbapi('mode', { mode: m }), m == 'live' ? 'Live mode. Turn the bot on when ready' : 'Paper mode'); });
@@ -98,4 +100,27 @@ function btcRender() {
   $('#bsz') && ($('#bsz').onchange = () => act(() => bbapi('cfg', { cfg: { usd: +$('#bsz').value } }), 'Saved'));
   dialMount('#bdial', { key: 'btc-pct', value: c.pct, min: .5, max: 50, step: .5, unit: '% per trade', size: 'sm', caption: v => !live ? `≈ ${usd(s.paper.balance * v / 100, 2)} per trade right now` : '', onCommit: v => act(() => bbapi('cfg', { cfg: { pct: v } }), 'Saved') });
   $('#breset').onclick = () => confirm('Reset the paper account? Paper trades will be cleared.') && act(() => bbapi('reset', { amount: +$('#bamt').value }), 'Paper account reset');
+}
+
+/* ---------- chart: our number against the market's price, with the bot's entry bar drawn as an indicator ---------- */
+function btcModelFeed(L) { // one sample a second per window: what the market asked for the favourite, and what our model says it is really worth
+  for (const w of (L && L.windows) || []) { if (!w.slug || w.pLB == null || !(w.favAsk > 0)) continue; const a = btcMH[w.slug] ||= [], t = Math.floor((L.t || Date.now()) / 1000); if (a.length && a[a.length - 1].t === t) continue;
+    a.push({ t, p: w.pCal, lb: w.pLB, ask: w.favAsk, z: w.calZ, edge: w.edge, fav: w.fav, secs: w.secs, tf: w.tf }); if (a.length > 2400) a.shift(); }
+  const k = Object.keys(btcMH); if (k.length > 6) { delete btcMH[k[0]]; delete btcML[k[0]]; }
+}
+async function btcModel() {
+  const el = $('#btmcv'); if (!el || !btcS) return; const w = (btcS.btclive && btcS.btclive.windows || []).find(x => x.tf == btcTf); if (!w) { el.innerHTML = '<div class=empty style="padding:26px 0">Waiting for the live feed…</div>'; return; }
+  const slug = w.slug; if (!btcML[slug]) { btcML[slug] = 1; try { const j = await bbapi('curve&slug=' + encodeURIComponent(slug)); const a = btcMH[slug] ||= [], first = a.length ? a[0].t : 1e12; const old = j.pts.filter(r => r.t < first && r.lb != null).map(r => ({ t: r.t, p: r.p, lb: r.lb, ask: r.ask, z: r.z, edge: r.lb - r.ask - 0.0695 * r.ask * (1 - r.ask), fav: r.fav, secs: r.secs, tf: btcTf })); btcMH[slug] = [...old, ...a]; } catch (e) {} }
+  const A = (btcMH[slug] || []).filter(x => x.lb != null); if (A.length < 3) { el.innerHTML = '<div class=empty style="padding:26px 0">Collecting this window: the lines start in a few seconds.</div>'; return; } if (!$('#btmcv')) return;
+  const R = btcS.rules || { minEdge: 2, minZ: 2, maxPrice: .985 }, end = A[A.length - 1].t + A[A.length - 1].secs, B = A.map(x => ({ t: x.t, o: x.ask, h: x.ask, l: x.ask, c: x.ask })), n = B.length;
+  const ok = A.map(x => x.z >= R.minZ && x.edge * 100 >= R.minEdge && x.ask <= R.maxPrice), shade = []; for (let i = 0; i < n; i++) if (ok[i]) { let j = i; while (j + 1 < n && ok[j + 1]) j++; shade.push({ i0: i, i1: j, color: 'rgba(48,209,88,.13)' }); i = j; }
+  const pc = v => Math.round(v * 100) + '¢', S = { bars: B, h: 250, style: 'line', color: '#ff9f0a', yfmt: pc, shade, fitOverlays: true, showVol: false, last: A[n - 1].ask, lastColor: '#ff9f0a', tf: t => mmss(end - t) + ' left', tfFull: t => mmss(end - t) + ' left',
+    overlays: [{ name: 'our chance (calibrated)', pts: A.map(x => x.p), color: '#64b5ff', w: 2 }, { name: 'our 95% lower bound', pts: A.map(x => x.lb), color: '#64b5ff', w: 1.4, dash: '5 4' }], levels: [{ y: R.maxPrice, name: 'never above ' + pc(R.maxPrice), color: 'var(--mut)', dash: '2 4' }], marks: [], vlines: [],
+    panes: [{ name: 'Lead in volatilities (the bot needs ' + R.minZ + ' or more)', short: 'Lead (volatilities)', h: 66, vals: A.map(x => x.z), color: 'var(--text)', levels: [{ y: R.minZ, name: R.minZ + '', color: 'var(--up)' }], fmt: v => v.toFixed(1), min: 0 },
+      { name: 'Edge: lower bound minus what you would pay, after fees (needs +' + R.minEdge + '¢)', short: 'Edge after fees', h: 66, vals: A.map(x => x.edge * 100), color: 'var(--text)', levels: [{ y: R.minEdge, name: '+' + R.minEdge + '¢', color: 'var(--up)' }, { y: 0, name: '', color: 'var(--mut2)', dash: '2 4' }], fmt: v => v.toFixed(0) + '¢' }] };
+  for (const t of btcS.trades.filter(t => t.slug == slug && t.mode == btcS.mode)) { const i = bcIdx(B, t.ts / 1000); S.marks.push({ i, y: t.price, kind: 'up', color: 'var(--up)', name: 'bought ' + t.side.toUpperCase(), tip: `Bought ${t.qty} ${t.side.toUpperCase()} at ${cents(t.price)}` }); }
+  const x = A[n - 1], gap = (x.lb - x.ask) * 100; $('#btmn').textContent = `${btcTf == '15m' ? '15-minute' : '1-hour'} window · ${mmss(x.secs)} left`;
+  $('#btmi').innerHTML = `Favourite: <b>${x.fav == 'up' ? 'Up' : 'Down'}</b> · market asks <b>${pc(x.ask)}</b> · our calibrated chance <b>${pc(x.p)}</b>, lower bound <b>${pc(x.lb)}</b> · lead <b>${x.z != null ? x.z.toFixed(1) : '-'}</b> volatilities · edge after fees <b class="${x.edge >= 0 ? 'up' : 'down'}">${x.edge >= 0 ? '+' : ''}${(x.edge * 100).toFixed(1)}¢</b> → ${ok[n - 1] ? '<b class=up>meets every bar: it buys</b>' : x.z < R.minZ ? 'waiting for a bigger lead' : x.edge * 100 < R.minEdge ? (gap < 0 ? 'the market is pricing it higher than our lower bound: no edge' : 'edge too thin') : 'price above the 98.5¢ limit'}`;
+  bcChart(el, S);
+  $('#btmleg').innerHTML = bcLegend([['#ff9f0a', 'what the market asks for the favourite'], ['#64b5ff', 'our calibrated chance'], ['#64b5ff', 'our 95% lower bound (what the bot trusts)'], ['rgba(48,209,88,.5)', 'green: every bar met, the bot buys', 'box'], ['var(--up)', 'bot buys', 'tri']]) + '<div class=mut style="font-size:12px;margin-top:6px">The bot buys only when the orange line (the price) sits at least 2¢ below the dashed blue line (our lower bound) while the lead is 2+ volatilities. When orange is above blue the market is pricing it richer than our model: no trade. Samples are taken every second while this page is open, plus the runner\'s record near the end of each window.</div>';
 }

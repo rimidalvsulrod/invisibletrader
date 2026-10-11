@@ -6,12 +6,13 @@ const clamp = (v, lo, hi, d) => Number.isFinite(Number(v)) ? Math.min(hi, Math.m
 module.exports = handler(async (req, body, q) => {
   const u = await A.need(req), uid = u.id, op = q.op || body.op;
   if (op === 'live') return { live: J(await S.get('newslive'), null) };
+  if (op === 'chart') { try { return await N.chart(uid, String(q.sym || '').toUpperCase()); } catch (e) { throw err(e.status || 502, e.message); } } // prices + headlines + this user's trades in one stock
   const { row, cfg } = await N.open(uid);
   switch (op) {
     case 'state': {
       const c = await AL.getCreds(uid).catch(() => null); let account = null, accountError = null;
       if (c) try { const a = await AL.account(c); account = { equity: +a.equity, cash: +a.cash, day: +a.equity - +a.last_equity, paper: c.paper }; } catch (e) { accountError = e.message; }
-      const trades = await db.q('SELECT ts, sym, headline, url, score, notional, qty, entry, exitp, status, pnl, reason FROM ntrades WHERE uid=$1 ORDER BY ts DESC LIMIT 100', [uid]);
+      const trades = await db.q('SELECT ts, sym, headline, url, score, notional, qty, entry, exitp, status, pnl, reason, exitts FROM ntrades WHERE uid=$1 ORDER BY ts DESC LIMIT 100', [uid]);
       const st = await db.one("SELECT count(*)::int AS n, coalesce(sum(pnl),0) AS pnl, sum(CASE WHEN pnl>0 THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN pnl<=0 THEN 1 ELSE 0 END)::int AS l FROM ntrades WHERE uid=$1 AND status='closed' AND pnl IS NOT NULL", [uid]);
       return { enabled: row.enabled, cfg, connected: !!c, key: c ? c.key.slice(0, 6) + '…' : null, paper: c ? c.paper : true, account, accountError, stats: { n: st.n, pnl: Number(st.pnl), won: st.w || 0, lost: st.l || 0 }, trades: trades.map(t => ({ ...t, ts: Number(t.ts) })), live: J(await S.get('newslive'), null), emailCodes: !!(await require('./_lib/mail').configured()) };
     }

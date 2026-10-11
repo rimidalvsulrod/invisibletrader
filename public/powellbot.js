@@ -129,7 +129,7 @@ function wireCtl() {
   $('#pwday').onchange = () => { pwManual = true; pwIdx = +$('#pwday').value; paintDynamic(true); }; $('#pwprev').onclick = () => { pwManual = true; pwIdx = Math.max(0, pwIdx - 1); paintDynamic(true); }; $('#pwnext').onclick = () => { pwManual = true; pwIdx = Math.min(D.days.length - 1, pwIdx + 1); paintDynamic(true); };
 }
 function paintDynamic(force) { // live parts only: balance, profit, trading-now strip, chart, status, trades
-  if (!$('#pwhero')) return; $('#pwhero').innerHTML = heroHtml(); wireHero(); $('#pwmeta').innerHTML = metaHtml(); $('#pwtr').innerHTML = tradesHtml();
+  if (!$('#pwhero')) return; $('#pwhero').innerHTML = heroHtml(); wireHero(); $('#pwmeta').innerHTML = metaHtml(); $('#pwtr').innerHTML = tradesHtml(); bcProfitDraw('pwpc', pwB.trades, { label: t => `${t.dir} ${t.etf} ${t.day}`, fmt: v => (v < 0 ? '-$' : '$') + Math.abs(v).toFixed(0) });
   if (force || !document.activeElement?.closest?.('#pwctl')) { $('#pwctl').innerHTML = ctlHtml(); wireCtl(); } // do not yank the symbol box while it is being typed in
   const f = $('#pwfollow'); if (f) f.onclick = e => { e.preventDefault(); pwManual = false; pwAct(async () => {}); };
   powellDraw();
@@ -144,6 +144,7 @@ function powellRender() {
       <div class=row style="gap:14px;flex-wrap:wrap;margin-top:14px;justify-content:center"><label class=row style="gap:8px"><span class=mut style="font-size:13px">Signal</span><select class=inp id=pwbs style="width:auto"><option value=NQ ${c.sym == 'NQ' ? 'selected' : ''}>NQ</option><option value=ES ${c.sym == 'ES' ? 'selected' : ''}>ES</option></select></label>
         <label class=row style="gap:8px"><span class=mut style="font-size:13px">Trades</span><select class=inp id=pwin style="width:auto"><option value=futures ${c.inst != 'etf' ? 'selected' : ''}>The futures (built-in paper)</option><option value=etf ${c.inst == 'etf' ? 'selected' : ''}>${c.sym == 'NQ' ? 'QQQ' : 'SPY'} on your broker</option></select></label></div>
       <div class=mut style="font-size:12.5px;line-height:1.55;margin-top:12px;text-align:center">${c.inst == 'etf' ? `Trades ${c.sym == 'NQ' ? 'QQQ' : 'SPY'} on your connected broker (same percentage stop and 2R target as a bracket order; whole shares; shorts need a shortable ETF).` : `<b>Alpaca and Webull cannot trade futures</b>, so the real ${esc(c.sym)} contracts trade in Mimic's built-in paper account: the signal's own stop and 2R target, real contract sizes (micros when ${esc(c.sym)} is too big for your risk), simulated fills, riding on your Alpaca balance.`} One trade a day; it closes anything open at 15:55 ET.</div></div>
+    ${bcProfitCard('pwpc')}
     ${btCard('pwbt', { opts: [[5, 'Last 5 sessions'], [10, 'Last 10 sessions'], [20, 'Last 20 sessions'], [40, 'Last 40 sessions'], [60, 'All the data (about 60)']], def: 60, note: `Replays the 10 AM sweep rule on free 5-minute ${c.sym} candles. Free data only goes back about 60 sessions.`, initial: btHtml() })}
     <div class="card" style="margin-top:16px;overflow:hidden" id=pwtr></div>`;
   dialMount('#pwd1', { key: 'pw-risk', value: c.risk, min: .1, max: 2, step: .1, unit: '% risked per trade', size: 'sm', caption: v => eq ? `≈ ${usd(eq * v / 100, 0)} at risk if the stop is hit` : '', onCommit: v => cfg('risk', v) });

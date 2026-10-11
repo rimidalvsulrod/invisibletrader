@@ -170,6 +170,20 @@ async function manage() {
     }
   }
 }
+// the chart tab: today's and the last few days' 1-minute prices of one stock (Yahoo Finance, pre- and after-market included), this user's trades in it and the scored headlines about it
+const YN = new Map();
+async function chart(uid, sym) {
+  if (!/^[A-Z][A-Z.\-]{0,5}$/.test(sym)) throw Object.assign(new Error('bad symbol'), { status: 400 });
+  let bars = (YN.get(sym) || {}).v; if (!bars || Date.now() - YN.get(sym).t > 20e3) {
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1m&range=5d&includePrePost=true`, { headers: { 'user-agent': 'Mozilla/5.0 (compatible; MimicNews/1.0)', accept: 'application/json' }, signal: AbortSignal.timeout(15e3) });
+    if (!r.ok) throw new Error(`Yahoo Finance ${sym}: ${r.status}`); const res = (await r.json())?.chart?.result?.[0]; if (!res?.timestamp) throw new Error(`no prices for ${sym}`); const q = res.indicators.quote[0];
+    bars = []; res.timestamp.forEach((t, i) => { if ([q.open[i], q.high[i], q.low[i], q.close[i]].some(x => x == null)) return; bars.push({ t, o: q.open[i], h: q.high[i], l: q.low[i], c: q.close[i], v: q.volume[i] || 0 }); });
+    YN.set(sym, { t: Date.now(), v: bars }); if (YN.size > 100) YN.delete(YN.keys().next().value); }
+  const trades = (await db.q('SELECT id, ts, headline, score, status, entry, exitp, pnl, reason, exitts, notional, qty FROM ntrades WHERE uid=$1 AND sym=$2 AND ts>$3 ORDER BY ts', [uid, sym, Date.now() - 7 * 864e5])).map(t => ({ ...t, ts: Number(t.ts), exitts: t.exitts == null ? null : Number(t.exitts) }));
+  const live = J(await S.get('newslive').catch(() => null), null), news = ((live && live.news) || []).filter(n => n.syms.includes(sym) && Math.abs(n.score) > 0).map(n => ({ t: n.t, headline: n.headline, score: n.score }));
+  for (const t of trades) if (t.headline && !news.some(n => n.headline === t.headline)) news.push({ t: t.ts - 5e3, headline: t.headline, score: t.score });
+  return { sym, bars, trades, news: news.sort((a, b) => a.t - b.t), rules: { buyAt: BUY_AT, tp: TP, sl: SL, hold: HOLD } };
+}
 let busy = false;
 async function tick() { // runner: every few seconds
   if (busy) return; busy = true;
@@ -181,4 +195,4 @@ function start() { // react to each headline the moment it lands
   onNews = async n => { if (Math.abs(n.score) < BUY_AT) return;
     await Promise.all((await db.q("SELECT n.uid FROM nbot n JOIN users u ON u.id=n.uid WHERE n.enabled=true AND u.verified=true AND u.alpaca IS NOT NULL").catch(() => [])).map(r => act(r.uid, n).catch(e => console.error('news', r.uid, e.message)))); }; // everyone at once: nobody waits behind another account's order
 }
-module.exports = { schedule, retry, TRANSIENT, QUEUE, DEF, BUY_AT, MAX_OPEN, EXPOSURE, PER_DAY, FRESH, score, ingest, act, manage, tick, start, open, FEED };
+module.exports = { chart, schedule, retry, TRANSIENT, QUEUE, DEF, BUY_AT, MAX_OPEN, EXPOSURE, PER_DAY, FRESH, score, ingest, act, manage, tick, start, open, FEED };

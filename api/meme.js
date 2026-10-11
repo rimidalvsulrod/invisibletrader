@@ -8,6 +8,7 @@ module.exports = handler(async (req, body, q) => {
   const u = await A.need(req), uid = u.id, op = q.op || body.op;
   if (op === 'live') return { live: J(await S.get('memelive'), null), now: Date.now() };
   if (op === 'bt') return M.backtest([1, 3, 7, 14, 30].includes(Number(body.days)) ? Number(body.days) : 7, uid); // backtest: the logged signals, followed to the end
+  if (op === 'chart') { try { return await M.chart(q.chain, q.pool, q.agg); } catch (e) { throw err(e.status || 502, e.message); } } // candles for the tab's chart
   const { row, cfg } = await M.open(uid);
   switch (op) {
     case 'state': {

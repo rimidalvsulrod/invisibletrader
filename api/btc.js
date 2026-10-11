@@ -8,6 +8,7 @@ module.exports = handler(async (req, body, q) => {
   const u = await A.need(req), uid = u.id, op = q.op || body.op;
   if (op === 'live') return { live: J(await S.get('btclive'), null), now: Date.now() };
   if (op === 'chart') { try { return { range: q.range, pts: await B.range(q.range) }; } catch (e) { throw err(e.status || 502, e.message); } } // 1D / 7D price line for the chart
+  if (op === 'curve') return { pts: (await db.q('SELECT ts, secs, ask, plb, pcal, z, fav FROM btcobs WHERE slug=$1 ORDER BY ts LIMIT 200', [String(q.slug || '')])).map(r => ({ t: Math.round(Number(r.ts) / 1000), secs: Number(r.secs), ask: Number(r.ask), lb: r.plb == null ? null : Number(r.plb), p: r.pcal == null ? null : Number(r.pcal), z: r.z == null ? null : Number(r.z), fav: r.fav })) }; // what our model and the market said, window by window
   if (op === 'past') { try { return { tf: q.tf, past: await B.past(q.tf) }; } catch (e) { throw err(e.status || 502, e.message); } } // how the last five windows ended
   if (op === 'bt') { // backtest: does the favourite hold as often as the table says (on days it never saw), plus what the recorded Polymarket US quotes would have paid
     const days = [3, 7, 14, 30].includes(Number(body.days)) ? Number(body.days) : 14, st = J(await S.get('btcbt'), null); let wf = st?.byDays?.[days] || null;
@@ -20,7 +21,7 @@ module.exports = handler(async (req, body, q) => {
       const [trades, paper, live, creds] = await Promise.all([
         db.q('SELECT ts, slug, tf, side, price, qty, fee, fair, edge, s0, s, secs, mode, status, pnl FROM btctrades WHERE uid=$1 ORDER BY ts DESC LIMIT 100', [uid]),
         B.stats(uid, 'paper'), B.stats(uid, 'live'), S.getCreds(uid).catch(() => null)]);
-      return { enabled: row.enabled, mode: row.mode, cfg, paper: { balance: row.paper, start: row.paperstart, ...paper }, live, keys: !!creds, trades: trades.map(t => ({ ...t, ts: Number(t.ts) })), btclive: J(await S.get('btclive'), null), health: await B.health(uid, row.mode), limits: { daily: B.DAILY_STOP, kelly: B.KELLY }, now: Date.now() };
+      return { enabled: row.enabled, mode: row.mode, cfg, paper: { balance: row.paper, start: row.paperstart, ...paper }, live, keys: !!creds, trades: trades.map(t => ({ ...t, ts: Number(t.ts) })), btclive: J(await S.get('btclive'), null), health: await B.health(uid, row.mode), limits: { daily: B.DAILY_STOP, kelly: B.KELLY }, rules: { minEdge: B.MIN_EDGE, minZ: B.MIN_Z, maxPrice: B.MAX_PRICE, sanity: B.SANITY }, now: Date.now() };
     }
     case 'cfg': { // trade size: % of balance or fixed $
       const c = body.cfg || {}, next = { size: (c.size ?? cfg.size) === 'usd' ? 'usd' : 'pct', pct: clamp(c.pct ?? cfg.pct, .5, 50, B.DEF.pct), usd: clamp(c.usd ?? cfg.usd, 1, 10000, B.DEF.usd) };
