@@ -417,3 +417,26 @@ h2{letter-spacing:-.022em}.lead{letter-spacing:-.006em}
 .dialbox.sm .dial{width:176px;height:176px}.dialbox.sm .dial .face{inset:26px}.dialbox.sm .dial .face:before{inset:10px}.dialbox.sm .dial .face i{top:14px;width:7px;height:7px;margin-left:-3.5px}
 .dials{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;justify-items:center}
 #pwstats .v{font-size:30px}
+
+/* BTC tab: a piece of Polymarket (always dark, whatever the app theme) */
+@font-face{font-family:'Barlow Condensed';font-weight:700;font-display:swap;src:url(/fonts/BarlowCondensed-700.woff2) format('woff2')}
+@font-face{font-family:'Barlow Semi Condensed';font-weight:600;font-display:swap;src:url(/fonts/BarlowSemiCondensed-600.woff2) format('woff2')}
+@font-face{font-family:'Barlow Semi Condensed';font-weight:700;font-display:swap;src:url(/fonts/BarlowSemiCondensed-700.woff2) format('woff2')}
+.pm{background:#0e1013;color:#f5f6f8;border:1px solid #1f2329;border-radius:18px;padding:28px 28px 22px;font-family:Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.pm-top{display:flex;gap:16px;align-items:center}.pm-ico{width:56px;height:56px;border-radius:14px;background:#f7931a;display:grid;place-items:center;flex:none}
+.pm-meta{font-size:13px;color:#8c929b;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm-title{font:700 34px/1.05 'Barlow Condensed',Geist,sans-serif;letter-spacing:.012em;text-transform:uppercase;margin-top:5px}
+.pm-act{margin-left:auto;display:flex;gap:18px;align-self:flex-start;padding-top:4px}.pm-act button{background:none;border:0;color:#f5f6f8;cursor:pointer;padding:2px;display:grid;place-items:center}
+.pm-brand{display:flex;align-items:center;gap:8px;margin:22px 0 18px;color:#8c929b;font-size:14px;font-weight:500}.pm-brand:before,.pm-brand:after{content:'';flex:1;height:1px;background:#1f2329}.pm-brand:before{margin-right:6px}.pm-brand:after{margin-left:6px}
+.pm-stats{display:flex;align-items:center;gap:22px}.pm-k{font-size:13px;color:#8c929b;font-weight:500;display:flex;gap:7px;align-items:center;white-space:nowrap}
+.pm-v{font:700 28px/1.1 'Barlow Semi Condensed',Geist,sans-serif;margin-top:4px;font-variant-numeric:tabular-nums;letter-spacing:.005em}.pm-sep{width:1px;height:42px;background:#2a2e35}
+.pm-timer{margin-left:auto;position:relative;width:66px;height:38px;flex:none}.pm-timer svg{position:absolute;inset:0;width:100%;height:100%}.pm-timer b{position:absolute;inset:0;display:grid;place-items:center;font:600 16px 'Barlow Semi Condensed',Geist,sans-serif;font-variant-numeric:tabular-nums}
+.pm-chart{position:relative;margin-top:16px;height:232px}.pm-chart canvas{width:100%;height:100%;display:block;touch-action:pan-y}
+.pm-foot{display:flex;align-items:center;justify-content:space-between;margin-top:14px;gap:12px}
+.pm-past{display:flex;align-items:center;gap:8px;background:#1a1d23;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;min-height:34px}
+.pm-dot{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex:none}
+.pm-rng{display:flex;gap:18px;font-size:14px;font-weight:600}.pm-rng button{background:none;border:0;color:#8c929b;cursor:pointer;font:inherit;padding:2px 0}.pm-rng button.on{color:#f5f6f8}
+.pm-market{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #1f2329;margin-top:20px;padding-top:20px;font-size:15px;font-weight:500}
+.pm-btn{min-width:120px;height:40px;padding:0 18px;border:0;border-radius:10px;color:#fff;font:600 15px Geist,system-ui,sans-serif;cursor:default;margin-bottom:4px}
+.pm-btn.up{background:#0fa24f;box-shadow:0 4px 0 #087a38}.pm-btn.dn{background:#f04438;box-shadow:0 4px 0 #b8271c}
+@media(max-width:700px){.pm{padding:18px 16px 16px;border-radius:16px}.pm-ico{width:44px;height:44px;border-radius:11px}.pm-ico svg{width:21px;height:21px}.pm-title{font-size:25px}.pm-meta{font-size:11.5px;white-space:normal}.pm-stats{flex-wrap:wrap;gap:14px 16px}.pm-v{font-size:23px}.pm-timer{margin-left:0}.pm-chart{height:200px}.pm-btn{min-width:92px;padding:0 12px}.pm-market{font-size:14px}}

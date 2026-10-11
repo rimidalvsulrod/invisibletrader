@@ -1,6 +1,6 @@
 // BTC Up or Down tab: live model for the current windows, the paper (or live) account, settings and every trade.
 let btcT = null, btcS = null;
-const btcStop = () => { clearInterval(btcT); btcT = null; };
+const btcStop = () => { clearInterval(btcT); btcT = null; typeof pmStop == 'function' && pmStop(); };
 const bbapi = async (op, body) => {
   const r = await fetch('/api/btc' + (body ? '' : '?op=' + op), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op, ...body }) } : {});
   const j = await r.json().catch(() => ({ error: 'Bad response' })); if (!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), { status: r.status }); return j;
@@ -13,11 +13,11 @@ async function btcPage() {
   if (!OWNER) { const me = await fetch('/api/auth?op=me').then(r => r.json()).catch(() => ({})); if (me.setup) SETUP = me.setup; if (!me.user) return authView('login', '', btcPage); await signedIn(me.user); } // a direct link may load before sign-in status
   app.innerHTML = sk(320);
   try { btcS = await bbapi('state'); } catch (e) { if (e.status === 401) return authView('login', '', btcPage); app.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
-  btcRender();
+  btcFeed(btcS.btclive, btcS.now); btcRender();
   let n = 0;
   btcT = setInterval(async () => {
     if (!$('#btcwin')) return btcStop();
-    try { if (++n % 15 === 0) { btcS = await bbapi('state'); btcRender(); } else { const l = await bbapi('live'); btcS.btclive = l.live; btcS.now = l.now; btcWin(); } } catch (e) {}
+    try { if (++n % 15 === 0) { btcS = await bbapi('state'); btcFeed(btcS.btclive, btcS.now); btcRender(); } else { const l = await bbapi('live'); btcS.btclive = l.live; btcS.now = l.now; btcFeed(l.live, l.now); btcWin(); btcPm(); } } catch (e) {}
   }, 1000);
 }
 
@@ -58,6 +58,7 @@ function btcRender() {
           : `<div class=stat><div class=k>Portfolio value</div><div class="v num" id=bpv>${usd(s.paper.balance + s.paper.open, 2)}</div><div class=s id=bpvs>cash ${usd(s.paper.balance, 2)} · started with ${usd(s.paper.start, 2)}</div></div>`}
         <div class=stat><div class=k>Win rate</div><div class="v num">${settled ? Math.round(acct.won / settled * 100) + '%' : '-'}</div><div class=s>${acct.won} won · ${acct.lost} lost${acct.open ? ` · ${usd(acct.open, 2)} in open trades` : ''}</div></div>
         <div class=stat><div class=k>Profit</div><div class="v num ${ud(acct.pnl)}">${sg(acct.pnl, 2)}</div><div class=s>${acct.trades} trade${acct.trades == 1 ? '' : 's'}</div></div></div></div>
+    ${btcPmHtml()}
     <div class="grid g2" id=btcwin style="margin-top:16px"></div>
     <div class="grid g2" style="margin-top:16px">
       <div class="card pad"><h2>Trade size</h2><p class=mut style="font-size:13px;margin:6px 0 12px">How much each trade uses: a share of your ${live ? 'Polymarket US cash' : 'paper balance'}, or a fixed amount.</p>
@@ -73,7 +74,7 @@ function btcRender() {
         <td class=r><div class="num ${t.pnl == null ? 'mut' : ud(t.pnl)}" style="font-weight:600">${t.pnl == null ? '…' : sg(t.pnl, 2)}</div><div class="mut" style="font-size:12px">${rel(t.ts / 1000)}</div></td></tr>`).join('') || `<tr><td class=empty>No trades yet. It only buys when the model finds a clear edge, so quiet stretches are normal.</td></tr>`}</tbody></table></div>
       <div class="card pad"><h3>How it decides</h3><p class=mut style="font-size:13px;line-height:1.6;margin:8px 0 0">On every price move (up to 4 times a second): Bitcoin's price (median of Coinbase, Kraken and Bitstamp, streamed live) versus the window's start price, its recent volatility and the time left give a chance of Up. It buys at most once per window, only in the last 60% of it, only the favourite side (priced 50¢ or more; cheap underdogs are overpriced in these markets), only if it's at least 4¢ cheaper than that chance after Polymarket US's fee even if volatility turns out 20% lower or 30% higher than measured, and holds to the result. Results settle on Polymarket US's own outcome.</p></div>
     </div>`;
-  btcWin();
+  btcWin(); btcPmInit();
   const act = async (fn, msg) => { try { await fn(); if (msg) toast(msg); } catch (e) { toast(`<span class=down>${esc(e.message)}</span>`); } btcS = await bbapi('state').catch(() => btcS); btcRender(); };
   $('#btog').onclick = () => { if (!s.enabled && live && !confirm(`Start the BTC bot with REAL money?\n\n${c.size == 'pct' ? c.pct + '% of your cash' : '$' + c.usd} per trade; it stops for the day after losing 20%.`)) return; act(() => bbapi(s.enabled ? 'stop' : 'start', {}), s.enabled ? 'BTC bot paused' : 'BTC bot started'); };
   $$('#bmode button').forEach(b => b.onclick = () => { const m = b.dataset.v; if (m == s.mode) return; if (m == 'live' && !confirm('Switch to LIVE trading with real money on your Polymarket US account?\n\nThe bot pauses; turn it on again when ready.')) return; act(() => bbapi('mode', { mode: m }), m == 'live' ? 'Live mode. Turn the bot on when ready' : 'Paper mode'); });

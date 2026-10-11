@@ -7,6 +7,8 @@ const clamp = (v, lo, hi, d) => Number.isFinite(Number(v)) ? Math.min(hi, Math.m
 module.exports = handler(async (req, body, q) => {
   const u = await A.need(req), uid = u.id, op = q.op || body.op;
   if (op === 'live') return { live: J(await S.get('btclive'), null), now: Date.now() };
+  if (op === 'chart') { try { return { range: q.range, pts: await B.range(q.range) }; } catch (e) { throw err(e.status || 502, e.message); } } // 1D / 7D price line for the chart
+  if (op === 'past') { try { return { tf: q.tf, past: await B.past(q.tf) }; } catch (e) { throw err(e.status || 502, e.message); } } // how the last five windows ended
   const { row, cfg } = await B.open(uid);
   switch (op) {
     case 'state': {

@@ -57,6 +57,21 @@ async function priceAt(t) {
   if (!c && Date.now() - t < 6 * 36e5) { rows = await get(`https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60&start=${iso(t - 18e4)}&end=${iso(t)}`).catch(() => []); c = rows.find(r => r[0] * 1e3 === t - 6e4); }
   return c ? (c[1] + c[2] + c[3] + c[4]) / 4 : NaN;
 }
+// price line for the 1D and 7D chart tabs: [time, close], oldest first (cached a minute)
+const RNG = { '1d': [300, 288], '7d': [3600, 168] }, RC = new Map();
+async function range(k) {
+  const r = RNG[k]; if (!r) throw Object.assign(new Error('Pick 1d or 7d'), { status: 400 }); const hit = RC.get(k); if (hit && Date.now() - hit.t < 6e4) return hit.v;
+  const end = Date.now(), rows = await get(`https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=${r[0]}&start=${iso(end - r[0] * 1e3 * r[1])}&end=${iso(end)}`);
+  const v = rows.slice().reverse().map(c => [Math.min(c[0] * 1e3 + r[0] * 1e3, end), c[4]]); RC.set(k, { t: Date.now(), v }); return v;
+}
+// how the last five finished windows ended (Up if the end price is at or above the start price), oldest first; finished windows never change, so they are kept
+const PAST = new Map();
+async function past(tf) {
+  const len = TF[tf]; if (!len) throw Object.assign(new Error('Pick 15m or 1h'), { status: 400 }); const cur = Math.floor(Date.now() / len) * len;
+  const rows = await Promise.all([5, 4, 3, 2, 1].map(async i => { const s = cur - i * len, key = tf + s; let r = PAST.get(key);
+    if (!r) { const [a, b] = await Promise.all([priceAt(s), priceAt(s + len)]); if (a > 0 && b > 0) { r = { start: s, up: b >= a, s0: a, s1: b }; PAST.set(key, r); if (PAST.size > 200) PAST.delete(PAST.keys().next().value); } } return r; }));
+  return rows.filter(Boolean);
+}
 // volatility per minute from the last hour of 1-minute returns (raw; model error is handled by VOLS in snapshot)
 async function sigma() {
   const r = (await candles()).slice(0, 61).map(x => x[4]), L = []; for (let i = 0; i < r.length - 1; i++) L.push(Math.log(r[i] / r[i + 1]));
@@ -101,10 +116,11 @@ async function quote(slug) {
 
 /* ---------- one shared snapshot of every live window ---------- */
 const S0 = new Map(), HIST = []; // window start price cache; recent Bitcoin prices (to price a quote at the moment it was made)
+const thin = () => { const o = []; let last = -1e9; for (const x of HIST) if (x.t - last >= 900) { o.push([x.t, Math.round(x.S * 100) / 100]); last = x.t; } return o; }; // about one price a second, for the live chart
 const at = t => { for (let i = HIST.length - 1; i >= 0; i--) if (HIST[i].t <= t) return HIST[i].S; return HIST[0]?.S; };
 async function snapshot() {
   const now = Date.now(), [S, sig] = await Promise.all([spot(), sigma()]), out = [];
-  HIST.push({ t: now, S }); while (HIST.length && now - HIST[0].t > 6e4) HIST.shift();
+  HIST.push({ t: now, S }); while (HIST.length && now - HIST[0].t > 12e4) HIST.shift();
   // the start price is a Coinbase number; scale it onto the same 3-exchange basis as the live price (exchanges differ by $10-50)
   const cb = PX.cb && now - PX.cb.t < 15e3 ? PX.cb.p : NaN, basis = cb > 0 && Math.abs(S / cb - 1) < .005 ? S / cb : 1;
   await feed(Object.entries(TF).map(([tf, len]) => slugOf(tf, Math.floor(now / len) * len))).catch(e => { wsErr = e.message; });
@@ -128,7 +144,7 @@ async function snapshot() {
     } catch (e) { w.err = String(e.message || e).slice(0, 80); }
     out.push(w);
   }
-  return { t: now, S, sigma: sig, windows: out, feed: wsUp ? 'live' : 'poll', feedErr: wsUp ? '' : wsErr };
+  return { t: now, S, sigma: sig, windows: out, h: thin(), feed: wsUp ? 'live' : 'poll', feedErr: wsUp ? '' : wsErr };
 }
 
 /* ---------- per user ---------- */
@@ -219,4 +235,4 @@ async function stats(uid, mode) {
   const r = await db.one("SELECT count(*)::int AS n, sum(CASE WHEN status='won' THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN status='lost' THEN 1 ELSE 0 END)::int AS l, coalesce(sum(pnl),0) AS pnl, coalesce(sum(CASE WHEN status='open' THEN price*qty+fee ELSE 0 END),0) AS openc FROM btctrades WHERE uid=$1 AND mode=$2", [uid, mode]);
   return { trades: r.n, won: r.w || 0, lost: r.l || 0, pnl: Number(r.pnl), open: Number(r.openc) };
 }
-module.exports = { VOLS, MIN_PRICE, reconcile, DEF, TF, MIN_EDGE, DAILY_STOP, tick, start, snapshot, settle, open, stats, fee, Phi, slugOf };
+module.exports = { range, past, VOLS, MIN_PRICE, reconcile, DEF, TF, MIN_EDGE, DAILY_STOP, tick, start, snapshot, settle, open, stats, fee, Phi, slugOf };
