@@ -38,7 +38,7 @@ function adx(b, n = 14) {
   out[s] = dx.slice(n, s + 1).reduce((x, y) => x + y, 0) / (s - n + 1); for (let i = s + 1; i < N; i++) out[i] = (out[i - 1] * (n - 1) + dx[i]) / n; return out;
 }
 
-/* ---------- backtest: the same rules the bot follows, on the last 60 days ---------- */
+/* ---------- backtest: the same rules the bot follows (o.from = first date that may open a trade; the candles before it only warm the indicator up) ---------- */
 function backtest(b, o = {}) {
   const n = o.atr || DEF.atr, mult = o.mult || DEF.mult, adxOn = o.adx !== false, maxTr = o.max || DEF.max, micro = o.sym === 'ES' ? 'MES' : 'MNQ', pv = PBK.mult(micro), fee = PBK.FUT[micro].fee || 0;
   const { st, d } = supertrend(b, n, mult), ax = adx(b); let pos = null; const trades = [], cnt = {};
@@ -49,11 +49,11 @@ function backtest(b, o = {}) {
     const flip = d[i] !== d[i - 1];
     if (pos && flip && d[i] !== pos.s) close(nx.o - pos.s * TICK, 'flip', i);
     if (pos) pos.stop = st[i];
-    if (!pos && flip && nx.m >= 570 && nx.m < 930 && (!adxOn || ax[i] >= ADX_MIN) && (cnt[x.date] || 0) < maxTr) { const s = d[i]; pos = { s, e: nx.o + s * TICK, stop: st[i], stop0: st[i], date: x.date }; cnt[x.date] = (cnt[x.date] || 0) + 1; } }
+    if (!pos && flip && nx.m >= 570 && nx.m < 930 && (!adxOn || ax[i] >= ADX_MIN) && (cnt[x.date] || 0) < maxTr && (!o.from || x.date >= o.from)) { const s = d[i]; pos = { s, e: nx.o + s * TICK, stop: st[i], stop0: st[i], date: x.date }; cnt[x.date] = (cnt[x.date] || 0) + 1; } }
   if (pos) close(b[b.length - 1].c, 'end', 0);
   const net = trades.map(t => t.net), pts = trades.map(t => t.pts), sum = a => a.reduce((x, y) => x + y, 0);
   return { trades: trades.length, win: trades.length ? net.filter(x => x > 0).length / trades.length : 0, avgPts: trades.length ? sum(pts) / trades.length : 0, totalPts: sum(pts), totalUsd: sum(net), worst: trades.length ? Math.min(...net) : 0,
-    avgStop: trades.length ? sum(trades.map(t => t.stop0)) / trades.length : 0, micro, days: new Set(b.map(x => x.date)).size, from: b[0]?.date, to: b[b.length - 1]?.date };
+    avgStop: trades.length ? sum(trades.map(t => t.stop0)) / trades.length : 0, micro, days: new Set(b.filter(x => x.m >= 570 && x.m < 960 && (!o.from || x.date >= o.from)).map(x => x.date)).size, from: o.from || b[0]?.date, to: b[b.length - 1]?.date, list: trades.slice(-12).reverse().map(t => ({ date: t.date, dir: t.dir, entry: t.entry, exit: t.exit, pts: t.pts, net: t.net, why: t.why })) };
 }
 
 /* ---------- chart data for the tab ---------- */

@@ -274,10 +274,11 @@ async function feed(){
 
 /* ---------- Profit Bot (backtest) ---------- */
 async function backtest(){
-  app.innerHTML=`<div class="ph fade"><div><h1>Profit Bot</h1><p class=lead>A backtest: replay the real resolved picks of top traders in order, restaking a share of the bankroll each time.</p></div></div><div id=bt>${sk(380)}</div>`;
+  const btd=LS.get('btdays',0);
+  app.innerHTML=`<div class="ph fade"><div><h1>Profit Bot</h1><p class=lead>A backtest: replay the real resolved picks of top traders in order, restaking a share of the bankroll each time.</p></div><div class=row style="gap:8px;flex-wrap:wrap"><span class=mut style="font-size:13px">How far back</span><select class=inp id=btdays style="width:auto">${[[0,'All the picks'],[30,'Last 30 days'],[90,'Last 90 days'],[180,'Last 6 months'],[365,'Last year']].map(([v,l])=>`<option value=${v} ${v==btd?'selected':''}>${l}</option>`).join('')}</select></div></div><div id=bt>${sk(380)}</div>`;$('#btdays').onchange=()=>{LS.set('btdays',+$('#btdays').value);backtest()};
   const ex=await loadExperts();if(!$('#bt'))return;
-  const seen=new Set(),picks=ex.flatMap(e=>e.closed.map(c=>({...c,wr:e.wr}))).filter(c=>c.avgPrice>=.4&&c.avgPrice<=.9&&c.totalBought*c.avgPrice>=300).sort((a,b)=>a.timestamp-b.timestamp).filter(c=>{const k=c.conditionId+c.outcomeIndex;return seen.has(k)?0:(seen.add(k),1)});
-  if(picks.length<5){$('#bt').innerHTML=`<div class="card empty">Not enough resolved picks to backtest right now.</div>`;return}
+  const seen=new Set(),picks=ex.flatMap(e=>e.closed.map(c=>({...c,wr:e.wr}))).filter(c=>c.avgPrice>=.4&&c.avgPrice<=.9&&c.totalBought*c.avgPrice>=300).sort((a,b)=>a.timestamp-b.timestamp).filter(c=>!btd||(c.timestamp>1e12?c.timestamp:c.timestamp*1000)>=Date.now()-btd*864e5).filter(c=>{const k=c.conditionId+c.outcomeIndex;return seen.has(k)?0:(seen.add(k),1)});
+  if(picks.length<5){$('#bt').innerHTML=`<div class="card empty">Not enough resolved picks to backtest ${btd?'in that window. Try a longer one':'right now'}.</div>`;return}
   const ret=c=>c.realizedPnl>0?1/c.avgPrice-1:-1,wins=picks.filter(c=>c.realizedPnl>0).length,cfg=LS.get('bt',{s:100,f:5});
   const open={};ex.forEach(e=>e.open.forEach(p=>{if(p.curPrice<.03||p.curPrice>.97)return;const k=p.conditionId+p.outcomeIndex,o=open[k]??={...p,n:0,inv:0,wr:0,who:[]};o.n++;o.inv+=p.initialValue;o.wr=Math.max(o.wr,e.wr);o.who.push(e.userName)}));
   const ideas=Object.values(open).filter(o=>o.n>=2).sort((a,b)=>b.n-a.n||b.inv-a.inv).slice(0,9);

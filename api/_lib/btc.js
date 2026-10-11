@@ -1,16 +1,16 @@
 // BTC Up or Down: trades Polymarket US's Bitcoin up/down windows (15 minutes and 1 hour).
-// It does not guess where Bitcoin goes next. It prices what has already happened inside the window:
-//   chance of Up = Phi( ln(price now / price at window start) / (volatility * sqrt(time left)) )
-// and buys a side only when the market sells it for clearly less than that chance (after the taker fee).
+// It does not guess where Bitcoin goes next. It looks at what has already happened inside the window: how many volatilities ahead of the start price the favourite is,
+// with how much time left. The chance that it holds is not the textbook formula but a table measured on real minute-by-minute history (btccal.js) with the error of our
+// price feed built in, cut to a 95% lower bound. It buys only the favourite, only when that lower bound beats the ask by 2 cents after the fee, and only when the market
+// is not wildly disagreeing (a 20 point gap means our price or start is probably wrong, not that the market is). Every quote it sees near the end is recorded (btcobs) so
+// the strategy can be checked against what the market really offered.
 // Paper mode simulates fills at the live ask and settles on Polymarket US's own result.
-const crypto = require('crypto'), db = require('./db'), P = require('./polymarket-us'), S = require('./settings');
+const crypto = require('crypto'), db = require('./db'), P = require('./polymarket-us'), S = require('./settings'), C = require('./btccal');
 const TF = { '15m': 9e5, '1h': 36e5 }, DAY = 864e5;
-// The only setting is trade size: a % of the balance or a fixed $. The rest is built in:
-// minimum edge 4c after fees, both windows, and it stops for the day after losing 20% of the account.
-const DEF = { size: 'pct', pct: 2, usd: 5 }, MIN_EDGE = 4, DAILY_STOP = .2, TFS = ['15m', '1h'];
-// volatility range the edge must survive, and favourites only: cheap underdogs (under 50c) are overpriced in these
-// markets (longshot bias), and the paper record agreed (1 of 8 underdog buys won, 3 of 3 favourites)
-const VOLS = [.8, 1.3], MIN_PRICE = .5;
+// The only setting is trade size: a % of the balance or a fixed $. The rest is built in: the favourite only, at least 2c of edge after fees against the calibrated lower bound,
+// never above 98.5c, a lead of at least 2 volatilities (below that the favourite is near a coin flip and our feed's own error is as big as any edge), skip when the market is 20+ points away from our number or the last 5 minutes are much wilder than the last hour, and stop for the day after losing 20%.
+const DEF = { size: 'pct', pct: 2, usd: 5 }, MIN_EDGE = 2, MIN_Z = 2, MAX_PRICE = .985, SANITY = .2, DAILY_STOP = .2, TFS = ['15m', '1h'], MIN_PRICE = .5;
+let CAL = null; // the calibration table (loaded from settings by the runner every few minutes)
 const fee = (n, p) => 0.0695 * n * p * (1 - p);
 const J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (_) { return d; } };
 const iso = t => new Date(t).toISOString();
@@ -72,13 +72,17 @@ async function past(tf) {
     if (!r) { const [a, b] = await Promise.all([priceAt(s), priceAt(s + len)]); if (a > 0 && b > 0) { r = { start: s, up: b >= a, s0: a, s1: b }; PAST.set(key, r); if (PAST.size > 200) PAST.delete(PAST.keys().next().value); } } return r; }));
   return rows.filter(Boolean);
 }
-// volatility per minute from the last hour of 1-minute returns (raw; model error is handled by VOLS in snapshot)
+// volatility per minute from the last hour of 1-minute returns (raw; the calibration table in btccal.js accounts for the model's error)
 async function sigma() {
   const r = (await candles()).slice(0, 61).map(x => x[4]), L = []; for (let i = 0; i < r.length - 1; i++) L.push(Math.log(r[i] / r[i + 1]));
   const m = L.reduce((a, b) => a + b, 0) / L.length, sd = Math.sqrt(L.reduce((a, b) => a + (b - m) ** 2, 0) / (L.length - 1));
   return Math.max(sd, 2e-4);
 }
 
+async function shock() { // how wild the last 5 minutes are compared with the last hour (the volatility estimate is stale when this is high)
+  const r = (await candles()).slice(0, 61).map(x => x[4]), L = []; for (let i = 0; i < r.length - 1; i++) L.push(Math.log(r[i] / r[i + 1])); const sd = a => { const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / (a.length - 1)); };
+  return Math.max(sd(L.slice(0, 5)), 1e-9) / Math.max(sd(L), 2e-4);
+}
 /* ---------- live Polymarket US prices: authenticated WebSocket push (falls back to paced uncached polling) ---------- */
 const WQ = new Map(); let ws = null, wsUp = false, wsNext = 0, wsBack = 1e3, wsLast = 0, wsSubs = new Set(), wsErr = '';
 async function feedCreds() { // market data isn't account-specific: the admin's key (or the server's env key) opens the feed
@@ -119,7 +123,7 @@ const S0 = new Map(), HIST = []; // window start price cache; recent Bitcoin pri
 const thin = () => { const o = []; let last = -1e9; for (const x of HIST) if (x.t - last >= 900) { o.push([x.t, Math.round(x.S * 100) / 100]); last = x.t; } return o; }; // about one price a second, for the live chart
 const at = t => { for (let i = HIST.length - 1; i >= 0; i--) if (HIST[i].t <= t) return HIST[i].S; return HIST[0]?.S; };
 async function snapshot() {
-  const now = Date.now(), [S, sig] = await Promise.all([spot(), sigma()]), out = [];
+  const now = Date.now(), [S, sig, shk] = await Promise.all([spot(), sigma(), shock().catch(() => 1)]), out = [];
   HIST.push({ t: now, S }); while (HIST.length && now - HIST[0].t > 12e4) HIST.shift();
   // the start price is a Coinbase number; scale it onto the same 3-exchange basis as the live price (exchanges differ by $10-50)
   const cb = PX.cb && now - PX.cb.t < 15e3 ? PX.cb.p : NaN, basis = cb > 0 && Math.abs(S / cb - 1) < .005 ? S / cb : 1;
@@ -133,18 +137,47 @@ async function snapshot() {
       w.S0cb = S0.get(slug); w.S0 = w.S0cb * basis;
       const q = await quote(slug); w.open = q.open; w.upAsk = q.ask; w.downAsk = Number.isFinite(q.bid) ? 1 - q.bid : NaN; w.src = q.src; w.qAge = Date.now() - q.t;
       if (w.S0 > 0 && secs > 0) {
-        const zOf = x => Math.log(x / w.S0) / (sig * Math.sqrt(secs / 60)), cl = x => Math.min(.97, Math.max(.03, x)); // never fully trust the model
-        const z = zOf(S), zq = zOf(at(q.t) || S); w.fair = cl(Phi(z));
-        // worst case over the volatility range AND over "Bitcoin now" vs "Bitcoin when the quote was made":
-        // a side only shows an edge if it has one whether Bitcoin turns calmer or wilder, and isn't just a stale quote
-        const ups = VOLS.flatMap(k => [cl(Phi(z / k)), cl(Phi(zq / k))]), upLo = Math.min(...ups), downLo = 1 - Math.max(...ups);
-        const net = (pr, ch) => pr > 0 && pr < 1 ? ch - pr - fee(1, pr) : -1;
-        w.upEdge = net(w.upAsk, upLo); w.downEdge = net(w.downAsk, downLo);
+        const lr = x => Math.log(x / w.S0), Sq = at(q.t) || S, fav = lr(S) >= 0 ? 'up' : 'down', favQ = lr(Sq) >= 0 ? 'up' : 'down', sg = sig * Math.sqrt(secs / 60);
+        w.z = lr(S) / sg; w.fair = Math.min(.97, Math.max(.03, Phi(w.z))); // the textbook chance of Up: shown, not traded on
+        // the favourite's calibrated chance. The lead counts only as far as BOTH the live price and the price when the quote was made support it (a stale quote is not an edge)
+        const c = C.lookup(CAL, tf, secs, fav === favQ ? Math.min(Math.abs(lr(S)), Math.abs(lr(Sq))) : 0, sig), ask = fav === 'up' ? w.upAsk : w.downAsk;
+        w.fav = fav; w.favAsk = ask; w.pLB = c ? c.lb : null; w.pCal = c ? c.p : null; w.calN = c ? c.n : 0; w.calZ = c ? c.z : null; w.calm = shk <= C.SHOCK; w.shock = shk;
+        w.sane = !!c && ask >= c.lb - SANITY; w.edge = c && ask > 0 && ask < 1 ? c.lb - ask - fee(1, ask) : -1; w.upEdge = fav === 'up' ? w.edge : -1; w.downEdge = fav === 'down' ? w.edge : -1;
       }
     } catch (e) { w.err = String(e.message || e).slice(0, 80); }
     out.push(w);
   }
-  return { t: now, S, sigma: sig, windows: out, h: thin(), feed: wsUp ? 'live' : 'poll', feedErr: wsUp ? '' : wsErr };
+  return { t: now, S, sigma: sig, shock: shk, cal: CAL ? { t: CAL.t, days: CAL.days } : null, windows: out, h: thin(), feed: wsUp ? 'live' : 'poll', feedErr: wsUp ? '' : wsErr };
+}
+
+
+/* ---------- the calibration table (rebuilt by the runner) and the record of what the market offered ---------- */
+async function loadCal() { const c = J(await S.get('btccal').catch(() => null), null); if (c && c.tables) CAL = c; return CAL; }
+let calBusy = false;
+async function refreshCal() { // runner: rebuild the table from 30 days of minute history, plus the backtest summaries for each lookback
+  if (calBusy) return; calBusy = true;
+  try { const M = await C.minutes(30), cal = C.build(M), by = {}; for (const d of [3, 7, 14, 30]) { const Md = C.cutDays(M, d); by[d] = { '15m': C.walkForward(Md, '15m'), '1h': C.walkForward(Md, '1h') }; }
+    await S.set('btccal', JSON.stringify(cal)); await S.set('btcbt', JSON.stringify({ t: Date.now(), byDays: by })); CAL = cal; console.log(new Date().toISOString(), 'btc calibration rebuilt', cal.days + ' days'); }
+  finally { calBusy = false; }
+}
+const LOGGED = new Set();
+async function logObs(snap) { // every 15 seconds near the end of a window: our number and the market's price
+  for (const w of snap.windows) { if (!(w.S0 > 0) || !(w.favAsk > 0 && w.favAsk < 1) || w.secs > (w.tf === '15m' ? 540 : 2100) || w.secs < 3) continue; const cp = Math.floor(w.secs / 15), key = w.slug + ':' + cp; if (LOGGED.has(key)) continue; LOGGED.add(key); if (LOGGED.size > 4000) LOGGED.delete(LOGGED.keys().next().value);
+    await db.q('INSERT INTO btcobs (slug, cp, tf, ts, wend, secs, s, s0, fav, ask, plb, pcal, z) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT (slug, cp) DO NOTHING', [w.slug, cp, w.tf, Date.now(), w.end, w.secs, w.S, w.S0, w.fav, w.favAsk, w.pLB ?? null, w.pCal ?? null, w.calZ ?? null]).catch(() => {}); }
+}
+let lastObsSettle = 0, lastClean = 0;
+async function obsSettle() { // how the logged windows ended (Polymarket US's own result; the price at the end vs the start if it is gone already)
+  if (Date.now() - lastObsSettle < 3e4) return; lastObsSettle = Date.now(); if (Date.now() - lastClean > 36e5) { lastClean = Date.now(); await db.q('DELETE FROM btcobs WHERE ts < $1', [Date.now() - 45 * DAY]); }
+  const due = await db.q('SELECT DISTINCT slug, tf, wend FROM btcobs WHERE up IS NULL AND wend < $1 LIMIT 12', [Date.now() - 25e3]);
+  for (const d of due) { const m = await P.marketRaw(d.slug).catch(() => null); let up = null; if (m && /RESOLVED/.test(m.status || '')) { const op = Array.isArray(m.outcomePrices) ? m.outcomePrices : J(m.outcomePrices, null); if (op) up = String(op[0]) === '1'; }
+    if (up === null && Date.now() - Number(d.wend) > 20 * 6e4) { const [a, b] = await Promise.all([priceAt(Number(d.wend) - TF[d.tf]).catch(() => NaN), priceAt(Number(d.wend)).catch(() => NaN)]); if (a > 0 && b > 0) up = b >= a; } if (up !== null) await db.q('UPDATE btcobs SET up=$2 WHERE slug=$1', [d.slug, up]); }
+}
+// what the recorded quotes say: for each level of caution the bot could have used, the first moment in every window that cleared the bar, and how those trades ended
+async function recorded(days) {
+  const rows = await db.q('SELECT slug, tf, ts, secs, fav, ask, plb, z, up FROM btcobs WHERE ts >= $1 AND up IS NOT NULL ORDER BY slug, ts', [Date.now() - days * DAY]), by = new Map(); for (const r of rows) (by.get(r.slug) || by.set(r.slug, []).get(r.slug)).push(r);
+  const won = r => (r.fav === 'up') === r.up, rules = [0, 1, 2, 3, 5].map(e => { let n = 0, w = 0, cost = 0, pnl = 0; for (const rs of by.values()) { const r = rs.find(x => x.plb != null && x.z >= MIN_Z && x.ask > 0 && x.ask <= MAX_PRICE && x.ask >= x.plb - SANITY && x.plb - x.ask - fee(1, x.ask) >= e / 100); if (!r) continue; n++; if (won(r)) w++; cost += r.ask + fee(1, r.ask); pnl += (won(r) ? 1 : 0) - r.ask - fee(1, r.ask); } return { edge: e, n, win: n ? w / n : null, cost: n ? cost / n : null, pnl, perContract: n ? pnl / n : null }; });
+  const bins = [[0, 1], [1, 2], [2, 3], [3, 99]], lead = bins.map(([a, b]) => { let n = 0, w = 0, ask = 0; for (const rs of by.values()) { const r = rs.find(x => x.z != null && x.z >= a && x.z < b); if (!r) continue; n++; if (won(r)) w++; ask += r.ask; } return { from: a, to: b, n, win: n ? w / n : null, ask: n ? ask / n : null }; }).filter(x => x.n);
+  return { windows: by.size, since: rows.length ? Math.min(...rows.map(r => Number(r.ts))) : null, rules, lead };
 }
 
 /* ---------- per user ---------- */
@@ -157,7 +190,7 @@ const dayStart = () => { const d = new Date(); d.setUTCHours(0, 0, 0, 0); return
 async function decide(row, snap) {
   const uid = row.uid, c = J(row.cfg, {}), cfg = { size: c.size === 'usd' ? 'usd' : 'pct', pct: c.pct > 0 ? c.pct : DEF.pct, usd: c.usd > 0 ? c.usd : DEF.usd };
   // cheap part first: is any window tradeable right now? (no database work on the vast majority of checks)
-  const cands = snap.windows.filter(w => TFS.includes(w.tf) && w.open && w.fair > 0 && w.secs <= TF[w.tf] / 1e3 * .6 && w.secs >= 20 && w.qAge <= 5e3 && ((w.upEdge * 100 >= MIN_EDGE && w.upAsk >= MIN_PRICE) || (w.downEdge * 100 >= MIN_EDGE && w.downAsk >= MIN_PRICE)));
+  const ready = w => TFS.includes(w.tf) && w.open && w.pLB != null && w.calZ >= MIN_Z && w.calm && w.sane && w.secs >= 12 && w.qAge <= 5e3 && w.edge * 100 >= MIN_EDGE && w.favAsk > 0 && w.favAsk <= MAX_PRICE, cands = snap.windows.filter(ready);
   if (!cands.length) return;
   const live = row.mode === 'live', creds = live ? await S.getCreds(uid).catch(() => null) : null;
   if (live && (!creds || process.env.TRADING_DISABLED)) return;
@@ -169,12 +202,8 @@ async function decide(row, snap) {
   if (Number(today.p) - Number(openCost.c) <= -DAILY_STOP * (bal + Number(openCost.c) - Number(today.p))) return; // lost 20% today: done until tomorrow
   const spend = cfg.size === 'usd' ? cfg.usd : bal * cfg.pct / 100;
   for (const w of cands) {
-    if (!TFS.includes(w.tf) || !w.open || !(w.fair > 0)) continue;
-    const len = TF[w.tf]; if (w.secs > len / 1e3 * .6 || w.secs < 20) continue; // only once the window has played out a while
-    if (await db.one('SELECT id FROM btctrades WHERE uid=$1 AND slug=$2 AND mode=$3', [uid, w.slug, row.mode])) continue; // one trade per window
-    if (!(w.qAge <= 5e3)) continue; // never trade against a market price more than 5s old
-    const side = w.upEdge >= w.downEdge && w.upAsk >= MIN_PRICE || !(w.downAsk >= MIN_PRICE) ? 'up' : 'down', edge = Math.max(w.upEdge, w.downEdge), price = side === 'up' ? w.upAsk : w.downAsk;
-    if (!(edge * 100 >= MIN_EDGE) || !(price >= MIN_PRICE && price <= .95)) continue;
+    if (!ready(w)) continue; if (await db.one('SELECT id FROM btctrades WHERE uid=$1 AND slug=$2 AND mode=$3', [uid, w.slug, row.mode])) continue; // one trade per window
+    const side = w.fav, edge = w.edge, price = w.favAsk;
     let qty = Math.floor(spend / (price + fee(1, price))); if (qty < 1) qty = 1; // a small balance still buys one contract
     if (qty * (price + fee(1, price)) > bal) continue;
     let fillQ = qty, fillP = price;
@@ -187,7 +216,7 @@ async function decide(row, snap) {
       await db.q('UPDATE btcbot SET paper=paper-$2 WHERE uid=$1', [uid, fillQ * price + fee(fillQ, price)]); row.paper -= fillQ * price + fee(fillQ, price);
     }
     await db.q('INSERT INTO btctrades (id, uid, ts, slug, tf, side, price, qty, fee, fair, edge, s0, s, secs, mode, wend) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)',
-      [crypto.randomBytes(8).toString('hex'), uid, Date.now(), w.slug, w.tf, side, fillP, fillQ, fee(fillQ, fillP), side === 'up' ? w.fair : 1 - w.fair, edge, w.S0cb, w.S, w.secs, row.mode, w.end]);
+      [crypto.randomBytes(8).toString('hex'), uid, Date.now(), w.slug, w.tf, side, fillP, fillQ, fee(fillQ, fillP), w.pCal, edge, w.S0cb, w.S, w.secs, row.mode, w.end]);
   }
 }
 // settle finished windows: Polymarket US's own result; if it's gone already, the price at the window's end vs its start
@@ -214,25 +243,26 @@ async function reconcile() {
 }
 // one check for everyone. In the runner it fires on every Bitcoin or Polymarket US price move (at most 4x a second),
 // plus a 1-second heartbeat; a check still running is skipped, never doubled.
-let busy = false, lastPub = 0, lastSettle = 0, users = { t: 0, rows: [] };
+let busy = false, lastPub = 0, lastSettle = 0, lastCal = 0, users = { t: 0, rows: [] };
 async function tick(given) {
   if (busy) return null; busy = true;
   try {
-    const snap = given || await snapshot();
+    if (Date.now() - lastCal > 3 * 6e4) { lastCal = Date.now(); await loadCal().catch(() => {}); }
+    const snap = given || await snapshot(); logObs(snap).catch(() => {});
     if (given || Date.now() - lastPub > 1e3) { lastPub = Date.now(); S.set('btclive', JSON.stringify(snap)).catch(() => {}); }
     if (given || Date.now() - users.t > 5e3) users = { t: Date.now(), rows: await db.q("SELECT b.* FROM btcbot b JOIN users u ON u.id=b.uid WHERE b.enabled=true AND u.verified=true") };
     for (const r of users.rows) await decide(r, snap).catch(e => console.error('btc', r.uid, e.message));
-    if (given || Date.now() - lastSettle > 5e3) { lastSettle = Date.now(); await settle(); await reconcile(); }
+    if (given || Date.now() - lastSettle > 5e3) { lastSettle = Date.now(); await settle(); await reconcile(); await obsSettle().catch(e => console.error('btc obs', e.message)); }
     return snap;
   } finally { busy = false; }
 }
 let nextAt = 0, timer = null;
 function start() { // runner: open the price streams and re-check on every move
-  streams();
+  streams(); loadCal().then(() => { if (!CAL || Date.now() - CAL.t > 8 * 36e5) return refreshCal(); }).catch(e => console.error('btc calibration', e.message)); setInterval(() => refreshCal().catch(e => console.error('btc calibration', e.message)), 6 * 36e5);
   onMove = () => { if (timer) return; const wait = Math.max(0, nextAt - Date.now()); timer = setTimeout(() => { timer = null; nextAt = Date.now() + 250; tick().catch(() => {}); }, wait); };
 }
 async function stats(uid, mode) {
   const r = await db.one("SELECT count(*)::int AS n, sum(CASE WHEN status='won' THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN status='lost' THEN 1 ELSE 0 END)::int AS l, coalesce(sum(pnl),0) AS pnl, coalesce(sum(CASE WHEN status='open' THEN price*qty+fee ELSE 0 END),0) AS openc FROM btctrades WHERE uid=$1 AND mode=$2", [uid, mode]);
   return { trades: r.n, won: r.w || 0, lost: r.l || 0, pnl: Number(r.pnl), open: Number(r.openc) };
 }
-module.exports = { range, past, VOLS, MIN_PRICE, reconcile, DEF, TF, MIN_EDGE, DAILY_STOP, tick, start, snapshot, settle, open, stats, fee, Phi, slugOf };
+module.exports = { range, past, recorded, refreshCal, loadCal, logObs, obsSettle, MAX_PRICE, SANITY, MIN_Z, MIN_PRICE, reconcile, DEF, TF, MIN_EDGE, DAILY_STOP, tick, start, snapshot, settle, open, stats, fee, Phi, slugOf };

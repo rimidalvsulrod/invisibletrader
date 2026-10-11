@@ -87,10 +87,10 @@ function runDay(b, ses, k, cfg = {}, atr, upto = Infinity) {
 const MICRO = { NQ: { mult: 2, fee: .62 }, ES: { mult: 5, fee: .62 } };
 function backtest(b, cfg = {}) {
   const c = { ...DEF, ...cfg }, ses = sessions(b), atr = atrSeries(b), m = MICRO[c.sym] || MICRO.NQ, trades = [], days = [];
-  for (let k = 0; k < ses.length; k++) { const ev = runDay(b, ses, k, c, atr); days.push({ date: ses[k].date, n: ev.trades.length }); for (const t of ev.trades) trades.push({ ...t, date: ses[k].date, riskPts: t.R, r: t.pts / t.R, net: t.pts * m.mult - 2 * m.fee }); }
+  for (let k = Math.max(0, ses.length - (c.last || ses.length)); k < ses.length; k++) { const ev = runDay(b, ses, k, c, atr); days.push({ date: ses[k].date, n: ev.trades.length }); for (const t of ev.trades) trades.push({ ...t, date: ses[k].date, riskPts: t.R, r: t.pts / t.R, net: t.pts * m.mult - 2 * m.fee }); }
   const sum = a => a.reduce((x, y) => x + y, 0), n = trades.length, w = trades.filter(t => t.pts > 0).length; let peak = 0, run = 0, dd = 0; for (const t of trades) { run += t.r; peak = Math.max(peak, run); dd = Math.min(dd, run - peak); }
   const gw = sum(trades.filter(t => t.net > 0).map(t => t.net)), gl = -sum(trades.filter(t => t.net < 0).map(t => t.net));
-  return { trades, n, win: n ? w / n : 0, avgR: n ? sum(trades.map(t => t.r)) / n : 0, totalR: sum(trades.map(t => t.r)), net: sum(trades.map(t => t.net)), pf: gl ? gw / gl : gw ? Infinity : 0, maxDD: dd, avgRisk: n ? sum(trades.map(t => t.riskPts)) / n : 0, days: ses.length, from: ses[0]?.date, to: ses[ses.length - 1]?.date,
+  return { trades, n, win: n ? w / n : 0, avgR: n ? sum(trades.map(t => t.r)) / n : 0, totalR: sum(trades.map(t => t.r)), net: sum(trades.map(t => t.net)), pf: gl ? gw / gl : gw ? Infinity : 0, maxDD: dd, avgRisk: n ? sum(trades.map(t => t.riskPts)) / n : 0, days: Math.min(ses.length, c.last || ses.length), from: ses[Math.max(0, ses.length - (c.last || ses.length))]?.date, to: ses[ses.length - 1]?.date,
     long: trades.filter(t => t.dir === 1).length, short: trades.filter(t => t.dir === -1).length, byWhy: Object.fromEntries(['target', 'stop', 'flat 15:55'].map(k => [k, trades.filter(t => t.why === k).length])) };
 }
 module.exports = { DEF, TICK, KZ, FLAT_M, snap, atrSeries, sessions, levelsFor, equilibrium, runDay, backtest, MICRO };

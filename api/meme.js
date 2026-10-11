@@ -7,6 +7,7 @@ const clamp = (v, lo, hi, d) => Number.isFinite(Number(v)) ? Math.min(hi, Math.m
 module.exports = handler(async (req, body, q) => {
   const u = await A.need(req), uid = u.id, op = q.op || body.op;
   if (op === 'live') return { live: J(await S.get('memelive'), null), now: Date.now() };
+  if (op === 'bt') return M.backtest([1, 3, 7, 14, 30].includes(Number(body.days)) ? Number(body.days) : 7, uid); // backtest: the logged signals, followed to the end
   const { row, cfg } = await M.open(uid);
   switch (op) {
     case 'state': {

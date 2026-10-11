@@ -38,6 +38,12 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS gexbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, updated bigint)`,
   `ALTER TABLE gexbot ADD COLUMN IF NOT EXISTS cfg text`, // the risk dials
   `CREATE TABLE IF NOT EXISTS gextrades (id text PRIMARY KEY, uid text NOT NULL, sig text, ts bigint NOT NULL, day text, dir text, qty double precision, entry double precision, stop double precision, tp double precision, orderid text, status text NOT NULL DEFAULT 'open', exitp double precision, pnl double precision, reason text, exitts bigint, UNIQUE (uid, sig))`, // each user's paper trades of the pin-fade signals (one per user and signal)
+  // Meme Radar shadow record: every pool that met the basic bar, with its features, followed for 4 hours with the bot's own exit rules (ev = the result)
+  `CREATE TABLE IF NOT EXISTS memesig (id text PRIMARY KEY, ts bigint NOT NULL, chain text, pool text, token text, sym text, price double precision, liq double precision, fdv double precision, age double precision, score int, ok boolean, nfail int, f text, safe text, ev text, evts bigint, tries int DEFAULT 0)`,
+  `CREATE INDEX IF NOT EXISTS memesig_ts ON memesig (ts)`,
+  // BTC Up or Down: what the market offered near the end of each window (our calibrated number, the favourite's ask) and how the window ended, for checking the strategy against real quotes
+  `CREATE TABLE IF NOT EXISTS btcobs (slug text NOT NULL, cp int NOT NULL, tf text, ts bigint, wend bigint, secs double precision, s double precision, s0 double precision, fav text, ask double precision, plb double precision, pcal double precision, z double precision, up boolean, PRIMARY KEY (slug, cp))`,
+  `CREATE INDEX IF NOT EXISTS btcobs_ts ON btcobs (ts)`,
   // Sweep Bot (ICT liquidity sweep + market structure shift + fair value gap on 5-minute NQ / ES, in the built-in paper account)
   `CREATE TABLE IF NOT EXISTS ictbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, updated bigint)`,
   `CREATE TABLE IF NOT EXISTS icttrades (id text PRIMARY KEY, uid text NOT NULL, key text, ts bigint NOT NULL, day text, root text, sym text, dir text, qty double precision, entry double precision, stop double precision, tp double precision, orderid text, status text NOT NULL DEFAULT 'open', exitp double precision, pnl double precision, reason text, exitts bigint, UNIQUE (uid, key))`,

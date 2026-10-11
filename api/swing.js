@@ -6,6 +6,7 @@ const clamp = (v, lo, hi, d) => Number.isFinite(Number(v)) ? Math.min(hi, Math.m
 module.exports = handler(async (req, body, q) => {
   const u = await A.need(req), uid = u.id, op = q.op || body.op;
   if (op === 'live') return { live: J(await S.get('swinglive'), null) };
+  if (op === 'bt') { try { return await W.backtest(clamp(body.years, 1, 3, 2)); } catch (e) { throw err(e.status || 502, e.message); } } // backtest of the rules on Yahoo daily prices
   const { row, cfg } = await W.open(uid);
   switch (op) {
     case 'state': {

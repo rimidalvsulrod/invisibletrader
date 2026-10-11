@@ -107,7 +107,8 @@ function botRender(S) {
   const cronCard = `<div class="card pad"><div class="row sb"><h3>Always on</h3><span class=pill>24/7</span></div><p class=mut style="font-size:13px;line-height:1.55;margin:8px 0 0">The bot runs on GitHub's servers around the clock, listening to Polymarket's live trade feed. It reacts within about a second of a tracked trader's trade, and double-checks every 15 seconds. Your phone and this page can be closed.</p></div>`;
 
   app.innerHTML = `<div class="ph fade"><div><h1>Auto Trader</h1><p class=lead>When a trader you track buys, you buy. When they sell, you sell. On your own Polymarket US account.</p></div>${connected ? `<button class=btn id=brun>Check now</button>` : ''}</div>
-    ${status}<div class=split style="margin-top:20px"><div class=grid>${connected ? settings + posT + fillsT : keysCard}${logT}</div><div class=grid>${connected ? keysCard : ''}${cronCard}</div></div>`;
+    ${status}${btCard('autobt', { opts: [[0, 'All the picks'], [30, 'Last 30 days'], [90, 'Last 90 days'], [180, 'Last 6 months'], [365, 'Last year']], def: LS.get('btdays', 0), note: 'The Auto Trader copies the traders you track. The Profit Bot tab backtests that idea: it replays the real resolved picks of top traders in order, restaking a share of the bankroll each time. Pick how far back and it opens there.', initial: '<div class=mut style="font-size:13px">Pick how far back and press Run backtest. It opens the Profit Bot tab with that window.</div>' })}<div class=split style="margin-top:20px"><div class=grid>${connected ? settings + posT + fillsT : keysCard}${logT}</div><div class=grid>${connected ? keysCard : ''}${cronCard}</div></div>`;
+  btWire('autobt', { run: async n => { LS.set('btdays', +n); location.hash = '#/backtest'; return ''; } });
   if (keepOpen && $('details')) $('details').open = true;
   liveDraw(false);
 

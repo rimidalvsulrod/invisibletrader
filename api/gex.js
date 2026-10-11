@@ -12,6 +12,8 @@ module.exports = handler(async (req, body, q) => {
       const trades = (await db.q('SELECT t.id, t.sig, t.ts, t.day, t.dir, t.qty, t.entry, t.stop, t.tp, t.status, t.exitp, t.pnl, t.reason, t.exitts, s.level FROM gextrades t LEFT JOIN gexsig s ON s.id=t.sig WHERE t.uid=$1 ORDER BY t.ts DESC LIMIT 100', [uid])).map(t => ({ ...t, ts: Number(t.ts), exitts: t.exitts != null ? Number(t.exitts) : null }));
       return { snap, snapError, bars, log: await G.log(), stats: await G.stats(), enabled: !!row.enabled, cfg, connected: !!c, account, accountError, trades, tstats: await G.tstats(uid), sig: G.SIG, now: Date.now() };
     }
+    case 'bt': { const days = Math.round(clamp(body.days, 1, 365, 30)), cut = Date.now() - days * 864e5, t = await db.one("SELECT count(*)::int AS n, coalesce(sum(pnl),0) AS pnl, sum(CASE WHEN pnl>0 THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN pnl<=0 THEN 1 ELSE 0 END)::int AS l FROM gextrades WHERE uid=$1 AND status='closed' AND pnl IS NOT NULL AND ts>=$2", [uid, cut]);
+      return { days, signals: await G.statsSince(days), trades: { n: t.n, pnl: Number(t.pnl), won: t.w || 0, lost: t.l || 0 } }; }
     case 'cfg': { const c = body.cfg || {}, next = { risk: clamp(c.risk ?? cfg.risk, .1, 2, G.DEF.risk), max: clamp(c.max ?? cfg.max, 5, 100, G.DEF.max), per: Math.round(clamp(c.per ?? cfg.per, 1, 6, G.DEF.per)) };
       await db.q('UPDATE gexbot SET cfg=$2, updated=$3 WHERE uid=$1', [uid, JSON.stringify(next), Date.now()]); return { ok: true, cfg: next }; }
     case 'start': if (!(await AL.getCreds(uid).catch(() => null))) throw err(400, 'Connect Alpaca first (in the Newsflash tab)'); await db.q('UPDATE gexbot SET enabled=true, updated=$2 WHERE uid=$1', [uid, Date.now()]); return { ok: true };

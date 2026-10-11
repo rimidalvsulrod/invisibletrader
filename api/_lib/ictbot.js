@@ -35,6 +35,12 @@ function describe(A, cfg, now = Date.now()) { // one line for the tab: what the 
 }
 
 /* ---------- chart + backtest for the tab ---------- */
+function btSummary(all, sym, cfg, last) { // the same rules over the last `last` sessions (all the data there is when omitted)
+  const bt = E.backtest(all, { ...engCfg(cfg), sym, last });
+  return { n: bt.n, win: bt.win, avgR: bt.avgR, totalR: bt.totalR, net: bt.net, pf: Number.isFinite(bt.pf) ? bt.pf : null, maxDD: bt.maxDD, avgRisk: bt.avgRisk, long: bt.long, short: bt.short, days: bt.days, from: bt.from, to: bt.to, micro: sym === 'ES' ? 'MES' : 'MNQ',
+    trades: bt.trades.slice(-12).reverse().map(x => ({ date: x.date, dir: x.dir, entry: x.entry, exit: x.exit, r: x.r, net: x.net, why: x.why, level: x.level })) };
+}
+async function backtestRun(sym, cfg, last) { return btSummary(await bars(sym, '60d', 3e5), sym, cfg, last); }
 const CD = new Map();
 async function chartData(sym, cfg) { // cached for 15s per setting (the backtest part is the heavy bit)
   const key = JSON.stringify([sym, cfg]), hit = CD.get(key); if (hit && Date.now() - hit.at < 15e3) return hit.v; const v = await chartBuild(sym, cfg); CD.set(key, { at: Date.now(), v }); if (CD.size > 12) CD.delete(CD.keys().next().value); return v;
@@ -42,14 +48,12 @@ async function chartData(sym, cfg) { // cached for 15s per setting (the backtest
 async function chartBuild(sym, cfg) {
   const all = await bars(sym, '60d', 3e5), A = analyze(all, { ...cfg, sym }), days = [...new Set(all.filter(x => x.m >= 570 && x.m < 960).map(x => x.date))].slice(-2);
   const keep = all.filter(x => days.includes(x.date) && x.m >= 480 && x.m < 960), t = i => all[i].t, ev = A?.ev, p = ev?.pending;
-  const bt = E.backtest(all, { ...engCfg(cfg), sym });
   return { sym, t: all[all.length - 1]?.t, last: all[all.length - 1]?.c, bars: keep.map(x => [x.t, x.o, x.h, x.l, x.c]), day: A?.ses[A.k].date, status: describe(A, cfg),
     levels: (ev?.levels || []).map(L => ({ name: L.name, side: L.side, p: L.p })), eq: Number.isFinite(ev?.eq) ? ev.eq : null,
     events: (ev?.events || []).map(e => ({ t: t(e.i), type: e.type, dir: e.dir, p: e.p ?? null, why: e.why || null, level: e.level || null })),
     order: p?.order ? { dir: p.order.dir, entry: p.order.entry, stop: p.order.stop, target: p.order.target, lo: p.order.zoneLo, hi: p.order.zoneHi, t: t(p.order.mi) } : null,
     pos: p?.pos ? { dir: p.pos.dir, entry: p.pos.entry, stop: p.pos.stop, target: p.pos.target, t: t(p.pos.fi) } : null,
-    backtest: { n: bt.n, win: bt.win, avgR: bt.avgR, totalR: bt.totalR, net: bt.net, pf: Number.isFinite(bt.pf) ? bt.pf : null, maxDD: bt.maxDD, avgRisk: bt.avgRisk, long: bt.long, short: bt.short, days: bt.days, from: bt.from, to: bt.to, micro: sym === 'ES' ? 'MES' : 'MNQ',
-      trades: bt.trades.slice(-12).reverse().map(x => ({ date: x.date, dir: x.dir, entry: x.entry, exit: x.exit, r: x.r, net: x.net, why: x.why, level: x.level })) } };
+    backtest: btSummary(all, sym, cfg) };
 }
 
 /* ---------- the bot ---------- */
@@ -115,4 +119,4 @@ async function stats(uid) {
   const r = await db.one("SELECT count(*)::int AS n, coalesce(sum(pnl),0) AS pnl, sum(CASE WHEN pnl>0 THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN pnl<=0 THEN 1 ELSE 0 END)::int AS l FROM icttrades WHERE uid=$1 AND status='closed' AND pnl IS NOT NULL", [uid]);
   return { n: r.n, pnl: Number(r.pnl), won: r.w || 0, lost: r.l || 0 };
 }
-module.exports = { DEF, norm, engCfg, bars, analyze, describe, chartData, open, enter, step, manage, closeTrade, tick, stats, pnlOf };
+module.exports = { DEF, norm, engCfg, bars, analyze, describe, chartData, backtestRun, open, enter, step, manage, closeTrade, tick, stats, pnlOf };

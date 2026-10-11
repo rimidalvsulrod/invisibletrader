@@ -1,6 +1,6 @@
 // BTC Up or Down bot controls for the signed-in user. Paper by default; live trades their own Polymarket US account.
 const { handler, err } = require('./_lib/util');
-const db = require('./_lib/db'), B = require('./_lib/btc'), S = require('./_lib/settings'), A = require('./_lib/accounts');
+const db = require('./_lib/db'), B = require('./_lib/btc'), C = require('./_lib/btccal'), S = require('./_lib/settings'), A = require('./_lib/accounts');
 const J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (_) { return d; } };
 const clamp = (v, lo, hi, d) => Number.isFinite(Number(v)) ? Math.min(hi, Math.max(lo, Number(v))) : d;
 
@@ -9,6 +9,11 @@ module.exports = handler(async (req, body, q) => {
   if (op === 'live') return { live: J(await S.get('btclive'), null), now: Date.now() };
   if (op === 'chart') { try { return { range: q.range, pts: await B.range(q.range) }; } catch (e) { throw err(e.status || 502, e.message); } } // 1D / 7D price line for the chart
   if (op === 'past') { try { return { tf: q.tf, past: await B.past(q.tf) }; } catch (e) { throw err(e.status || 502, e.message); } } // how the last five windows ended
+  if (op === 'bt') { // backtest: does the favourite hold as often as the table says (on days it never saw), plus what the recorded Polymarket US quotes would have paid
+    const days = [3, 7, 14, 30].includes(Number(body.days)) ? Number(body.days) : 14, st = J(await S.get('btcbt'), null); let wf = st?.byDays?.[days] || null;
+    if (!wf) { if (days > 14) throw err(503, 'The 24/7 runner has not finished its history study yet. Try again in a few minutes, or pick 14 days or less.'); try { const M = await C.minutes(days); wf = { '15m': C.walkForward(M, '15m'), '1h': C.walkForward(M, '1h') }; } catch (e) { throw err(502, e.message); } }
+    return { days, t: st?.t || Date.now(), wf, recorded: await B.recorded(days), rules: { minEdge: B.MIN_EDGE, minZ: B.MIN_Z, maxPrice: B.MAX_PRICE, sanity: B.SANITY } };
+  }
   const { row, cfg } = await B.open(uid);
   switch (op) {
     case 'state': {

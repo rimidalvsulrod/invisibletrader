@@ -160,8 +160,12 @@ async function tick() { // runner
   try { try { if (await collect()) await trade(); } catch (err) { console.error('gex', err.message); } try { await manage(); } catch (err) { console.error('gex manage', err.message); } } finally { busy = false; }
 }
 async function log(limit = 120) { return (await db.q('SELECT * FROM gexsig ORDER BY ts DESC LIMIT $1', [limit])).map(row); }
+async function statsSince(days) { // the live record of the signals over the last `days` days (history of option open interest is not free, so this is what can be measured)
+  const cut = Date.now() - days * 864e5, a = await db.q("SELECT kind, status, pnl FROM gexsig WHERE ts>=$1 AND status IN ('win','loss','invalidated')", [cut]), fmt = k => { const r = a.filter(x => x.kind === k), w = r.filter(x => x.status === 'win').length, sum = r.reduce((t, x) => t + (x.pnl || 0), 0); return { n: r.length, won: w, lost: r.length - w, pnl: sum, avg: r.length ? sum / r.length : 0 }; };
+  return { pin: fmt('pin'), drift: fmt('drift'), sessions: (await db.one('SELECT count(DISTINCT day)::int AS n FROM gexsig WHERE ts>=$1', [cut])).n };
+}
 async function stats() {
   const a = await db.q("SELECT kind, status, pnl FROM gexsig WHERE status IN ('win','loss','invalidated')"), pick = k => a.filter(x => x.kind === k), fmt = rows => { const w = rows.filter(x => x.status === 'win').length, n = rows.length, sum = rows.reduce((t, x) => t + (x.pnl || 0), 0); return { n, won: w, lost: n - w, pnl: sum, avg: n ? sum / n : 0 }; };
   return { pin: fmt(pick('pin')), drift: fmt(pick('drift')) };
 }
-module.exports = { etLocal, gamma, compute, chain, snapshot, spyBars, detect, tick, log, stats, apply, row, etToEpoch, SIG, DEF, PSYM, open, enter, trade, manage, tstats, collect };
+module.exports = { etLocal, gamma, compute, chain, snapshot, spyBars, detect, tick, log, stats, apply, row, etToEpoch, SIG, DEF, PSYM, statsSince, open, enter, trade, manage, tstats, collect };

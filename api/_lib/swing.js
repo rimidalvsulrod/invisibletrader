@@ -96,6 +96,47 @@ async function manage() {
   }
 }
 
+
+/* ---------- backtest: the same rules on Yahoo Finance daily prices (adjusted for splits and dividends), any lookback up to 3 years (more would not finish in time on the free hosting) ---------- */
+const UAY = { 'user-agent': 'Mozilla/5.0 (compatible; MimicSwing/1.0)', accept: 'application/json' }, YC = new Map();
+async function yahooDaily(sym, p1) { // [{d, o, h, l, c}] oldest first, prices scaled to the adjusted close
+  const k = sym + ':' + p1, hit = YC.get(k); if (hit && Date.now() - hit.t < 6 * 36e5) return hit.v; let j;
+  for (let i = 0; i < 3; i++) { const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?period1=${p1}&period2=${Math.floor(Date.now() / 1000) + 86400}&interval=1d`, { headers: UAY, signal: AbortSignal.timeout(25e3) });
+    if (r.ok) { j = await r.json(); break; } if (i === 2 || (r.status < 500 && r.status !== 429)) throw new Error(`Yahoo Finance ${sym}: ${r.status}`); await new Promise(z => setTimeout(z, 500 * (i + 1))); }
+  const res = j?.chart?.result?.[0]; if (!res?.timestamp) throw new Error(`no prices for ${sym}`); const q = res.indicators.quote[0], adj = res.indicators.adjclose?.[0]?.adjclose || q.close, out = [];
+  res.timestamp.forEach((ts, i) => { const c = q.close[i], o = q.open[i], h = q.high[i], l = q.low[i], a = adj[i]; if ([c, o, h, l, a].some(x => x == null) || !(c > 0)) return; const f = a / c; out.push({ d: nyDay(ts * 1000), o: o * f, h: h * f, l: l * f, c: a }); });
+  YC.set(k, { t: Date.now(), v: out }); if (YC.size > 400) YC.delete(YC.keys().next().value); return out;
+}
+function series(b) { // the indicators the rule uses, one value per day: 200-day average, 5-day average, Wilder RSI(2)
+  const n = b.length, s200 = new Array(n).fill(NaN), s5 = new Array(n).fill(NaN), r2 = new Array(n).fill(NaN); let a200 = 0, a5 = 0, au = 0, ad = 0;
+  for (let i = 0; i < n; i++) { a200 += b[i].c; a5 += b[i].c; if (i >= 200) a200 -= b[i - 200].c; if (i >= 5) a5 -= b[i - 5].c; if (i >= 199) s200[i] = a200 / 200; if (i >= 4) s5[i] = a5 / 5;
+    if (i >= 1) { const d = b[i].c - b[i - 1].c, up = Math.max(d, 0), dn = Math.max(-d, 0); if (i <= 2) { au += up / 2; ad += dn / 2; } else { au = (au * 1 + up) / 2; ad = (ad * 1 + dn) / 2; } if (i >= 2) r2[i] = ad === 0 ? 100 : 100 - 100 / (1 + au / ad); } }
+  return { s200, s5, r2 };
+}
+async function backtest(years) {
+  years = Math.min(3, Math.max(1, Number(years) || 2)); const p1 = Math.floor((Date.now() - (years + 1) * 365.25 * 864e5) / 1000), from = nyDay(Date.now() - years * 365.25 * 864e5), SLIP = .0005;
+  const data = new Map(), got = await Promise.all(UNIVERSE.map(sym => yahooDaily(sym, p1).then(v => [sym, v]).catch(() => [sym, null]))); for (const [sym, v] of got) if (v && v.length > 260) data.set(sym, v);
+  if (data.size < 10) throw new Error('could not load enough price history right now');
+  const ind = new Map(), idx = new Map(), dates = new Set(); for (const [sym, b] of data) { ind.set(sym, series(b)); idx.set(sym, new Map(b.map((x, i) => [x.d, i]))); for (const x of b) if (x.d >= from) dates.add(x.d); }
+  const days = [...dates].sort(); let cash = 100, pos = [], peak = 100, dd = 0, inMkt = 0; const trades = [], curve = [];
+  const sell = (p, px, why, d) => { const x = px * (1 - SLIP); cash += p.qty * x; trades.push({ sym: p.sym, entry: p.entry, exit: x, ret: x / p.entry - 1, why, from: p.d, to: d, pnl: p.qty * (x - p.entry) }); };
+  for (const d of days) {
+    const open = (sym) => { const i = idx.get(sym)?.get(d); return i == null ? null : { i, bar: data.get(sym)[i] }; };
+    // 1) exits decided on yesterday's close: back above the 5-day average, or held 10 completed days (sold at today's open)
+    pos = pos.filter(p => { const o = open(p.sym); if (!o) return true; const I = ind.get(p.sym), out = data.get(p.sym)[o.i - 1].c > I.s5[o.i - 1], held = o.i - p.ei - 1; if (out || held >= R.maxDays) { sell(p, o.bar.o, out ? 'closed above its 5-day average' : 'held 10 days', d); return false; } return true; });
+    // 2) entries decided on yesterday's close: in an uptrend (above the 200-day average) with a 2-day RSI under 10, lowest RSI first
+    const equity = cash + pos.reduce((n, p) => n + p.qty * (open(p.sym)?.bar.o ?? p.entry), 0), held = new Set(pos.map(p => p.sym));
+    const sigs = []; for (const [sym, b] of data) { const o = open(sym); if (!o || o.i < 201) continue; const I = ind.get(sym), c = b[o.i - 1].c; if (!held.has(sym) && c > I.s200[o.i - 1] && I.r2[o.i - 1] < R.rsiBuy) sigs.push({ sym, o, r2: I.r2[o.i - 1] }); }
+    for (const s of sigs.sort((a, b) => a.r2 - b.r2)) { if (pos.length >= DEF.max) break; const px = s.o.bar.o * (1 + SLIP), spend = Math.min(equity * DEF.pct / 100, cash * .95); if (!(spend > .01)) break; pos.push({ sym: s.sym, qty: spend / px, entry: px, stop: px * (1 - R.stop), ei: s.o.i, d }); cash -= spend; }
+    // 3) the -8% stop during the day (a gap below it sells at the open), then the day's close
+    pos = pos.filter(p => { const o = open(p.sym); if (!o) return true; if (o.bar.l <= p.stop) { sell(p, Math.min(o.bar.o, p.stop), 'stop loss -8%', d); return false; } return true; });
+    const eq = cash + pos.reduce((n, p) => n + p.qty * (open(p.sym)?.bar.c ?? p.entry), 0); if (pos.length) inMkt++; peak = Math.max(peak, eq); dd = Math.min(dd, eq / peak - 1); curve.push(eq);
+  }
+  const spy = data.get('SPY'), a = spy.find(x => x.d >= from), z = spy[spy.length - 1], n = trades.length, w = trades.filter(t => t.ret > 0).length, tot = curve[curve.length - 1] / 100 - 1, yrs = days.length / 252;
+  return { years, from: days[0], to: days[days.length - 1], symbols: data.size, trades: n, win: n ? w / n : 0, avgRet: n ? trades.reduce((x, t) => x + t.ret, 0) / n : 0, total: tot, cagr: yrs > 0 ? Math.pow(1 + tot, 1 / yrs) - 1 : 0, maxDD: dd, exposure: days.length ? inMkt / days.length : 0, spy: a && z ? z.c / a.c - 1 : null,
+    best: n ? Math.max(...trades.map(t => t.ret)) : 0, worst: n ? Math.min(...trades.map(t => t.ret)) : 0, list: trades.slice(-12).reverse().map(t => ({ sym: t.sym, from: t.from, to: t.to, ret: t.ret, why: t.why })) };
+}
+
 let busy = false, nextRun = 0, lastManage = 0, lastPub = 0; const RUNNING = new Set(), RETRY = new Map();
 async function tick() { // runner: cheap, checks every 15s
   if (busy || Date.now() < nextRun) return; busy = true; nextRun = Date.now() + 15e3;
@@ -127,4 +168,4 @@ async function stats(uid) {
   const st = await db.one("SELECT count(*)::int AS n, coalesce(sum(pnl),0) AS pnl, sum(CASE WHEN pnl>0 THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN pnl<=0 THEN 1 ELSE 0 END)::int AS l FROM swingtrades WHERE uid=$1 AND status='closed' AND pnl IS NOT NULL", [uid]);
   return { n: st.n, pnl: Number(st.pnl), won: st.w || 0, lost: st.l || 0 };
 }
-module.exports = { DEF, R, UNIVERSE, signal, smaLast, rsiLast, scan, runDay, manage, tick, open, stats, publish, heldDays };
+module.exports = { backtest, DEF, R, UNIVERSE, signal, smaLast, rsiLast, scan, runDay, manage, tick, open, stats, publish, heldDays };
