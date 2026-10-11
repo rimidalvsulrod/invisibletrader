@@ -12,7 +12,8 @@ const configure = o => Object.assign(src, o);
 
 /* ---------- prices ---------- */
 async function futuresLast(sym) { if (src.futures) return src.futures(sym); const P = require('./powell'), d = await P.candles(sym, 5e3), day = [...d.days.keys()].sort().pop(), cs = d.days.get(day); if (!cs?.length) throw bad('no futures price for ' + sym, 502); return { px: cs[cs.length - 1].c, day, cs }; }
-const price = async (uid, sym) => isFut(sym) ? (await futuresLast(sym)).px : Number(await src.stock(uid, sym));
+const quoteSym = s => String(s).replace(/^[A-Za-z]+:/, ''); // 'GEX:SPY' is a separate paper position that belongs to one bot (so it never mixes with SPY held elsewhere); it is priced like SPY
+const price = async (uid, sym) => isFut(sym) ? (await futuresLast(sym)).px : Number(await src.stock(uid, quoteSym(sym)));
 const fill = (sym, side, px) => isFut(sym) ? px + (side === 'buy' ? 1 : -1) * tick(sym) : px * (1 + (side === 'buy' ? 1 : -1) * SLIP);
 
 /* ---------- ledger ---------- */

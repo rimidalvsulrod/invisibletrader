@@ -36,6 +36,8 @@ const SCHEMA = [
   // GEX Levels (SPY options gamma exposure turned into paper signals, log only): one shared signal log + a per-user switch for the collector
   `CREATE TABLE IF NOT EXISTS gexsig (id text PRIMARY KEY, ts bigint NOT NULL, day text, kind text NOT NULL, dir text, level double precision, entry double precision, stop double precision, target double precision, status text NOT NULL, exitp double precision, exitts bigint, pnl double precision, note text, note0 text)`,
   `CREATE TABLE IF NOT EXISTS gexbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, updated bigint)`,
+  `ALTER TABLE gexbot ADD COLUMN IF NOT EXISTS cfg text`, // the risk dials
+  `CREATE TABLE IF NOT EXISTS gextrades (id text PRIMARY KEY, uid text NOT NULL, sig text, ts bigint NOT NULL, day text, dir text, qty double precision, entry double precision, stop double precision, tp double precision, orderid text, status text NOT NULL DEFAULT 'open', exitp double precision, pnl double precision, reason text, exitts bigint, UNIQUE (uid, sig))`, // each user's paper trades of the pin-fade signals (one per user and signal)
   // Supertrend bot (copies the Supertrend indicator's flips on 15-minute NQ / ES candles, in the built-in paper account)
   `CREATE TABLE IF NOT EXISTS stbot (uid text PRIMARY KEY, enabled boolean NOT NULL DEFAULT false, cfg text, lastbar bigint, updated bigint)`,
   `CREATE TABLE IF NOT EXISTS sttrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, day text, root text, sym text, dir text, qty double precision, entry double precision, stop double precision, orderid text, status text NOT NULL DEFAULT 'open', exitp double precision, pnl double precision, reason text, exitts bigint)`,

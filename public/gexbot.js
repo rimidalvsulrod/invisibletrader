@@ -1,5 +1,6 @@
 // GEX Levels tab: SPY options gamma exposure (free delayed CBOE data), the max-GEX wall, the zero-gamma flip, the dealer regime,
-// and the paper-signal log (pin fade, magnet drift, stand aside). Log only: nothing here ever places a trade.
+// the signal log (pin fade, magnet drift, stand aside), and the GEX bot: it paper-trades each pin-fade signal in SPY shares in the built-in paper
+// account (balance, profit and risk dials like the other bots). Nothing here ever sends an order to a broker.
 let gxT = null, gxS = null;
 const gxStop = () => { clearInterval(gxT); gxT = null; };
 const gxapi = async (op, body) => {
@@ -16,7 +17,7 @@ async function gexPage() {
   gxStop(); if (!OWNER) { const me = await fetch('/api/auth?op=me').then(r => r.json()).catch(() => ({})); if (me.setup) SETUP = me.setup; if (!me.user) return authView('login', '', gexPage); await signedIn(me.user); }
   app.innerHTML = sk(420);
   try { gxS = await gxapi('state'); } catch (e) { if (e.status === 401) return authView('login', '', gexPage); app.innerHTML = `<div class="card empty">${esc(e.message)}</div>`; return; }
-  gxRender(); gxT = setInterval(async () => { if (!$('#gxstrike')) return gxStop(); try { gxS = await gxapi('state'); gxRender(); } catch (e) {} }, 30000);
+  gxRender(); gxT = setInterval(async () => { if (!$('#gxhero')) return gxStop(); try { gxS = await gxapi('state'); gxPaint(); } catch (e) {} }, 30000); // live parts only: never resets a dial
 }
 
 /* ---------- charts ---------- */
@@ -50,28 +51,70 @@ function gxDrawPrice() { // SPY 5-minute candles for the last two sessions with 
 }
 
 /* ---------- page ---------- */
-function gxRender() {
-  const s = gxS, sn = s.snap, st = s.stats; if (sn) sn.sigdrift = s.sig.drift;
-  const lvl = sn ? (() => { const dm = (sn.maxK / sn.spot - 1) * 100, df = sn.flip ? (sn.flip / sn.spot - 1) * 100 : null, long = sn.regime == 'long';
-    return `<div class="grid g3" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))"><div class=stat><div class=k>Max GEX strike</div><div class="v num">${gxn(sn.maxK, sn.maxK % 1 ? 2 : 0)}</div><div class=s>${long ? 'the magnet / wall' : 'biggest gamma strike'} · ${gxPct(dm)} from SPY · ${gxB(sn.maxGex)} total</div></div>
+const gxSg = x => (x >= 0 ? '+' : '-') + '$' + Math.abs(x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const gxLast = () => gxS.bars.length ? gxS.bars[gxS.bars.length - 1][4] : gxS.snap ? gxS.snap.spot : null;
+const gxOpenPnl = t => { const px = gxLast(); return t && t.status == 'open' && t.entry != null && px != null ? (px - t.entry) * (t.dir == 'long' ? 1 : -1) * t.qty : null; };
+const gxNm = k => ({ pin: 'Pin fade', drift: 'Magnet drift', aside: 'Stand aside' })[k] || k;
+const gxDir = x => x.dir == 'long' || x.dir == 'up' ? '<span class=up>' + (x.kind == 'drift' ? 'up' : 'long') + '</span>' : x.dir == 'short' || x.dir == 'down' ? '<span class=down>' + (x.kind == 'drift' ? 'down' : 'short') + '</span>' : '';
+const gxStat = x => x.status == 'open' ? '<span class="pill ac">Open</span>' : x.status == 'win' ? '<span class="pill up">Win</span>' : x.status == 'loss' ? '<span class="pill down">Loss</span>' : x.status == 'invalidated' ? '<span class="pill down">Killed</span>' : '<span class="pill n">Note</span>';
+function gxHero() {
+  const s = gxS, A = s.account, st = s.tstats, open = s.trades.find(t => t.status == 'open'), today = gxDay(Date.now()), live = open ? gxOpenPnl(open) : null, settled = st.won + st.lost;
+  const closedToday = s.trades.filter(t => t.status == 'closed' && t.pnl != null && t.day == today).reduce((n, t) => n + t.pnl, 0), todayPnl = closedToday + (live || 0), profit = st.pnl + (live || 0), last = gxLast();
+  const strip = open ? `<b class="${open.dir == 'long' ? 'up' : 'down'}">${open.dir == 'long' ? 'LONG' : 'SHORT'}</b> ${open.qty} SPY (built-in paper) · in <b class=num>${gxn(open.entry)}</b> · stop <span class=num>${gxn(open.stop)}</span> · target <span class=num>${gxn(open.tp)}</span> ${live != null ? `· <b class="num ${live >= 0 ? 'up' : 'down'}">${gxSg(live)}</b> right now` : ''}`
+    : `Flat. ${last != null ? `SPY ${gxn(last)}. ` : ''}${s.enabled ? 'Waiting for a pin-fade signal (SPY within 0.10% to 0.30% of the max GEX strike in a long-gamma regime).' : 'The bot is paused.'}`;
+  return `<div class="row sb wrapf" style="gap:16px"><div class=row style="gap:16px"><button class="sw ${s.enabled ? 'on' : ''}" id=gxtog aria-label="GEX bot on/off" ${s.connected ? '' : 'disabled'}></button>
+    <div><div style="font-size:22px;font-weight:650">${s.enabled ? '<span class=up>Running</span>' : 'Paused'}</div><div class=mut style="font-size:13px">${!s.connected ? 'Connect Alpaca in the Newsflash tab first' : 'Re-prices the SPY options chain against the live price every minute, paper-trades each pin-fade signal'}</div></div></div>
+    <div class=row style="gap:8px"><span class="pill n">Built-in paper</span>${s.connected ? '' : '<a class="btn pri sm" href="#/news">Connect</a>'}</div></div>${s.accountError ? `<div class=note style="margin-top:12px">${esc(s.accountError)}</div>` : ''}
+    <div class="grid g3" style="margin-top:18px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"><div class=stat><div class=k>Balance</div><div class="v num" style="font-size:30px">${A ? usd(A.equity, 2) : '-'}</div><div class=s>${A ? `cash ${usd(A.cash, 2)} · includes paper P&L` : 'on your broker'}</div></div>
+      <div class=stat><div class=k>Today</div><div class="v num ${ud(todayPnl)}" style="font-size:30px">${gxSg(todayPnl)}</div><div class=s>${live != null ? 'includes the open trade' : 'closed trades today'}</div></div><div class=stat><div class=k>Bot profit</div><div class="v num ${ud(profit)}" style="font-size:30px">${gxSg(profit)}</div><div class=s>${st.n} closed trade${st.n == 1 ? '' : 's'}</div></div>
+      <div class=stat><div class=k>Win rate</div><div class="v num" style="font-size:30px">${settled ? Math.round(st.won / settled * 100) + '%' : '-'}</div><div class=s>${st.won} won · ${st.lost} lost</div></div></div>
+    <div style="margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--fill);font-size:13.5px;line-height:1.55"><span class=mut>Trading now · </span>${strip}</div>`;
+}
+function gxLevels() {
+  const s = gxS, sn = s.snap; if (!sn) return `<div class=note>${esc(s.snapError || 'No options data yet')}</div>`;
+  const dm = (sn.maxK / sn.spot - 1) * 100, df = sn.flip ? (sn.flip / sn.spot - 1) * 100 : null, long = sn.regime == 'long';
+  return `<div class=mut style="font-size:12.5px;text-align:right;line-height:1.55;margin-bottom:12px">SPY <b class=num style="color:var(--text)">${gxn(sn.spot)}</b> · ${sn.contracts.toLocaleString()} contracts, ${sn.expirations} expirations · ${esc(sn.source)} · chain as of ${gxDay(sn.asof)} ${gxTime(sn.asof)} ET · levels updated ${gxTime(sn.t)} ET</div>
+    <div class="grid g3" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))"><div class=stat><div class=k>Max GEX strike</div><div class="v num">${gxn(sn.maxK, sn.maxK % 1 ? 2 : 0)}</div><div class=s>${long ? 'the magnet / wall' : 'biggest gamma strike'} · ${gxPct(dm)} from SPY · ${gxB(sn.maxGex)} total</div></div>
       <div class=stat><div class=k>Zero-gamma flip</div><div class="v num">${sn.flip ? gxn(sn.flip) : 'none'}</div><div class=s>${sn.flip ? `${gxPct(df)} from SPY · net gamma crosses zero here` : 'net gamma does not cross zero within ±12%'}</div></div>
       <div class=stat><div class=k>Net gamma</div><div class="v num ${long ? 'up' : 'down'}">${gxB(sn.net)}</div><div class=s>calls ${gxB(sn.callGex)} · puts ${gxB(sn.putGex)}</div></div>
-      <div class=stat><div class=k>Dealer regime</div><div class="v" style="font-size:24px;font-weight:650;margin-top:6px"><span class="${long ? 'up' : 'down'}">${long ? 'Long gamma' : 'Short gamma'}</span></div><div class=s>${long ? 'pinning: expect price to stick near the max GEX strike' : 'amplification: moves get bigger, stand aside'}</div></div></div>`; })() : `<div class=note>${esc(s.snapError || 'No options data yet')}</div>`;
-  const nm = k => ({ pin: 'Pin fade', drift: 'Magnet drift', aside: 'Stand aside' })[k] || k, dirOf = x => x.dir == 'long' || x.dir == 'up' ? '<span class=up>' + (x.kind == 'drift' ? 'up' : 'long') + '</span>' : x.dir == 'short' || x.dir == 'down' ? '<span class=down>' + (x.kind == 'drift' ? 'down' : 'short') + '</span>' : '';
-  const stat = x => x.status == 'open' ? '<span class="pill ac">Open</span>' : x.status == 'win' ? '<span class="pill up">Win</span>' : x.status == 'loss' ? '<span class="pill down">Loss</span>' : x.status == 'invalidated' ? '<span class="pill down">Killed</span>' : '<span class="pill n">Note</span>';
-  const pf = st.pin, dr = st.drift;
-  app.innerHTML = `<div class="ph fade"><div><h1>GEX Levels</h1><p class=lead>Where dealers' options hedging pins or amplifies SPY. Free, delayed CBOE options data turned into levels and paper signals. Log only: nothing here ever trades.</p></div></div>
-    <div class="card pad"><div class="row sb wrapf" style="gap:16px"><div class=row style="gap:16px"><button class="sw ${s.enabled ? 'on' : ''}" id=gxtog aria-label="GEX bot on/off"></button><div><div style="font-size:22px;font-weight:650">${s.enabled ? '<span class=up>Logging signals</span>' : 'Paused'}</div><div class=mut style="font-size:13px">Re-prices the SPY options chain against the live price every minute during the NY session</div></div></div>
-      ${sn ? `<div class=mut style="font-size:12.5px;text-align:right;line-height:1.55">SPY <b class=num style="color:var(--text)">${gxn(sn.spot)}</b> · ${sn.contracts.toLocaleString()} contracts, ${sn.expirations} expirations<br>${esc(sn.source)} · chain as of ${gxDay(sn.asof)} ${gxTime(sn.asof)} ET · levels updated ${gxTime(sn.t)} ET</div>` : ''}</div>
-      <div style="margin-top:18px">${lvl}</div></div>
-    ${sn ? `<div class="card pad" style="margin-top:16px"><h2>Gamma by strike</h2><div class=mut style="font-size:12.5px;margin:4px 0 10px">GEX = gamma × open interest × 100 × price, summed over every expiration. Green = call gamma, red = put gamma. The outlined row is the max GEX strike.</div><canvas id=gxstrike style="width:100%;display:block"></canvas></div>
-    <div class="card pad" style="margin-top:16px"><h2>SPY and the levels</h2><div class=mut style="font-size:12.5px;margin:4px 0 10px">5-minute candles, last two sessions. White line = max GEX, yellow dashed = zero-gamma flip, shaded = the pin-fade entry zone (0.1% to 0.3% either side of the wall; stop and invalidation sit 0.5% beyond it), dotted = ±1% magnet-drift lines. Arrows are today's pin-fade signals with their stop (red) and target (green).</div><canvas id=gxprice style="width:100%;display:block"></canvas></div>` : ''}
-    <div class="card pad" style="margin-top:16px"><div class="row sb wrapf"><h2>Paper signals</h2><span class=mut style="font-size:12.5px">Pin fades: ${pf.n ? `${pf.won} won, ${pf.lost} lost (${Math.round(pf.won / pf.n * 100)}%), average ${gxPct(pf.avg)}, total ${gxPct(pf.pnl)}` : 'none resolved yet'} · Magnet drift: ${dr.n ? `${dr.won} of ${dr.n} drifted toward the magnet` : 'none scored yet'}</span></div>
-      <div class=mut style="font-size:12.5px;line-height:1.6;margin:8px 0 0"><b>Pin fade:</b> in a long-gamma regime, SPY 0.10% to 0.30% from the max GEX strike (a touch) is faded back to it. Entry = price then, target = the strike, stop = 0.5% beyond the strike. A bar closing 0.5% beyond the strike kills it. <b>Magnet drift:</b> SPY 1% or more from the strike in a long-gamma regime: a bias note, scored at the close. <b>Stand aside:</b> net gamma is negative (dealers amplify moves), so no trades; noted once a day.</div></div>
-    <div class="card" style="margin-top:16px;overflow:hidden"><div class="pad" style="padding-bottom:8px"><h2>Signal log</h2></div><table class=tbl><tbody>${s.log.map(x => `<tr><td style="width:1%">${stat(x)}</td>
-      <td><div><b>${nm(x.kind)}</b> ${dirOf(x)} · level ${x.level != null ? gxn(x.level, x.level % 1 ? 2 : 0) : '-'}</div><div class=mut style="font-size:12.5px;margin-top:2px">${x.entry != null && x.kind == 'pin' ? `entry ${gxn(x.entry)} · stop ${gxn(x.stop)} · target ${gxn(x.target)}${x.exitp != null ? ` · exit ${gxn(x.exitp)}` : ''} · ` : x.entry != null ? `price ${gxn(x.entry)} · ` : ''}${esc(x.note || '')}</div></td>
-      <td class=r><div class="num ${x.pnl == null ? 'mut' : ud(x.pnl)}" style="font-weight:600">${x.pnl == null ? '' : gxPct(x.pnl)}</div><div class=mut style="font-size:12px">${x.day} ${gxTime(x.ts)}</div></td></tr>`).join('') || `<tr><td class=empty>No signals yet. Turn the bot on: it logs a signal when SPY sits near the max GEX strike in a pinning regime, or a stand-aside note when gamma is negative.</td></tr>`}</tbody></table></div>`;
-  $('#gxtog').onclick = async () => { try { await gxapi(s.enabled ? 'stop' : 'start', {}); toast(s.enabled ? 'GEX bot paused' : 'GEX bot on: logging signals'); gxS = await gxapi('state'); gxRender(); } catch (e) { toast(`<span class=down>${esc(e.message)}</span>`); } };
+      <div class=stat><div class=k>Dealer regime</div><div class="v" style="font-size:24px;font-weight:650;margin-top:6px"><span class="${long ? 'up' : 'down'}">${long ? 'Long gamma' : 'Short gamma'}</span></div><div class=s>${long ? 'pinning: expect price to stick near the max GEX strike' : 'amplification: moves get bigger, stand aside'}</div></div></div>`;
+}
+function gxTrades() {
+  return `<div class="pad" style="padding-bottom:8px"><h2>Bot trades</h2></div><table class=tbl><tbody>${gxS.trades.map(t => `<tr><td style="width:1%"><span class="pill ${t.status == 'open' ? 'ac' : t.status == 'skip' ? 'n' : t.pnl > 0 ? 'up' : t.pnl < 0 ? 'down' : 'n'}">${t.status == 'open' ? 'Open' : t.status == 'skip' ? 'Skipped' : t.pnl > 0 ? 'Won' : t.pnl < 0 ? 'Lost' : 'Closed'}</span></td>
+    <td><div><b>${esc(t.day)}</b> · ${t.dir == 'long' ? '<span class=up>Long</span>' : '<span class=down>Short</span>'} SPY</div><div class=mut style="font-size:12.5px;margin-top:2px">${t.qty ? `${t.qty} share${t.qty == 1 ? '' : 's'} at ${gxn(t.entry)} · stop ${gxn(t.stop)} · target ${gxn(t.tp)} · built-in paper` : ''}${t.exitp ? ` · exit ${gxn(t.exitp)}` : ''}${t.reason ? `${t.qty ? ' · ' : ''}${esc(t.reason)}` : ''}</div></td>
+    <td class=r><div class="num ${t.pnl == null ? 'mut' : ud(t.pnl)}" style="font-weight:600">${t.pnl == null ? '' : gxSg(t.pnl)}</div><div class=mut style="font-size:12px">${rel(t.ts / 1000)}</div></td></tr>`).join('') || `<tr><td class=empty>No trades yet. The bot trades a pin-fade signal (not the drift or stand-aside notes) with the size from your risk dials.</td></tr>`}</tbody></table>`;
+}
+function gxLog() {
+  const s = gxS;
+  return `<div class="pad" style="padding-bottom:8px"><h2>Signal log</h2></div><table class=tbl><tbody>${s.log.map(x => `<tr><td style="width:1%">${gxStat(x)}</td>
+    <td><div><b>${gxNm(x.kind)}</b> ${gxDir(x)} · level ${x.level != null ? gxn(x.level, x.level % 1 ? 2 : 0) : '-'}</div><div class=mut style="font-size:12.5px;margin-top:2px">${x.entry != null && x.kind == 'pin' ? `entry ${gxn(x.entry)} · stop ${gxn(x.stop)} · target ${gxn(x.target)}${x.exitp != null ? ` · exit ${gxn(x.exitp)}` : ''} · ` : x.entry != null ? `price ${gxn(x.entry)} · ` : ''}${esc(x.note || '')}</div></td>
+    <td class=r><div class="num ${x.pnl == null ? 'mut' : ud(x.pnl)}" style="font-weight:600">${x.pnl == null ? '' : gxPct(x.pnl)}</div><div class=mut style="font-size:12px">${x.day} ${gxTime(x.ts)}</div></td></tr>`).join('') || `<tr><td class=empty>No signals yet. Turn the bot on: it logs a signal when SPY sits near the max GEX strike in a pinning regime, or a stand-aside note when gamma is negative.</td></tr>`}</tbody></table>`;
+}
+function gxSigHead() {
+  const pf = gxS.stats.pin, dr = gxS.stats.drift;
+  return `<span class=mut style="font-size:12.5px">Pin fades (the signal itself, scored on 5-minute bars): ${pf.n ? `${pf.won} won, ${pf.lost} lost (${Math.round(pf.won / pf.n * 100)}%), average ${gxPct(pf.avg)}, total ${gxPct(pf.pnl)}` : 'none resolved yet'} · Magnet drift: ${dr.n ? `${dr.won} of ${dr.n} drifted toward the magnet` : 'none scored yet'}</span>`;
+}
+function gxPaint() {
+  if (!$('#gxhero')) return; const s = gxS; if (s.snap) s.snap.sigdrift = s.sig.drift;
+  $('#gxhero').innerHTML = gxHero(); $('#gxlvl').innerHTML = gxLevels(); $('#gxcharts').style.display = s.snap ? '' : 'none'; $('#gxsighead').innerHTML = gxSigHead(); $('#gxtr').innerHTML = gxTrades(); $('#gxlog').innerHTML = gxLog();
+  $('#gxtog') && ($('#gxtog').onclick = () => gxAct(() => gxapi(s.enabled ? 'stop' : 'start', {}), s.enabled ? 'GEX bot paused' : 'GEX bot on: paper-trading pin-fade signals'));
   gxDrawStrikes(); gxDrawPrice();
+}
+const gxAct = async (fn, msg) => { try { await fn(); if (msg) toast(msg); } catch (e) { toast(`<span class=down>${esc(e.message)}</span>`); } try { gxS = await gxapi('state'); } catch (e) {} gxRender(); };
+function gxRender() {
+  const s = gxS, c = s.cfg, eq = s.account ? s.account.equity : null, save = (k, v) => gxAct(() => gxapi('cfg', { cfg: { [k]: v } }), 'Saved');
+  app.innerHTML = `<div class="ph fade"><div><h1>GEX Levels</h1><p class=lead>Where dealers' options hedging pins or amplifies SPY. Free, delayed CBOE options data turned into levels and signals. The GEX bot paper-trades the pin-fade signals in Mimic's built-in paper account: it never sends an order to a broker.</p></div></div>
+    <div class="card pad"><div id=gxhero></div><div id=gxlvl style="margin-top:18px"></div></div>
+    <div id=gxcharts><div class="card pad" style="margin-top:16px"><h2>Gamma by strike</h2><div class=mut style="font-size:12.5px;margin:4px 0 10px">GEX = gamma × open interest × 100 × price, summed over every expiration. Green = call gamma, red = put gamma. The outlined row is the max GEX strike.</div><canvas id=gxstrike style="width:100%;display:block"></canvas></div>
+    <div class="card pad" style="margin-top:16px"><h2>SPY and the levels</h2><div class=mut style="font-size:12.5px;margin:4px 0 10px">5-minute candles, last two sessions. White line = max GEX, yellow dashed = zero-gamma flip, shaded = the pin-fade entry zone (0.1% to 0.3% either side of the wall; stop and invalidation sit 0.5% beyond it), dotted = ±1% magnet-drift lines. Arrows are today's pin-fade signals with their stop (red) and target (green).</div><canvas id=gxprice style="width:100%;display:block"></canvas></div></div>
+    <div class="card pad" style="margin-top:16px"><div class="row sb wrapf"><h2>Risk settings</h2><span class=mut style="font-size:12.5px">Unlock a dial to change it</span></div><div class=dials style="margin-top:6px"><div id=gxd1></div><div id=gxd2></div><div id=gxd3></div></div>
+      <div class=mut style="font-size:12.5px;line-height:1.55;margin-top:12px;text-align:center">The bot buys or sells SPY shares in Mimic's built-in paper account, riding on your broker balance. Size is the smaller of what the risk dial allows (distance from the price to the stop) and the max position, and you can pick how many trades it takes a day. It stops for the day after a 3% loss, takes one trade at a time, and is flat by 15:55 ET.</div></div>
+    <div class="card pad" style="margin-top:16px"><div class="row sb wrapf"><h2>Signals</h2><div id=gxsighead></div></div>
+      <div class=mut style="font-size:12.5px;line-height:1.6;margin:8px 0 0"><b>Pin fade</b> (traded): in a long-gamma regime, SPY 0.10% to 0.30% from the max GEX strike (a touch) is faded back to it. Entry = price then, target = the strike, stop = 0.5% beyond the strike. A bar closing 0.5% beyond the strike kills it. <b>Magnet drift</b> (note): SPY 1% or more from the strike in a long-gamma regime, scored at the close. <b>Stand aside</b> (note): net gamma is negative (dealers amplify moves), so no trades; noted once a day.</div></div>
+    <div class="card" style="margin-top:16px;overflow:hidden" id=gxtr></div><div class="card" style="margin-top:16px;overflow:hidden" id=gxlog></div>`;
+  dialMount('#gxd1', { key: 'gx-risk', value: c.risk, min: .1, max: 2, step: .1, unit: '% risked per trade', size: 'sm', caption: v => eq ? `≈ ${usd(eq * v / 100, 0)} at risk if the stop is hit` : '', onCommit: v => save('risk', v) });
+  dialMount('#gxd2', { key: 'gx-max', value: c.max, min: 5, max: 100, step: 5, unit: '% max position', fmt: v => String(Math.round(v)), size: 'sm', caption: v => eq ? `≈ ${usd(eq * v / 100, 0)} largest position` : '', onCommit: v => save('max', v) });
+  dialMount('#gxd3', { key: 'gx-per', value: c.per, min: 1, max: 6, step: 1, unit: 'max trades a day', fmt: v => String(Math.round(v)), size: 'sm', caption: () => 'pin-fade signals it will take in a day', onCommit: v => save('per', v) });
+  gxPaint();
 }
 addEventListener('resize', () => { if ($('#gxstrike')) { gxDrawStrikes(); gxDrawPrice(); } });
