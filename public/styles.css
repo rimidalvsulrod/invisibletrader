@@ -875,3 +875,24 @@ body.term .toast{border-radius:6px}
 @media(max-width:760px){#trshot,#trfs,#trthm{display:none!important}}
 @media(min-width:761px){body.term .trbar .seg button{height:28px;padding:0 7px;box-shadow:none;background:none}body.term .trbar .seg button.on{background:var(--accentbg);color:var(--accent)}
  body.term .trdockh .seg button{height:36px;padding:0 10px;border-radius:0;box-shadow:none!important;background:none!important;color:var(--mut)}body.term .trdockh .seg button.on{color:var(--text)}}
+/* terminal: symbol tabs, per-chart buttons, maximize */
+@media(min-width:761px){
+ body.term .trwrap{grid-template-rows:34px 42px minmax(0,1fr) 30px var(--trdh,170px)}
+ .trtabbar{grid-column:1/-1;grid-row:1;display:flex;align-items:stretch;gap:1px;background:var(--bg);overflow-x:auto;scrollbar-width:none;padding-left:4px}
+ .trtop{grid-row:2}.trlt{grid-row:3/5}.trchartcard,:root[data-theme] .trchartcard{grid-row:3}.trside{grid-row:3/6}.trrange{grid-row:4}.trtabs,:root[data-theme] .trtabs{grid-row:5}
+ .trtab{display:flex;align-items:center;gap:7px;padding:0 8px 0 12px;min-width:110px;max-width:200px;background:transparent;color:var(--mut);font-size:12.5px;cursor:pointer;border-top:2px solid transparent;white-space:nowrap;position:relative}
+ .trtab:hover{background:var(--hov);color:var(--text)}.trtab.on{background:var(--panel);color:var(--text);border-top-color:var(--accent)}
+ .trtab b{font-weight:600}.trtab span{color:var(--mut)}.trtab i{font-style:normal;font-size:11.5px}.trtab i.up{color:var(--up)}.trtab i.down{color:var(--down)}
+ .trtabx{margin-left:auto;width:18px;height:18px;border:0;border-radius:4px;background:none;color:var(--mut);display:grid;place-items:center;cursor:pointer;opacity:0}.trtab:hover .trtabx,.trtab.on .trtabx{opacity:1}.trtabx:hover{background:var(--fill2);color:var(--text)}
+ .trtabadd{border:0;background:none;color:var(--mut);font-size:18px;width:34px;cursor:pointer}.trtabadd:hover{color:var(--text);background:var(--hov)}
+ .trpbtns{position:absolute;top:4px;right:calc(var(--axw,64px) + 6px);z-index:8;display:flex;gap:2px;align-items:center;opacity:0;transition:opacity .15s;background:color-mix(in srgb,var(--panel) 85%,transparent);border-radius:6px;padding:2px}
+ .trchart:hover>.trpbtns,.trmini:hover>.trpbtns,.trpbtns:focus-within{opacity:1}
+ .trpbtns button{width:26px;height:24px;border:0;border-radius:4px;background:none;color:var(--mut);display:grid;place-items:center;cursor:pointer}.trpbtns button:hover,.trpbtns button.on{background:var(--tile);color:var(--text)}
+ .trpbtns select{height:24px;border:0;border-radius:4px;background:var(--tile);color:var(--text);font:600 11.5px var(--sans);padding:0 4px;cursor:pointer}
+ .trmind{display:flex;flex-wrap:wrap;gap:2px 10px;margin-top:2px;font-size:11px}
+ .trmleg{pointer-events:auto;cursor:pointer;white-space:normal}
+ .trpanes[data-focus]>*{display:none!important}
+ .trpanes[data-focus="0"]>[data-i="0"],.trpanes[data-focus="1"]>[data-i="1"],.trpanes[data-focus="2"]>[data-i="2"],.trpanes[data-focus="3"]>[data-i="3"]{display:block!important;grid-column:1/-1;grid-row:1/-1}
+ .trpanes.linked .trmleg{cursor:default}
+}
+@media(max-width:760px){.trtabbar,.trpbtns{display:none!important}}
