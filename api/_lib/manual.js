@@ -118,6 +118,9 @@ async function api(uid, op, b, q) {
     case 'mcptrade': return require('./mcp').setTrade(uid, b.on);
     case 'view': return require('./mcp').view(uid, b); // the Trade page reports its view; the reply carries Claude's commands
     case 'quote': return { sym: norm(q.sym || b.sym), px: await quote(q.sym || b.sym), t: Date.now() }; // the 1-second ticker
+    case 'trades': { const s = norm(q.sym || b.sym); if (!isCrypto(s)) return { trades: [] }; // the latest trades, to seed 1-second charts
+      const r = await fetch(`https://api.exchange.coinbase.com/products/${s}/trades?limit=1000`, { headers: { 'user-agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8e3) }); if (!r.ok) throw err(502, 'Coinbase ' + r.status);
+      return { trades: (await r.json()).map(x => [Date.parse(x.time), +x.price, +x.size]).reverse() }; }
     case 'search': return { results: await search(q.q || b.q || '') };
     case 'state': return state(uid);
     case 'order': await acct(uid, 'me'); return place(uid, b);

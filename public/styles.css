@@ -755,3 +755,4 @@ body.hasWall:not(.wallfrost) aside{background:var(--panel)!important}
 .wpadd{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
 .mcpb{background:var(--tile);border-radius:16px;padding:12px 14px}.mcpb b{font-size:13px}.mcpb pre{margin:8px 0 0;font:12px/1.5 var(--mono);white-space:pre-wrap;word-break:break-all;color:var(--text);max-height:150px;overflow:auto}
 @media(max-width:560px){.wpset{grid-template-columns:1fr}}
+@media(max-width:760px){.trmbar .trmsy{padding:0 6px 0 8px;font-size:17px}.trmbar .trmtfb{height:34px;min-width:0;padding:0 14px;background:var(--tile);border-radius:999px;font-weight:600;font-size:14px;color:var(--text);margin-left:2px}}

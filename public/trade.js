@@ -7,7 +7,7 @@ const trSheet = n => { if (n) document.body.dataset.trs = n; else delete documen
 const trStop = () => { trTickStop(); trSheet(null); $('#trpick')?.remove(); clearInterval(trT1); clearInterval(trT2); clearInterval(trT3); trT1 = trT2 = trT3 = null; trWant = false; if (trChart) { try { trChart.remove(); } catch (e) {} trChart = null; } trS = {}; trData = null; trDraw = []; trLines = []; trOut = {}; trLastPx = null; trMain = null; trState = null; removeEventListener('themechange', trTheme); };
 const mtapi = async (op, body, qs = '') => { const r = await fetch('/api/powell' + (body ? '' : `?op=mt-${op}${qs}`), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'mt-' + op, ...body }) } : {});
   const j = await r.json().catch(() => ({ error: 'Bad response' })); if (!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), { status: r.status }); return j; };
-const TFS = [['1m', '1m'], ['5m', '5m'], ['15m', '15m'], ['30m', '30m'], ['1h', '1H'], ['4h', '4H'], ['1d', '1D'], ['1w', '1W'], ['1mo', '1M']];
+const TFS = [['1s', '1s'], ['5s', '5s'], ['15s', '15s'], ['1m', '1m'], ['5m', '5m'], ['15m', '15m'], ['30m', '30m'], ['1h', '1H'], ['4h', '4H'], ['1d', '1D'], ['1w', '1W'], ['1mo', '1M']];
 const TYPES = [['candle', 'Rounded candles'], ['sharp', 'Sharp candles'], ['smooth', 'Smooth'], ['hollow', 'Hollow candles'], ['ha', 'Heikin Ashi'], ['bar', 'Bars'], ['line', 'Line'], ['base', 'Baseline']];
 const WATCH = ['SPY', 'QQQ', 'AAPL', 'NVDA', 'TSLA', 'MSFT', 'NQ=F', 'ES=F', 'GC=F', 'CL=F', 'BTC-USD', 'ETH-USD', 'SOL-USD'];
 const IND = INDS; // public/indicators.js
@@ -46,8 +46,8 @@ async function tradePage() {
      <div class=trchart id=trc><div class=trmov><div class=trmtop><b id=trmsym></b><span class=trmexch id=trmex></span></div><div class=trmpx><span class=num id=trmpx></span> <span class=num id=trmchg></span></div><div class=trqbs><button class="trqb sell" data-side=sell><b class=num id=trqsp>-</b>SELL</button><button class="trqb buy" data-side=buy><b class=num id=trqbp>-</b>BUY</button></div></div><div class=trlegend id=trleg></div><div class=trbub id=trbub hidden></div></div></div>
     <div class=trside><div class="card pad trticket" id=trtk></div><div class="card pad" id=tracct></div><div class="card pad" id=tropp></div></div></div>
    <div class="card trtabs"><div class="row sb wrapf" style="padding:16px 20px 0;gap:10px"><div class=seg id=trtab>${[['pos', 'Positions'], ['ord', 'Orders'], ['fills', 'History']].map(([k, l], i) => `<button data-v=${k} class="${i ? '' : 'on'}">${l}</button>`).join('')}</div><button class="btn danger" id=trend>${ic('x', 14)} End trading day</button></div><div id=trtbl style="padding:6px 0 8px"></div></div></div>
-   <div class=trscrim id=trscrim></div><div class=trmbar><button class=trmsy id=trmS><b id=trmsy></b><span id=trmtf></span></button><span class=trmsp></span><button id=trmD aria-label="Drawing tools"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><path d="M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20z"/><path d="M13.5 6.5l3 3"/></svg></button><button id=trmI aria-label="Timeframe and indicators"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx=16 cy=7 r=2 /><circle cx=10 cy=17 r=2 /></svg></button><button id=trmA aria-label="Account and positions"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><rect x=3 y=6 width=18 height=13 rx=3 /><path d="M16 12.5h2M3 9h18"/></svg></button></div>`;
-  if (matchMedia('(max-width: 760px)').matches) $('.trside').append($('.trtabs')); // phones: positions live in the account sheet
+   <div class=trscrim id=trscrim></div><div class=trmbar><button class=trmsy id=trmS aria-label="Change symbol"><b id=trmsy></b></button><button class=trmtfb id=trmT aria-label="Change timeframe"><span id=trmtf></span></button><span class=trmsp></span><button id=trmD aria-label="Drawing tools"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><path d="M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20z"/><path d="M13.5 6.5l3 3"/></svg></button><button id=trmI aria-label="Timeframe and indicators"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx=16 cy=7 r=2 /><circle cx=10 cy=17 r=2 /></svg></button><button id=trmA aria-label="Account and positions"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><rect x=3 y=6 width=18 height=13 rx=3 /><path d="M16 12.5h2M3 9h18"/></svg></button></div>`;
+  if (matchMedia('(max-width: 760px)').matches) { $('.trwrap').prepend($('.trbar')); $('.trside').append($('.trtabs')); } /* sheets must sit outside the chart card (its stacking context put them under the dimming layer) */ // phones: positions live in the account sheet
   await trLib(); trBuild(); trWire(); trTicket(); await trLoad(true); trStateLoad();
   trT1 = setInterval(() => { if (!$('#trc')) return trStop(); trLoad(false); }, 15e3); trTick();
   trT2 = setInterval(() => { if (!$('#trc')) return trStop(); trStateLoad(); }, 4e3);
@@ -71,7 +71,7 @@ function trWire() {
   q.oninput = () => { clearTimeout(t); const v = q.value.trim(); if (!v) { res.hidden = true; return; } t = setTimeout(async () => { try { const r = await mtapi('search', null, '&q=' + encodeURIComponent(v)); res.innerHTML = r.results.map(x => `<button data-s="${esc(x.sym)}"><b>${esc(x.sym)}</b><span>${esc(x.name)}</span><i>${esc(x.type.toLowerCase())} · ${esc(x.ex)}</i></button>`).join('') || '<div class=mut style="padding:12px">No matches</div>'; res.hidden = false; res.querySelectorAll('button').forEach(b => b.onmousedown = () => { trSet(b.dataset.s); res.hidden = true; }); } catch (e) {} }, 250); };
   q.onblur = () => setTimeout(() => { res.hidden = true; if (!q.value.trim()) q.value = TR.sym; }, 150);
   $$('.trwatch .chip').forEach(b => b.onclick = () => trSet(b.dataset.s));
-  $('#trscrim').onclick = () => trSheet(null); $('#trmS').onclick = () => trSheet('sym'); $('#trmD').onclick = () => trSheet('tf'); $('#trmI').onclick = () => { trSheet(null); trPick(); }; $('#trmA').onclick = () => { trSheet('acct'); trStateLoad(); };
+  $('#trscrim').onclick = () => trSheet(null); $('#trmS').onclick = () => trSheet('sym'); $('#trmT').onclick = () => trSheet('tf'); $('#trmD').onclick = () => trSheet('tf'); $('#trmI').onclick = () => { trSheet(null); trPick(); }; $('#trmA').onclick = () => { trSheet('acct'); trStateLoad(); };
   $$('.trqb').forEach(b => b.onclick = () => { TR.side = b.dataset.side; trTicket(); trSheet('tk'); });
   $$('#trtf button').forEach(b => b.onclick = () => { trSheet(null); TR.tf = b.dataset.v; LS.set('mt:tf', TR.tf); $$('#trtf button').forEach(x => x.classList.toggle('on', x === b)); trLoad(true); });
   $('#trcs').onchange = e => { TR.cs = e.target.value; LS.set('mt:cs', TR.cs); trPaint(true); };
@@ -85,7 +85,17 @@ function trWire() {
   $('#trend').onclick = async () => { if (!confirm('End the trading day? This cancels every open order and closes every position, yours and the Opposite Bot\'s, at the market.')) return; try { const r = await mtapi('endday', {}); toast(r.closed.length ? `Closed ${r.closed.length} position${r.closed.length > 1 ? 's' : ''}` : 'Nothing was open'); trStateLoad(); } catch (e) { toast(esc(e.message)); } };
 }
 function trSet(s) { s = String(s || '').trim().toUpperCase(); if (!s) return; trSheet(null); setTimeout(trTick, 50); TR.sym = s; LS.set('mt:sym', s); $('#trq').value = s; $$('.trwatch .chip').forEach(b => b.classList.toggle('on', b.dataset.s == s)); trData = null; trLoad(true); trTicket(); }
+async function trLoadSec(fresh) {
+  const sym = TR.sym, tf = TR.tf, n = SECT[tf]; let d; try { d = await mtapi('candles', null, `&sym=${encodeURIComponent(sym)}&tf=1m`); } catch (e) { if (fresh) { $('#trname').textContent = e.message; toast(esc(e.message)); } return; }
+  if (sym !== TR.sym || tf !== TR.tf || !$('#trc')) return; TR.sym = d.sym; $('#trq').value = d.sym; let B = [];
+  if (/-USD$/.test(d.sym)) try { const r = await mtapi('trades', null, '&sym=' + encodeURIComponent(d.sym)); B = trAggTrades(r.trades || [], n); } catch (e) {}
+  const px = trLastPx && trData?.sym === d.sym ? trLastPx : d.price; if (!B.length) { const t = Math.floor(Date.now() / 1000 / n) * n + TZ(); B = [{ t, o: px, h: px, l: px, c: px, v: 0 }]; }
+  trData = { ...d, tf, B, sec: true }; const last = B[B.length - 1]; $('#trname').textContent = `${d.name} · ${d.ex}`; $('#trpx').textContent = trN(last.c); const ch = d.prev ? (last.c / d.prev - 1) * 100 : null; $('#trchg').innerHTML = ch == null ? '' : `<span class="${ch >= 0 ? 'up' : 'down'}">${ch >= 0 ? '+' : ''}${trN(last.c - d.prev)} (${ch >= 0 ? '+' : ''}${ch.toFixed(2)}%)</span>`; $('#trdel').hidden = !d.delayed;
+  const short = d.sym.replace('-USD', '').replace('=F', ''); $('#trmsym').textContent = short; $('#trmex').textContent = d.delayed ? 'delayed' : ''; $('#trmpx').textContent = trN(last.c); $('#trmchg').innerHTML = $('#trchg').innerHTML; $('#trqsp').textContent = trN(last.c); $('#trqbp').textContent = trN(last.c); $('#trmsy').textContent = short; $('#trmtf').textContent = tf;
+  trPaint(true); trTicketPrice(); }
+function trAggTrades(tr, sec) { const m = new Map(); for (const [t, p, v] of tr) { const k = Math.floor(t / 1000 / sec) * sec, b = m.get(k); if (!b) m.set(k, { t: k + TZ(), o: p, h: p, l: p, c: p, v }); else { b.h = Math.max(b.h, p); b.l = Math.min(b.l, p); b.c = p; b.v += v; } } return [...m.values()].sort((a, b) => a.t - b.t); }
 async function trLoad(fresh) {
+  if (SECT[TR.tf]) { if (fresh || !trData?.sec) return trLoadSec(fresh); return; } // second charts keep building from the live stream
   const sym = TR.sym, tf = TR.tf; let d; try { d = await mtapi('candles', null, `&sym=${encodeURIComponent(sym)}&tf=${tf}`); } catch (e) { if (fresh) { $('#trname').textContent = e.message; toast(esc(e.message)); } return; }
   if (sym !== TR.sym || tf !== TR.tf || !$('#trc')) return; const was = trData, sameSet = was && was.sym === d.sym && was.tf === tf && !fresh; TR.sym = d.sym; $('#trq').value = d.sym;
   trData = { ...d, B: d.bars.map(x => ({ t: x[0] + TZ(), o: x[1], h: x[2], l: x[3], c: x[4], v: x[5] })) };
@@ -136,7 +146,7 @@ function trPaint(rebuild) {
   for (const d of trDraw) try { trChart.removeSeries(d); } catch (e) {} trDraw = []; for (const pl of trLines) try { trS.main.removePriceLine(pl); } catch (e) {} trLines = [];
   for (const d of LS.get('mt:draw:' + TR.sym, [])) { if (d.k == 'h') trLines.push(trS.main.createPriceLine({ price: d.p, color: ac, lineWidth: 1, lineStyle: 0, axisLabelVisible: true, title: '' }));
     if (d.k == 't' && d.t2 > d.t1) { const s = trChart.addLineSeries({ color: ac, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }); s.setData([{ time: d.t1, value: d.p1 }, { time: d.t2, value: d.p2 }]); trDraw.push(s); } }
-  trOrderLines(); if (rebuild) { const n = B.length; const vis = matchMedia('(max-width:760px)').matches ? 52 : 90; if (n > vis + 20) trChart.timeScale().setVisibleLogicalRange({ from: n - vis, to: n + 5 }); else trChart.timeScale().fitContent(); } trLegend(); if ($('#trindn')) $('#trindn').textContent = act.length;
+  trOrderLines(); if (rebuild) { const n = B.length; const vis = matchMedia('(max-width:760px)').matches ? 52 : 90; if (n > vis + 20 || trData.sec) trChart.timeScale().setVisibleLogicalRange({ from: n - vis, to: n + 5 }); else trChart.timeScale().fitContent(); } trLegend(); if ($('#trindn')) $('#trindn').textContent = act.length;
 }
 let trOut = {};
 const trPrm = k => { const P = {}; for (const [n, , d] of IND[k].p) P[n] = TR.prm[k]?.[n] ?? d; return P; };
@@ -223,20 +233,24 @@ function trTable() { const el = $('#trtbl'); if (!el || !trState) return; const 
 
 /* ---------- live price: every second (crypto streams from Coinbase, everything else polls the server each second) ---------- */
 let trWS = null, trQT = null, trLastPx = null, trPaintAt = 0;
-const TFSEC = { '1m': 60, '2m': 120, '5m': 300, '15m': 900, '30m': 1800, '1h': 3600, '4h': 14400 };
+const SECT = { '1s': 1, '5s': 5, '15s': 15 }; // second charts are built live from the price stream
+const TFSEC = { '1s': 1, '5s': 5, '15s': 15, '1m': 60, '2m': 120, '5m': 300, '15m': 900, '30m': 1800, '1h': 3600, '4h': 14400 };
 function trTickStop() { clearInterval(trQT); trQT = null; if (trWS) { trWS.onclose = null; try { trWS.close(); } catch (e) {} trWS = null; } }
 function trTick() {
   trTickStop(); const sym = TR.sym;
   if (/-USD$/.test(sym) && 'WebSocket' in window) { try { trWS = new WebSocket('wss://ws-feed.exchange.coinbase.com'); trWS.onopen = () => trWS.send(JSON.stringify({ type: 'subscribe', product_ids: [sym], channels: ['ticker'] }));
-    let pend = null, at = 0; trWS.onmessage = e => { const m = JSON.parse(e.data); if (m.type != 'ticker' || m.product_id != TR.sym) return; pend = +m.price; const n = Date.now(); if (n - at > 250) { at = n; trLive(pend); } }; // a few frames a second at most
+    let at = 0; trWS.onmessage = e => { const m = JSON.parse(e.data); if (m.type != 'ticker' || m.product_id != TR.sym || !trS.main) return; const px = +m.price; if (!trUpd(px, +m.last_size || 0)) return; const n = Date.now(); if (n - at > (trData.sec ? 120 : 250)) { at = n; trRender(px); } }; // every trade counts for the bar; at most ~8 redraws a second
     trWS.onclose = () => { trWS = null; if ($('#trc') && TR.sym == sym) setTimeout(() => TR.sym == sym && trTick(), 3000); }; } catch (e) {} }
   trQT = setInterval(async () => { if (!$('#trc')) return trTickStop(); if (trWS && trWS.readyState === 1) return; if (document.hidden) return;
-    try { const r = await mtapi('quote', null, '&sym=' + encodeURIComponent(sym)); if (r.sym === trData?.sym) trLive(r.px); } catch (e) {} }, 1000);
+    try { const r = await mtapi('quote', null, '&sym=' + encodeURIComponent(sym)); if (r.sym === trData?.sym) trLive(r.px, 0); } catch (e) {} }, 1000);
 }
-function trLive(px) {
-  if (!trData || !trS.main || !(px > 0)) return; const B = trData.B, last = B[B.length - 1]; if (!last) return; const sec = TFSEC[TR.tf], now = Math.floor(Date.now() / 1000) + TZ();
-  if (sec && now >= last.t + sec) { const t = last.t + Math.floor((now - last.t) / sec) * sec; B.push({ t, o: last.c, h: Math.max(last.c, px), l: Math.min(last.c, px), c: px, v: 0 }); }
-  else { last.c = px; last.h = Math.max(last.h, px); last.l = Math.min(last.l, px); }
+function trUpd(px, vol = 0) { // add one price to the data (a new bar when the time has moved on)
+  if (!trData || !(px > 0)) return false; const B = trData.B, last = B[B.length - 1]; if (!last) return false; const sec = TFSEC[TR.tf], now = Math.floor(Date.now() / 1000) + TZ();
+  if (sec && now >= last.t + sec) { const t = last.t + Math.floor((now - last.t) / sec) * sec; B.push({ t, o: last.c, h: Math.max(last.c, px), l: Math.min(last.c, px), c: px, v: vol }); if (trData.sec && B.length > 1500) B.shift(); }
+  else { last.c = px; last.h = Math.max(last.h, px); last.l = Math.min(last.l, px); last.v = (last.v || 0) + vol; } return true; }
+function trLive(px, vol) { if (trS.main && trUpd(px, vol)) trRender(px); }
+function trRender(px) {
+  if (!trData || !trS.main) return; const B = trData.B;
   const b = trBars()[B.length - 1], line = /smooth|line|base/.test(TR.type); try { trS.main.update(line ? { time: b.t, value: b.c } : { time: b.t, open: b.o, high: b.h, low: b.l, close: b.c }); } catch (e) {}
   if (px !== trLastPx) { const el = $('#trpx'), dir = trLastPx == null ? 0 : px > trLastPx ? 1 : -1; trLastPx = px; const t = trN(px); if (el) { el.textContent = t; el.classList.remove('tkup', 'tkdn'); void el.offsetWidth; if (dir) el.classList.add(dir > 0 ? 'tkup' : 'tkdn'); }
     if ($('#trmpx')) $('#trmpx').textContent = t; if ($('#trqsp')) { $('#trqsp').textContent = t; $('#trqbp').textContent = t; }
