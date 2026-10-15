@@ -17,8 +17,8 @@ const P1 = (k, l, d, mn, mx, st = 1) => [k, l, d, mn, mx, st];
 const MA = (fn, n0, c, name) => ({ n: name, g: 'Moving averages', d: `${name.split(' ')[0]} of the close`, p: [P1('n', 'Length', n0, 1, 500)], run: (B, C, P) => [{ id: 'm', v: IM[fn](C, P.n), c, w: 2 }] });
 const INDS = {
   /* moving averages */
-  sma20: MA('sma', 20, 1, 'SMA 20'), sma50: MA('sma', 50, 4, 'SMA 50'), sma200: MA('sma', 200, 2, 'SMA 200'),
-  ema9: MA('ema', 9, 3, 'EMA 9'), ema21: MA('ema', 21, 5, 'EMA 21'), wma: MA('wma', 20, 6, 'WMA 20'),
+  sma20: MA('sma', 20, 1, 'SMA 20'), sma50: MA('sma', 50, 6, 'SMA 50'), sma200: MA('sma', 200, 7, 'SMA 200'),
+  ema9: MA('ema', 9, 2, 'EMA 9'), ema21: MA('ema', 21, 4, 'EMA 21'), wma: MA('wma', 20, 6, 'WMA 20'),
   hma: { n: 'Hull MA', g: 'Moving averages', d: 'Fast, smooth average with little lag', p: [P1('n', 'Length', 21, 2, 300)], run: (B, C, P) => { const h = Math.round(P.n / 2), q = Math.round(Math.sqrt(P.n)), d = IM.sub(IM.wma(C, h).map(x => x == null ? null : 2 * x), IM.wma(C, P.n)); return [{ id: 'h', v: IM.wma(d.map(x => x ?? 0), q).map((x, i) => d[i - q + 1] == null ? null : x), c: 4, w: 2 }]; } },
   dema: { n: 'DEMA', g: 'Moving averages', d: 'Double exponential average', p: [P1('n', 'Length', 21, 2, 300)], run: (B, C, P) => { const e = IM.ema(C, P.n), ee = IM.ema(e, P.n); return [{ id: 'd', v: e.map((x, i) => x == null || ee[i] == null ? null : 2 * x - ee[i]), c: 7, w: 2 }]; } },
   tema: { n: 'TEMA', g: 'Moving averages', d: 'Triple exponential average', p: [P1('n', 'Length', 21, 2, 300)], run: (B, C, P) => { const e = IM.ema(C, P.n), e2 = IM.ema(e, P.n), e3 = IM.ema(e2, P.n); return [{ id: 't', v: e.map((x, i) => x == null || e2[i] == null || e3[i] == null ? null : 3 * x - 3 * e2[i] + e3[i]), c: 6, w: 2 }]; } },
