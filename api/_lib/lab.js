@@ -144,6 +144,10 @@ async function dash(uid) {
   const rows = new Map((await db.q('SELECT * FROM labbot WHERE uid=$1', [uid])).map(r => [r.strat, r]));
   for (const s of Object.values(REG)) { const r = rows.get(s.id), st = await tstats('labtrades', uid, 'AND strat=$2', [s.id]), start = r ? Number(r.paper) : START;
     bots.push({ route: 'lab/' + s.id, name: s.name, group: s.group, enabled: !!r?.enabled, start, balance: start + st.pnl, ...st }); }
+  try { const MT = require('./manual'); for (const [a, name, route] of [['me', 'Manual Trading (you)', 'trade'], ['opp', 'Opposite Bot', 'trade']]) { const r = await db.one('SELECT * FROM mtacct WHERE uid=$1 AND acct=$2', [uid, a]); if (!r) continue;
+    const st = await db.one("SELECT count(*)::int AS n, sum(CASE WHEN pnl>0 THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN pnl<>0 THEN 1 ELSE 0 END)::int AS c FROM mtfill WHERE uid=$1 AND acct=$2", [uid, a]), e = await MT.equity(uid, a);
+    const last = (await db.q('SELECT pnl, fee FROM mtfill WHERE uid=$1 AND acct=$2 ORDER BY ts DESC LIMIT 40', [uid, a])).map(x => Number(x.pnl) - Number(x.fee)).reverse();
+    bots.unshift({ route, name, group: a === 'me' ? 'Manual' : 'Bot', enabled: a === 'me' ? st.n > 0 : r.enabled, start: e.start, balance: e.equity, pnl: e.equity - e.start, n: st.c || 0, won: st.w || 0, open: e.positions.length, curve: last.reduce((x, y) => (x.push((x[x.length - 1] || 0) + y), x), []) }); } } catch (e) {}
   return { bots, now: Date.now() };
 }
 async function prefs(uid, body, user, op) {
