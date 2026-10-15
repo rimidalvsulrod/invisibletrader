@@ -12,10 +12,10 @@ const rel=ts=>{const s=Date.now()/1000-ts;return s<60?Math.max(1,Math.floor(s))+
 const THEMES={auto:'Auto',light:'Light',dark:'Dark'};
 // accent colour (dark-theme shade, light-theme shade); also recolours the ribbon (public/fx.js)
 const ACCENTS={emerald:['Emerald','#3fbf86','#14845a'],blue:['Blue','#4c9dff','#1546ff'],violet:['Violet','#a28bff','#6d4fe0'],pink:['Pink','#ff6fb1','#cc2f78'],orange:['Orange','#ff9f45','#c4610f'],gold:['Gold','#e6c34a','#946f00'],cyan:['Cyan','#3fd0d8','#0b858c'],red:['Red','#ff6b6b','#c92a2a']};
-const applyAccent=()=>{const r=document.documentElement,k='blue',hex='#2962ff',n=parseInt(hex.slice(1),16),rgb=`${n>>16},${n>>8&255},${n&255}`;
-  r.style.setProperty('--accent',hex);r.style.setProperty('--lnk',hex);r.style.setProperty('--accentbg',`rgba(${rgb},${r.dataset.theme=='dark'?.16:.1})`);r.style.setProperty('--accent-rgb',rgb);r.dataset.accent=k};
-const applyTheme=()=>{const t=LS.get('theme','dark'),dark=t=='dark'||(t=='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name=theme-color]')?.setAttribute('content',dark?'#131722':'#ffffff');applyAccent()};
-const cycleTheme=()=>{const order=['auto','light','dark'],t=LS.get('theme','dark');LS.set('theme',order[(order.indexOf(t)+1)%3]);applyTheme();renderSide();toast(`Appearance: ${THEMES[LS.get('theme','dark')]}`)};
+const applyAccent=()=>{const r=document.documentElement,k='blue',hex=r.dataset.theme=='light'?'#1546ff':'#ffffff',n=parseInt(hex.slice(1),16),rgb=`${n>>16},${n>>8&255},${n&255}`;
+  r.style.setProperty('--accent',hex);r.style.setProperty('--lnk',hex);r.style.setProperty('--accentbg',`rgba(${rgb},.13)`);r.style.setProperty('--accent-rgb',rgb);r.dataset.accent=k};
+const applyTheme=()=>{const t=LS.get('theme','light'),dark=t=='dark'||(t=='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name=theme-color]')?.setAttribute('content',dark?'#000000':'#f3f3f5');applyAccent()};
+const cycleTheme=()=>{const order=['auto','light','dark'],t=LS.get('theme','light');LS.set('theme',order[(order.indexOf(t)+1)%3]);applyTheme();renderSide();toast(`Appearance: ${THEMES[LS.get('theme','light')]}`)};
 const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const toast=m=>{const t=document.createElement('div');t.className='toast';t.innerHTML=m;$('#toasts').append(t);setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),150)},3200)};
 const hue=a=>{let h=0;for(const c of String(a))h=(h*31+c.charCodeAt(0))%360;return h};
@@ -347,7 +347,7 @@ function help(){
 /* ---------- Settings (this device) ---------- */
 function settingsPage(){
   app.innerHTML=`<div class="ph fade"><div><h1>Settings</h1><p class=lead>Appearance, account and brokerage.</p></div></div>
-   <div class=grid style="max-width:720px"><div class="card pad"><h2>Appearance</h2><div class=seg id=sth style="margin-top:12px">${Object.entries(THEMES).map(([k,l])=>`<button data-v=${k} class="${LS.get('theme','dark')==k?'on':''}">${l}</button>`).join('')}</div></div><div id=wallcard></div>${OWNER?'<div id=mcpcard></div>':''}${OWNER?'<div class="card pad" id=brk><h2>Brokerage</h2></div>':''}
+   <div class=grid style="max-width:720px"><div class="card pad"><h2>Appearance</h2><div class=seg id=sth style="margin-top:12px">${Object.entries(THEMES).map(([k,l])=>`<button data-v=${k} class="${LS.get('theme','light')==k?'on':''}">${l}</button>`).join('')}</div></div><div id=wallcard></div>${OWNER?'<div id=mcpcard></div>':''}${OWNER?'<div class="card pad" id=brk><h2>Brokerage</h2></div>':''}
    ${OWNER?`<div class="card pad row sb"><div><h2>Account</h2><div class=mut style="font-size:13px;margin-top:4px">${esc(USER?.email||'')}</div></div><a class=btn href="#/account">Manage</a></div>`:'<div class="card pad"><h2>Not logged in</h2><a class="btn pri" style="margin-top:12px" href="#/account">Log in</a></div>'}</div>`;
   $$('#sth button').forEach(b=>b.onclick=()=>{LS.set('theme',b.dataset.v);applyTheme();renderSide();settingsPage();window.dispatchEvent(new Event('themechange'))});
   if(typeof extrasMount=='function')extrasMount();

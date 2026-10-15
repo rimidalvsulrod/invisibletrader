@@ -757,75 +757,31 @@ body.hasWall:not(.wallfrost) aside{background:var(--panel)!important}
 @media(max-width:560px){.wpset{grid-template-columns:1fr}}
 @media(max-width:760px){.trmbar .trmsy{padding:0 6px 0 8px;font-size:17px}.trmbar .trmtfb{height:34px;min-width:0;padding:0 14px;background:var(--tile);border-radius:999px;font-weight:600;font-size:14px;color:var(--text);margin-left:2px}}
 
-/* ===================== v11: TradingView-style terminal look, whole app ===================== */
-:root,:root[data-theme=light]{color-scheme:light;--on-accent:#fff;--pop2:#131722;
-  --bg:#f0f3fa;--bg2:#e9edf5;--panel:#fff;--panel2:#f8f9fd;--tile:#f0f3fa;--fill:#f0f3fa;--fill2:#e0e3eb;--hov:#f5f7fb;--line:#e0e3eb;--line2:#d1d4dc;
-  --text:#131722;--mut:#787b86;--mut2:#9598a1;
-  --accent:#2962ff;--accentbg:rgba(41,98,255,.1);--accent-rgb:41,98,255;--lnk:#2962ff;--ac:#2962ff;--on-ac:#fff;--acbg:rgba(41,98,255,.1);
-  --up:#089981;--upbg:rgba(8,153,129,.12);--down:#f23645;--downbg:rgba(242,54,69,.1);
-  --grid:#f0f3fa;--glass:#fff;--pop:#fff;--shadow:0 8px 28px rgba(19,23,34,.16);
-  --sans:-apple-system,BlinkMacSystemFont,"Trebuchet MS",Roboto,Ubuntu,"Segoe UI",sans-serif;--r:8px;--glow:0 0 0 transparent}
-:root[data-theme=dark]{color-scheme:dark;--on-accent:#fff;--pop2:#d1d4dc;
-  --bg:#0c0e15;--bg2:#10131b;--panel:#131722;--panel2:#171b26;--tile:#1e222d;--fill:#1e222d;--fill2:#2a2e39;--hov:#1a1e29;--line:#232733;--line2:#2a2e39;
-  --text:#d1d4dc;--mut:#787b86;--mut2:#5d606b;
-  --accent:#2962ff;--accentbg:rgba(41,98,255,.16);--accent-rgb:41,98,255;--lnk:#5b8cff;--ac:#2962ff;--on-ac:#fff;--acbg:rgba(41,98,255,.16);
-  --up:#089981;--upbg:rgba(8,153,129,.16);--down:#f23645;--downbg:rgba(242,54,69,.15);
-  --grid:#1a1e29;--glass:#131722;--pop:#1e222d;--shadow:0 10px 36px rgba(0,0,0,.6);
-  --sans:-apple-system,BlinkMacSystemFont,"Trebuchet MS",Roboto,Ubuntu,"Segoe UI",sans-serif;--r:8px;--glow:0 0 18px rgba(41,98,255,.28)}
-body{font-family:var(--sans);font-size:14px;letter-spacing:0}
-h1{font-size:24px;font-weight:600;letter-spacing:-.01em}h2{letter-spacing:0}.card h2{font-size:16px}
-.lead{font-size:14px;max-width:none}.ph{margin-bottom:18px}.num,.v{letter-spacing:0;font-variant-numeric:tabular-nums}
-/* panels: flat, 1px borders, small radius */
-.card,:root[data-theme] .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:none}
-.card.pad{padding:18px 20px}
-a.card:hover{transform:none;box-shadow:none;border-color:var(--line2);background:var(--hov)}
-.stat,.stat:not(.card){background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
-.stat .v{font-size:clamp(18px,1.6vw,24px);font-weight:600}
-.ovs>:first-child,:root[data-theme] .ovs>:first-child{background:var(--panel);color:var(--text);border:1px solid var(--accent);box-shadow:var(--glow)}
-.ovs>:first-child .k,.ovs>:first-child .s,.ovs>:first-child .mut{color:var(--mut)}
-.btn{height:34px;padding:0 14px;border-radius:6px;background:var(--tile);font-size:13.5px}
-.btn:hover{background:var(--fill2)}
-.btn.pri,.btn.pri:hover{background:var(--accent);color:#fff}
-.btn.sm{height:28px;padding:0 10px;border-radius:5px;font-size:12.5px}
-.btn.ic{width:34px;height:34px;border-radius:6px;background:var(--tile);box-shadow:none}.btn.sm.ic{width:28px;height:28px}.btn.ic:hover{background:var(--fill2);box-shadow:none}
-.seg button,.seg.chips button,.chip{height:30px;padding:0 12px;border-radius:6px;background:transparent;font-size:13px;box-shadow:inset 0 0 0 1px var(--line2)}
-.seg,.seg.chips{gap:6px}
-.seg button:hover,.chip:hover{background:var(--hov)}
-.seg button.on,.seg.chips button.on,.chip.on,:root[data-theme] .seg button.on{background:var(--accent);color:#fff;box-shadow:var(--glow)}
-.card .seg button:not(.on){background:transparent}
-.pill{height:20px;padding:0 7px;border-radius:4px;font-size:11.5px}
-.inp,select.inp{height:36px;border-radius:6px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line2);font-size:14px}
-.inp:focus{box-shadow:inset 0 0 0 1px var(--accent),0 0 0 3px var(--accentbg)}
-.tbl th{font-size:11px;padding:9px 14px;letter-spacing:.04em}.tbl td{padding:10px 14px}
-.note{border-radius:6px}.toast{border-radius:6px}.tip,.bctip{border-radius:6px!important}
-input[type=range]::-webkit-slider-thumb{width:16px;height:16px;margin-top:-5px;border:3px solid var(--panel)}
-/* navigation: dense TradingView-like side menu */
-aside,:root[data-theme] aside{background:var(--panel)!important;border-right:1px solid var(--line)!important}
-@media(min-width:901px){aside{width:220px;padding:16px 10px 14px}.topbar{left:220px;padding:0 20px;height:52px}main{margin-left:220px;padding-top:52px}
- aside .nv{min-height:32px;font-size:13px;border-radius:6px;gap:10px;padding:0 10px}aside .navg{padding:12px 10px 4px;font-size:11px}.logo{margin-bottom:14px}}
-.nv.on,:root[data-theme] .nv.on{background:var(--accentbg);color:var(--text)}.nv.on svg{color:var(--accent)}
-.topbar,:root[data-theme] .topbar{background:var(--panel)!important;border-bottom:1px solid var(--line)!important}
-#tabbar,:root[data-theme] #tabbar{background:var(--panel)!important}
-/* page width: use the whole screen (ultrawide included), no centred column with empty sides */
-.wrap,body.wide .wrap{max-width:none!important;width:100%;margin:0;padding:22px 24px 40px!important}
-@media(min-width:1800px){.wrap{padding:24px 32px 40px!important}.split{grid-template-columns:minmax(0,1fr) 480px}.g2{grid-template-columns:repeat(4,minmax(0,1fr))}.g3{grid-template-columns:repeat(auto-fill,minmax(360px,1fr))}}
-@media(min-width:2600px){body{font-size:15px}.split{grid-template-columns:minmax(0,1fr) 560px}.dgrid{grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}}
-@media(max-width:900px){.wrap{padding:16px 14px calc(84px + env(safe-area-inset-bottom))!important}}
-/* dashboard: a ticker-style header instead of a coloured block */
-.dhero,:root[data-theme] .dhero{background:var(--panel)!important;color:var(--text);border:1px solid var(--line);position:relative;overflow:hidden;padding:20px 22px}
-.dhero:before{content:'';position:absolute;inset:auto -10% -60% -10%;height:120%;background:radial-gradient(60% 60% at 30% 100%,rgba(var(--accent-rgb),.16),transparent 70%);pointer-events:none}
-.dhero .mut{color:var(--mut)!important}.dhero .pill.up,.dhero .pill.down{background:var(--upbg)}.dhero .pill.down{background:var(--downbg)}
-.dhero .dkpis>div{background:var(--bg2);border:1px solid var(--line);border-radius:6px}.dhero .dkpis span{color:var(--mut)}.dhero .dkpis b{color:var(--text)}.dhero .dkpis b.up{color:var(--up)}.dhero .dkpis b.down{color:var(--down)}
-.dbig{font-size:clamp(34px,3.4vw,48px);font-weight:600;letter-spacing:-.02em}
-.dkpis>div{border-radius:6px;padding:10px 12px}.dkpis b{font-size:20px}
-.dgrid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
-.dcard{padding:14px 16px}.dbal{font-size:22px;letter-spacing:-.01em}.ddot{width:30px;height:30px}.ddot:after{left:10px;top:10px}.dgo{width:28px;height:28px;border-radius:6px}
-.dspark{width:120px;height:40px}
-:root[data-theme=dark] .dspark path,:root[data-theme=dark] svg.glow path,:root[data-theme=dark] svg polyline,:root[data-theme=dark] .spark path{filter:url(#glow)}
-.dbar i{border-radius:3px}.dbar i:after{border-radius:3px;box-shadow:var(--glow)}
-/* questionnaire & pickers */
-.obbox,.trpbox{border-radius:10px}.obopt{border-radius:8px}.obic,.obemoji{border-radius:8px}
+/* ===================== v11: the TradingView look, Trade terminal only (the rest of the app keeps the Apple-style design) ===================== */
+body.term{--on-accent:#fff;--bg:#f0f3fa;--bg2:#e9edf5;--panel:#fff;--panel2:#f8f9fd;--tile:#f0f3fa;--fill:#f0f3fa;--fill2:#e0e3eb;--hov:#f5f7fb;--line:#e0e3eb;--line2:#d1d4dc;
+  --text:#131722;--mut:#787b86;--mut2:#9598a1;--accent:#2962ff;--accentbg:rgba(41,98,255,.1);--accent-rgb:41,98,255;--lnk:#2962ff;
+  --up:#089981;--upbg:rgba(8,153,129,.12);--down:#f23645;--downbg:rgba(242,54,69,.1);--grid:#f0f3fa;--pop:#fff;--shadow:0 8px 28px rgba(19,23,34,.16);
+  --sans:-apple-system,BlinkMacSystemFont,"Trebuchet MS",Roboto,Ubuntu,"Segoe UI",sans-serif;--r:8px;font-family:var(--sans);font-size:14px;letter-spacing:0;background:var(--bg)}
+:root[data-theme=dark] body.term{--bg:#0c0e15;--bg2:#10131b;--panel:#131722;--panel2:#171b26;--tile:#1e222d;--fill:#1e222d;--fill2:#2a2e39;--hov:#1a1e29;--line:#232733;--line2:#2a2e39;
+  --text:#d1d4dc;--mut:#787b86;--mut2:#5d606b;--accentbg:rgba(41,98,255,.16);--lnk:#5b8cff;--upbg:rgba(8,153,129,.16);--downbg:rgba(242,54,69,.15);--grid:#1a1e29;--pop:#1e222d;--shadow:0 10px 36px rgba(0,0,0,.6)}
+body.term .num{letter-spacing:0;font-variant-numeric:tabular-nums}
+body.term .btn{border-radius:6px}body.term .btn.sm{height:28px;padding:0 10px;border-radius:5px;font-size:12.5px}body.term .btn.pri{background:var(--accent);color:#fff}
+body.term .inp,body.term select.inp{height:34px;border-radius:6px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line2);font-size:13.5px}
+body.term .inp:focus{box-shadow:inset 0 0 0 1px var(--accent),0 0 0 3px var(--accentbg)}
+body.term .seg button,body.term .chip{height:30px;padding:0 12px;border-radius:6px;background:transparent;font-size:13px;box-shadow:inset 0 0 0 1px var(--line2)}
+body.term .seg button.on,body.term .chip.on{background:var(--accent);color:#fff;box-shadow:none}
+body.term .pill{height:20px;padding:0 7px;border-radius:4px;font-size:11.5px}
+body.term .tbl th{font-size:11px;padding:9px 14px;letter-spacing:.04em}body.term .tbl td{padding:10px 14px}
+body.term .trpbox{border-radius:10px;font-family:var(--sans)}body.term .trpbox h2{font-size:18px}body.term .trpo,body.term .trpi{border-radius:8px}
+body.term aside,:root[data-theme] body.term aside{background:var(--panel)!important;border-right:1px solid var(--line)!important}
+body.term .nv.on{background:var(--accentbg)}body.term .nv.on svg{color:var(--accent)}
+body.term .toast{border-radius:6px}
 
+/* page width: use the whole screen (ultrawide included), no centred column with empty sides */
+.wrap,body.wide .wrap{max-width:none!important;width:100%;margin:0;padding:48px clamp(28px,3.4vw,72px) 110px!important}
+@media(min-width:1800px){.split{grid-template-columns:minmax(0,1fr) 480px}.g3{grid-template-columns:repeat(auto-fill,minmax(360px,1fr))}.g4{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}}
+@media(min-width:2600px){body{font-size:15px}.split{grid-template-columns:minmax(0,1fr) 560px}.dgrid{grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}}
+@media(max-width:900px){.wrap{padding:28px max(16px,env(safe-area-inset-right)) calc(114px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))!important}}
 /* ---------- Trade: the terminal (desktop) ---------- */
 @media(min-width:761px){
  body.term .topbar{display:none!important}body.term main{padding-top:0}body.term .wrap{padding:0!important}body.term{overflow:hidden}
@@ -917,3 +873,5 @@ aside,:root[data-theme] aside{background:var(--panel)!important;border-right:1px
 @media(max-width:760px){.trohlc{display:none}}
 @media(min-width:761px){.trsel{width:auto!important;flex:none;max-width:120px}.trlegend>div:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 20px)}.trlegend{right:80px}body.term .trwrap{--trdh:170px}}
 @media(max-width:760px){#trshot,#trfs,#trthm{display:none!important}}
+@media(min-width:761px){body.term .trbar .seg button{height:28px;padding:0 7px;box-shadow:none;background:none}body.term .trbar .seg button.on{background:var(--accentbg);color:var(--accent)}
+ body.term .trdockh .seg button{height:36px;padding:0 10px;border-radius:0;box-shadow:none!important;background:none!important;color:var(--mut)}body.term .trdockh .seg button.on{color:var(--text)}}
