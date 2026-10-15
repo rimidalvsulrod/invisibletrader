@@ -3,7 +3,7 @@
 //   Long when the line flips green, short when it flips red. The line is the trailing stop (the stop moves with it every bar).
 //   NY session only (entries 9:30 to 15:30 ET, flat by 15:55), optional chop filter (skip flips when ADX < 20), a daily trade limit,
 //   and position size set by the distance to the stop (the line can be 50 to 150 points away on NQ).
-const crypto = require('crypto'), db = require('./db'), AL = require('./alpaca'), PBK = require('./paperbroker'), P = require('./powell');
+const crypto = require('crypto'), Y = require('./yahoo'), db = require('./db'), AL = require('./alpaca'), PBK = require('./paperbroker'), P = require('./powell');
 const UA = { 'user-agent': 'Mozilla/5.0 (compatible; MimicSupertrend/1.0)', accept: 'application/json' }, BAR = 15 * 6e4, TICK = .25;
 const DEF = { sym: 'NQ', risk: .5, atr: 10, mult: 3, adx: true, max: 3 }, ADX_MIN = 20, J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (_) { return d; } };
 
@@ -11,8 +11,7 @@ const DEF = { sym: 'NQ', risk: .5, atr: 10, mult: 3, adx: true, max: 3 }, ADX_MI
 const CACHE = new Map();
 async function bars(sym, ttl = 10e3) {
   if (!P.SYMS[sym]) throw Object.assign(new Error('Pick NQ or ES'), { status: 400 }); const hit = CACHE.get(sym); if (hit && Date.now() - hit.at < ttl) return hit.v;
-  let j; for (let i = 0; i < 3; i++) { const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(P.SYMS[sym])}?range=60d&interval=15m&includePrePost=true`, { headers: UA, signal: AbortSignal.timeout(20e3) });
-    if (r.ok) { j = await r.json(); break; } if (i === 2 || (r.status < 500 && r.status !== 429)) throw new Error(`Yahoo Finance: ${r.status}`); await new Promise(z => setTimeout(z, 600 * (i + 1))); }
+  const j = await Y.get(`/v8/finance/chart/${encodeURIComponent(P.SYMS[sym])}?range=60d&interval=15m&includePrePost=true`, 60e3);
   const res = j?.chart?.result?.[0]; if (!res?.timestamp) throw new Error('Yahoo Finance returned no candles'); const q = res.indicators.quote[0], out = [];
   res.timestamp.forEach((ts, i) => { const o = q.open[i], h = q.high[i], l = q.low[i], c = q.close[i]; if ([o, h, l, c].some(x => x == null)) return; const e = P.et(ts); out.push({ t: ts * 1000, date: e.date, m: e.m, o, h, l, c }); });
   CACHE.set(sym, { at: Date.now(), v: out }); return out;

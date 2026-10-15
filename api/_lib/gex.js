@@ -4,7 +4,7 @@
 //   gamma per contract = Black-Scholes gamma;  GEX = gamma x open interest x 100 x spot, summed over every expiration.
 //   Calls count positive, puts negative (dealers long calls, short puts). Max GEX = the strike with the most total (call + |put|) gamma.
 //   Zero-gamma flip = the spot where net gamma (recomputed at hypothetical prices) crosses zero. Net > 0: dealers long gamma (pinning). Net < 0: short gamma (amplifying).
-const db = require('./db'), S = require('./settings'), P = require('./powell'), AL = require('./alpaca'), PBK = require('./paperbroker');
+const db = require('./db'), S = require('./settings'), P = require('./powell'), AL = require('./alpaca'), PBK = require('./paperbroker'), Y = require('./yahoo');
 const UA = { 'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36', accept: 'application/json' };
 const R = .04, Q = .013, MIN_T = 1 / (365.25 * 24); // risk-free rate, SPY dividend yield, never less than one hour to expiry
 const SIG = { devMin: .001, touch: .003, devMax: .005, drift: .01 }; // pin-fade entries 0.10% to 0.30% from the wall (a touch); stop and invalidation 0.5% beyond it; magnet drift at 1% or more
@@ -56,8 +56,7 @@ async function snapshot(ttl = 5 * 6e4, spot) { // ttl: how old a stored snapshot
 /* ---------- SPY bars (5 minute) ---------- */
 let BARS = { at: 0, v: null };
 async function spyBars() {
-  if (BARS.v && Date.now() - BARS.at < 20e3) return BARS.v; let j; for (let i = 0; i < 3; i++) { const r = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/SPY?range=5d&interval=5m&includePrePost=false', { headers: UA, signal: AbortSignal.timeout(20e3) });
-    if (r.ok) { j = await r.json(); break; } if (i === 2 || (r.status < 500 && r.status !== 429)) throw new Error('Yahoo Finance: ' + r.status); await new Promise(z => setTimeout(z, 700 * (i + 1))); }
+  if (BARS.v && Date.now() - BARS.at < 20e3) return BARS.v; const j = await Y.get('/v8/finance/chart/SPY?range=5d&interval=5m&includePrePost=false', 60e3);
   const res = j?.chart?.result?.[0]; if (!res?.timestamp) throw new Error('no SPY bars'); const q = res.indicators.quote[0], out = [];
   res.timestamp.forEach((ts, i) => { if ([q.open[i], q.high[i], q.low[i], q.close[i]].some(x => x == null)) return; const e = P.et(ts); out.push({ t: ts * 1000, date: e.date, m: e.m, o: q.open[i], h: q.high[i], l: q.low[i], c: q.close[i] }); });
   BARS = { at: Date.now(), v: out }; return out;

@@ -3,7 +3,7 @@
 // under 10 (sharp dip) -> buy. Sell when it closes back above its 5-day average, after 10 trading days, or at -8%.
 // It decides once a day from COMPLETED daily bars (yesterday's close), 10 minutes after the open, and only ever sells shares
 // it bought itself. Stocks you already hold are left alone.
-const crypto = require('crypto'), db = require('./db'), S = require('./settings'), AL = require('./alpaca');
+const crypto = require('crypto'), Y = require('./yahoo'), db = require('./db'), S = require('./settings'), AL = require('./alpaca');
 const UNIVERSE = 'SPY QQQ IWM DIA XLK XLF XLE XLV XLY XLP XLI XLU AAPL MSFT AMZN GOOGL NVDA META JPM XOM JNJ PG KO WMT HD V UNH COST CVX PEP MRK'.split(' ');
 const DEF = { pct: 5, max: 5 }, R = { rsiBuy: 10, trend: 200, exitMA: 5, maxDays: 10, stop: .08, dailyStop: .03, after: 10, beforeClose: 30 * 6e4 };
 const J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (_) { return d; } };
@@ -100,9 +100,7 @@ async function manage() {
 /* ---------- backtest: the same rules on Yahoo Finance daily prices (adjusted for splits and dividends), any lookback up to 3 years (more would not finish in time on the free hosting) ---------- */
 const UAY = { 'user-agent': 'Mozilla/5.0 (compatible; MimicSwing/1.0)', accept: 'application/json' }, YC = new Map();
 async function yahooDaily(sym, p1) { // [{d, o, h, l, c}] oldest first, prices scaled to the adjusted close
-  const k = sym + ':' + p1, hit = YC.get(k); if (hit && Date.now() - hit.t < 6 * 36e5) return hit.v; let j;
-  for (let i = 0; i < 3; i++) { const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?period1=${p1}&period2=${Math.floor(Date.now() / 1000) + 86400}&interval=1d`, { headers: UAY, signal: AbortSignal.timeout(25e3) });
-    if (r.ok) { j = await r.json(); break; } if (i === 2 || (r.status < 500 && r.status !== 429)) throw new Error(`Yahoo Finance ${sym}: ${r.status}`); await new Promise(z => setTimeout(z, 500 * (i + 1))); }
+  const k = sym + ':' + p1, hit = YC.get(k); if (hit && Date.now() - hit.t < 6 * 36e5) return hit.v; const j = await Y.get(`/v8/finance/chart/${sym}?period1=${p1}&period2=${Math.floor(Date.now() / 1000) + 86400}&interval=1d`, 6 * 36e5);
   const res = j?.chart?.result?.[0]; if (!res?.timestamp) throw new Error(`no prices for ${sym}`); const q = res.indicators.quote[0], adj = res.indicators.adjclose?.[0]?.adjclose || q.close, out = [];
   res.timestamp.forEach((ts, i) => { const c = q.close[i], o = q.open[i], h = q.high[i], l = q.low[i], a = adj[i]; if ([c, o, h, l, a].some(x => x == null) || !(c > 0)) return; const f = a / c; out.push({ d: nyDay(ts * 1000), o: o * f, h: h * f, l: l * f, c: a }); });
   YC.set(k, { t: Date.now(), v: out }); if (YC.size > 400) YC.delete(YC.keys().next().value); return out;

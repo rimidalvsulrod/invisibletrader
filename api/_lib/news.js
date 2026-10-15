@@ -175,8 +175,7 @@ const YN = new Map();
 async function chart(uid, sym) {
   if (!/^[A-Z][A-Z.\-]{0,5}$/.test(sym)) throw Object.assign(new Error('bad symbol'), { status: 400 });
   let bars = (YN.get(sym) || {}).v; if (!bars || Date.now() - YN.get(sym).t > 20e3) {
-    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1m&range=5d&includePrePost=true`, { headers: { 'user-agent': 'Mozilla/5.0 (compatible; MimicNews/1.0)', accept: 'application/json' }, signal: AbortSignal.timeout(15e3) });
-    if (!r.ok) throw new Error(`Yahoo Finance ${sym}: ${r.status}`); const res = (await r.json())?.chart?.result?.[0]; if (!res?.timestamp) throw new Error(`no prices for ${sym}`); const q = res.indicators.quote[0];
+    const res = (await require('./yahoo').get(`/v8/finance/chart/${sym}?interval=1m&range=5d&includePrePost=true`, 20e3))?.chart?.result?.[0]; if (!res?.timestamp) throw new Error(`no prices for ${sym}`); const q = res.indicators.quote[0];
     bars = []; res.timestamp.forEach((t, i) => { if ([q.open[i], q.high[i], q.low[i], q.close[i]].some(x => x == null)) return; bars.push({ t, o: q.open[i], h: q.high[i], l: q.low[i], c: q.close[i], v: q.volume[i] || 0 }); });
     YN.set(sym, { t: Date.now(), v: bars }); if (YN.size > 100) YN.delete(YN.keys().next().value); }
   const trades = (await db.q('SELECT id, ts, headline, score, status, entry, exitp, pnl, reason, exitts, notional, qty FROM ntrades WHERE uid=$1 AND sym=$2 AND ts>$3 ORDER BY ts', [uid, sym, Date.now() - 7 * 864e5])).map(t => ({ ...t, ts: Number(t.ts), exitts: t.exitts == null ? null : Number(t.exitts) }));

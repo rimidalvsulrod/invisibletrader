@@ -1,6 +1,6 @@
 // Sweep Bot: runs the ICT rules in ict.js on live 5-minute NQ / ES candles and paper-trades the setups in the built-in paper account (futures, micros when the
 // stop is wide for your risk). The rules decide when an order is armed; the bot enters when price pulls back to the armed entry, with the rules' stop and target.
-const crypto = require('crypto'), db = require('./db'), AL = require('./alpaca'), PBK = require('./paperbroker'), P = require('./powell'), E = require('./ict');
+const crypto = require('crypto'), Y = require('./yahoo'), db = require('./db'), AL = require('./alpaca'), PBK = require('./paperbroker'), P = require('./powell'), E = require('./ict');
 const UA = { 'user-agent': 'Mozilla/5.0 (compatible; MimicSweep/1.0)', accept: 'application/json' }, BAR = 3e5, SYMS = { NQ: 'NQ=F', ES: 'ES=F' }, TICK = .25;
 const DEF = { sym: 'NQ', risk: .5, rr: 2, max: 2, model: 'sweep', pd: true, int: true };
 const J = (s, d) => { try { return s ? JSON.parse(s) : d; } catch (_) { return d; } };
@@ -11,8 +11,7 @@ const norm = c => ({ sym: c.sym === 'ES' ? 'ES' : 'NQ', risk: c.risk > 0 ? c.ris
 const CACHE = new Map();
 async function bars(sym, range = '10d', ttl = 10e3) {
   if (!SYMS[sym]) throw Object.assign(new Error('Pick NQ or ES'), { status: 400 }); const key = sym + range, hit = CACHE.get(key); if (hit && Date.now() - hit.at < ttl) return hit.v;
-  let j; for (let i = 0; i < 3; i++) { const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(SYMS[sym])}?range=${range}&interval=5m&includePrePost=true`, { headers: UA, signal: AbortSignal.timeout(25e3) });
-    if (r.ok) { j = await r.json(); break; } if (i === 2 || (r.status < 500 && r.status !== 429)) throw new Error(`Yahoo Finance: ${r.status}`); await new Promise(z => setTimeout(z, 600 * (i + 1))); }
+  const j = await Y.get(`/v8/finance/chart/${encodeURIComponent(SYMS[sym])}?range=${range}&interval=5m&includePrePost=true`, 45e3);
   const res = j?.chart?.result?.[0]; if (!res?.timestamp) throw new Error('Yahoo Finance returned no candles'); const q = res.indicators.quote[0], out = [];
   res.timestamp.forEach((ts, i) => { const o = q.open[i], h = q.high[i], l = q.low[i], c = q.close[i]; if ([o, h, l, c].some(x => x == null)) return; const e = P.et(ts); out.push({ t: ts * 1000, date: e.date, m: e.m, o, h, l, c }); });
   CACHE.set(key, { at: Date.now(), v: out }); if (CACHE.size > 6) CACHE.delete(CACHE.keys().next().value); return out;

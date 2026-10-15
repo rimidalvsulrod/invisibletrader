@@ -4,7 +4,7 @@
 //   SHORT = it wicks ABOVE a level (the opening-range high, else the latest prior swing high) and closes back BELOW it.
 // Entry = that candle's close. Stop = 1 tick beyond the sweep wick. Target = 2R. One signal per day at most.
 // Data: Yahoo Finance's free chart endpoint (NQ=F, ES=F, 5m, extended hours). Shared by the chart tab, the backtest and the bot.
-const crypto = require('crypto'), db = require('./db'), AL = require('./alpaca'), PBK = require('./paperbroker');
+const crypto = require('crypto'), Y = require('./yahoo'), db = require('./db'), AL = require('./alpaca'), PBK = require('./paperbroker');
 const UA = { 'user-agent': 'Mozilla/5.0 (compatible; MimicPowell/1.0)', accept: 'application/json' };
 const SYMS = { NQ: 'NQ=F', ES: 'ES=F', MNQ: 'MNQ=F', MES: 'MES=F' }, TICK = .25, MIN_R = .0002, MAX_R = .008, OPEN_M = 480, SIG_M = 600, LAST_M = 955;
 const etp = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -15,9 +15,7 @@ const CACHE = new Map();
 async function candles(sym, ttl = 15e3) { // -> { days: Map(date -> [{m,o,h,l,c}]), t, delay }
   const s = SYMS[sym]; if (!s) throw Object.assign(new Error('Pick NQ, ES, MNQ or MES'), { status: 400 });
   const hit = CACHE.get(sym); if (hit && Date.now() - hit.at < ttl) return hit.v;
-  let j; for (let i = 0; i < 3; i++) { // Yahoo sometimes answers 429 / 5xx for a second
-    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}?range=60d&interval=5m&includePrePost=true`, { headers: UA, signal: AbortSignal.timeout(20e3) });
-    if (r.ok) { j = await r.json(); break; } if (i === 2 || (r.status < 500 && r.status !== 429)) throw new Error(`Yahoo Finance: ${r.status}`); await new Promise(z => setTimeout(z, 600 * (i + 1))); }
+  const j = await Y.get(`/v8/finance/chart/${encodeURIComponent(s)}?range=60d&interval=5m&includePrePost=true`, 45e3);
   const res = j?.chart?.result?.[0]; if (!res?.timestamp) throw new Error('Yahoo Finance returned no candles'); const q = res.indicators.quote[0], days = new Map();
   res.timestamp.forEach((ts, i) => { const o = q.open[i], h = q.high[i], l = q.low[i], c = q.close[i]; if ([o, h, l, c].some(x => x == null)) return;
     const e = et(ts); if (e.m < OPEN_M || e.m >= 960) return; (days.get(e.date) || days.set(e.date, []).get(e.date)).push({ m: e.m, o, h, l, c }); }); // 8:00 to 16:00 ET

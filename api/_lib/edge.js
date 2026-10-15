@@ -102,7 +102,7 @@ const BAD = new Map(); let coolUntil = 0, budget = 20;
 const bad = (k, min) => BAD.set(k, Date.now() + min * 6e4);
 const isBad = k => { const t = BAD.get(k); if (!t) return false; if (t < Date.now()) { BAD.delete(k); return false; } return true; };
 const qb = s => { if (budget-- <= 0) throw Object.assign(new Error('budget'), { quiet: true }); return P.bbo(s); };
-const fail = (tag, e) => { if (e.quiet) return; if (/429/.test(e.message)) coolUntil = Date.now() + 9e4; console.error(tag, e.message); };
+const fail = (tag, e) => { if (e.quiet) return; if (/429/.test(e.message)) coolUntil = Date.now() + 3e5; console.error(tag, e.message); };
 async function enterLadder(row, cfg, g) {
   if (await db.one('SELECT id FROM edgetrades WHERE uid=$1 AND ref=$2', [row.uid, g.key]) || await openCount(row.uid, 'ladder') >= R.cap.ladder || isBad(g.key)) return;
   const a = await qb(g.lo.s), b = await qb(g.hi.s); if (!a.open || !b.open || !(a.bid > 0 && b.ask > 0)) return bad(g.key, 3);
