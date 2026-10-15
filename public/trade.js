@@ -161,13 +161,13 @@ function trBubble(p) { // the pill price bubble that follows the crosshair (like
 function trPick(q = '', grp = 'All') {
   let el = $('#trpick'); if (!el) { el = document.createElement('div'); el.id = 'trpick'; el.className = 'trpickwrap'; document.body.append(el); }
   const items = Object.entries(IND).filter(([k, d]) => (grp == 'All' || d.g == grp) && (!q || (d.n + ' ' + d.d + ' ' + d.g).toLowerCase().includes(q.toLowerCase()))), on = TR.ind.filter(k => IND[k]);
-  el.innerHTML = `<div class=trpbg></div><div class=trpbox><div class="row sb"><h2>Indicators</h2><button class="btn ic sm" id=trpx aria-label=Close>${ic('x', 14)}</button></div>
+  el.innerHTML = `<div class=trpbg></div><div class=trpbox><div class="row sb"><h2>Indicators</h2><button class="btn ic sm" id=trpclose aria-label=Close>${ic('x', 14)}</button></div>
     <input class=inp id=trpq placeholder="Search ${Object.keys(IND).length} indicators" value="${esc(q)}" autocomplete=off>
     <div class="seg chips trpg">${['All', ...INDGROUPS].map(g => `<button data-g="${g}" class="${g == grp ? 'on' : ''}">${g}</button>`).join('')}</div>
     ${on.length && !q && grp == 'All' ? `<div class=trph>On the chart · ${on.length}</div><div class=trpon>${on.map(k => `<div class=trpo><div class=trpoh><span class=trpdot style="background:${trDot(k)}"></span><b>${esc(trIndName(k))}</b><button class=trprm data-k=${k} aria-label="Remove">${ic('x', 12)}</button></div>${IND[k].p.length ? `<div class=trpp>${IND[k].p.map(([n, l, d, mn, mx, st]) => `<label><span>${l}</span><input class=inp type=number inputmode=decimal data-k=${k} data-n=${n} min=${mn} max=${mx} step=${st} value=${trPrm(k)[n]}></label>`).join('')}</div>` : ''}</div>`).join('')}</div>` : ''}
     <div class=trph>${grp == 'All' && !q ? 'All indicators' : items.length + ' found'}</div><div class=trplist>${items.map(([k, d]) => `<button class="trpi ${TR.ind.includes(k) ? 'on' : ''}" data-k=${k}><span class=trpdot style="background:${trDot(k)}"></span><span class=trpt><b>${esc(d.n)}</b><span>${esc(d.d)}</span></span><span class=trpg2>${d.pane ? 'own pane' : d.vol ? 'bottom' : 'on price'}</span><span class="trsw sm ${TR.ind.includes(k) ? 'on' : ''}"><i></i></span></button>`).join('') || '<div class=empty style="padding:20px">Nothing matches.</div>'}</div></div>`;
   const close = () => { el.classList.add('out'); setTimeout(() => el.remove(), 200); }, save = () => { LS.set('mt:ind', TR.ind); LS.set('mt:prm', TR.prm); trPaint(true); };
-  el.querySelector('.trpbg').onclick = close; $('#trpx').onclick = close;
+  el.querySelector('.trpbg').onclick = close; $('#trpclose').onclick = close;
   const qi = $('#trpq'); qi.oninput = () => { const pos = qi.selectionStart; trPick(qi.value, grp); const n = $('#trpq'); n.focus(); n.setSelectionRange(pos, pos); };
   el.querySelectorAll('.trpg button').forEach(b => b.onclick = () => trPick(q, b.dataset.g));
   el.querySelectorAll('.trpi').forEach(b => b.onclick = () => { const k = b.dataset.k; TR.ind = TR.ind.includes(k) ? TR.ind.filter(x => x != k) : [...TR.ind, k]; save(); trPick(q, grp); });
