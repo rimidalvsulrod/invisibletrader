@@ -141,6 +141,13 @@ async function api(uid, op, b, q) {
     case 'close': return closePos(uid, b.sym);
     case 'endday': return endDay(uid);
     case 'opp': await acct(uid, 'opp'); await db.q("UPDATE mtacct SET enabled=$2 WHERE uid=$1 AND acct='opp'", [uid, !!b.on]); return { ok: true };
+    case 'balance': { // paper balance manager: set a new starting balance (fresh account) or deposit / withdraw
+      const a = b.acct === 'opp' ? 'opp' : 'me', x = +b.amount; await acct(uid, a);
+      if (b.mode === 'add') { if (!x || Math.abs(x) > 1e8) throw err(400, 'Enter an amount'); const r = await db.one('SELECT cash FROM mtacct WHERE uid=$1 AND acct=$2', [uid, a]); if (+r.cash + x < 0) throw err(400, 'Not enough cash to withdraw that');
+        await db.q('UPDATE mtacct SET cash=cash+$3, start=start+$3 WHERE uid=$1 AND acct=$2', [uid, a, x]); return { ok: true }; }
+      if (!(x >= 100 && x <= 1e8)) throw err(400, 'Pick a balance between $100 and $100,000,000');
+      await db.q('DELETE FROM mtpos WHERE uid=$1 AND acct=$2', [uid, a]); await db.q('DELETE FROM mtfill WHERE uid=$1 AND acct=$2', [uid, a]); if (a === 'me') await db.q("UPDATE mtord SET status='cancelled' WHERE uid=$1 AND status='open'", [uid]);
+      await db.q('UPDATE mtacct SET cash=$3, start=$3 WHERE uid=$1 AND acct=$2', [uid, a, x]); return { ok: true }; }
     case 'reset': { const a = b.acct === 'opp' ? 'opp' : 'me'; await acct(uid, a); await db.q('DELETE FROM mtpos WHERE uid=$1 AND acct=$2', [uid, a]); await db.q('DELETE FROM mtfill WHERE uid=$1 AND acct=$2', [uid, a]); if (a === 'me') await db.q("UPDATE mtord SET status='cancelled' WHERE uid=$1 AND status='open'", [uid]);
       await db.q('UPDATE mtacct SET cash=start WHERE uid=$1 AND acct=$2', [uid, a]); return { ok: true }; }
     default: throw err(400, 'unknown op');

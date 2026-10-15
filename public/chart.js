@@ -132,11 +132,24 @@
         else if (d.k == 'rect') { g.globalAlpha = .14; g.fillRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1)); g.globalAlpha = 1; g.strokeRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1)); }
         else if (d.k == 'fib') { const L = Math.min(x1, x2), Rr = Math.max(x1, x2, L + 40); FIB.forEach((f, j) => { const p = d.p2 + (d.p1 - d.p2) * f, y = yOf(R, p); g.globalAlpha = .9; g.strokeStyle = ['#787b86', '#f23645', '#ff9800', '#4caf50', '#089981', '#00bcd4', '#787b86', '#2962ff'][j]; g.beginPath(); g.moveTo(L, y); g.lineTo(Rr, y); g.stroke(); g.fillStyle = g.strokeStyle; g.fillText(`${f} (${fmt(p)})`, L + 4, y - 7); g.globalAlpha = 1; });
           g.strokeStyle = c; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); g.setLineDash([]); }
+        else if (d.k == 'long' || d.k == 'short') posDraw(d, x1, y1, x2, y2, R);
         if (on) for (const [hx, hy] of d.k == 'hline' ? [[pw / 2, y1]] : d.k == 'vline' ? [[x1, ph / 2]] : [[x1, y1], [x2, y2]]) { g.fillStyle = '#fff'; g.strokeStyle = c; g.lineWidth = 1.5; g.beginPath(); g.arc(hx, hy, 4.5, 0, 7); g.fill(); g.stroke(); } }
     }
+    const slOf = d => d.sl != null ? d.sl : d.p1 - (d.p2 - d.p1);
+    function posDraw(d, x1, y1, x2, y2, R) { const L = Math.min(x1, x2), W = Math.max(Math.abs(x2 - x1), 60), ys = yOf(R, slOf(d)), lg = d.k == 'long', up = 'rgba(8,153,129,', dn = 'rgba(242,54,69,';
+      g.fillStyle = up + '.2)'; g.fillRect(L, Math.min(y1, y2), W, Math.abs(y2 - y1)); g.fillStyle = dn + '.2)'; g.fillRect(L, Math.min(y1, ys), W, Math.abs(ys - y1));
+      if (d.cur != null) { const yc = yOf(R, d.cur), xc = d.tc != null ? Math.min(L + W, Math.max(L, xOfT(d.tc))) : L + W, good = lg ? d.cur >= d.p1 : d.cur <= d.p1; g.fillStyle = (good ? up : dn) + '.32)'; g.fillRect(L, Math.min(y1, yc), xc - L, Math.abs(yc - y1));
+        g.strokeStyle = 'rgba(160,165,180,.8)'; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(L, y1); g.lineTo(xc, yc); g.stroke(); g.setLineDash([]); }
+      g.strokeStyle = 'rgba(160,165,180,.9)'; g.lineWidth = 1; g.beginPath(); g.moveTo(L, y1); g.lineTo(L + W, y1); g.stroke();
+      const pct = v => (Math.abs(v - d.p1) / d.p1 * 100).toFixed(2), rr = Math.abs(d.p2 - d.p1) / Math.max(1e-9, Math.abs(d.p1 - slOf(d))), cx = L + W / 2;
+      const tag = (txt, y, bg) => { g.font = `${opt.layout.fontSize - 1}px ${opt.layout.fontFamily}`; const w = g.measureText(txt).width + 12; g.fillStyle = bg; g.beginPath(); g.roundRect ? g.roundRect(cx - w / 2, y - 9, w, 18, 3) : g.rect(cx - w / 2, y - 9, w, 18); g.fill(); g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, cx, y); g.textAlign = 'left'; g.textBaseline = 'alphabetic'; };
+      const tTop = y2 < ys ? y2 : ys, tBot = y2 < ys ? ys : y2;
+      if (!d.done || d === sel) tag(`Target: ${fmt(d.p2)} (${pct(d.p2)}%)`, y2 + (y2 < y1 ? -12 : 12), up + '.95)'); if (!d.done || d === sel) tag(`Stop: ${fmt(slOf(d))} (${pct(slOf(d))}%)`, ys + (ys < y1 ? -12 : 12), dn + '.95)');
+      if (d === sel || d === pend || (d.cur != null && !d.done)) tag(`${d.cur != null ? (d.done ? 'Closed' : 'Open') + ' P&L: ' + (d.pnl != null ? (d.pnl >= 0 ? '' : '-') + '$' + Math.abs(d.pnl).toFixed(2) : '') + ', ' : ''}${d.qty ? 'Qty: ' + d.qty + ', ' : ''}Risk/Reward Ratio: ${rr.toFixed(2)}`, y1 + (lg ? 12 : -12), d.cur != null ? ((lg ? d.cur >= d.p1 : d.cur <= d.p1) ? up + '.95)' : dn + '.95)') : 'rgba(80,90,110,.95)'); void tTop; void tBot; }
     function hit(px, py) { const R = mainScale(); for (let k = draws.length - 1; k >= 0; k--) { const d = draws[k], { x1, y1, x2, y2 } = geom(d);
         if (d.k == 'hline' && Math.abs(py - y1) < 6) return d; if (d.k == 'vline' && Math.abs(px - x1) < 6) return d;
         if (d.k == 'trend' || d.k == 'ray') { let ex = x2, ey = y2; if (d.k == 'ray' && x2 !== x1) { ex = x2 > x1 ? PW() : 0; ey = y1 + (y2 - y1) * (ex - x1) / (x2 - x1); } const dx = ex - x1, dy = ey - y1, L2 = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / L2)); if (Math.hypot(px - x1 - u * dx, py - y1 - u * dy) < 6) return d; }
+        if ((d.k == 'long' || d.k == 'short') && px >= Math.min(x1, x2) - 5 && px <= Math.min(x1, x2) + Math.max(60, Math.abs(x2 - x1)) + 5) { const ys = yOf(R, slOf(d)); if (py >= Math.min(y1, y2, ys) - 5 && py <= Math.max(y1, y2, ys) + 5) return d; }
         if ((d.k == 'rect' || d.k == 'fib') && px >= Math.min(x1, x2) - 5 && px <= Math.max(x1, x2, d.k == 'fib' ? x1 + 40 : x1) + 5 && py >= Math.min(y1, y2) - 5 && py <= Math.max(y1, y2) + 5) { if (d.k == 'rect') return d; for (const f of FIB) if (Math.abs(yOf(R, d.p2 + (d.p1 - d.p2) * f) - py) < 6) return d; } }
       return null; }
     const emitDraw = () => { for (const f of cbDraw) f(draws.map(d => ({ ...d }))); };
@@ -166,12 +179,12 @@
         if (tool) { const a = ptAt(p.x, p.y); if (pend) { pend.t2 = a.t; pend.p2 = a.p; draws.push(pend); sel = pend; pend = null; tool = null; emitDraw(); schedule(); mv = { done: true }; return; }
           if (tool == 'hline' || tool == 'vline') { const d = { id: Date.now().toString(36), k: tool, t1: a.t, p1: a.p }; draws.push(d); sel = d; tool = null; emitDraw(); schedule(); mv = { done: true }; return; }
           pend = { id: Date.now().toString(36), k: tool, t1: a.t, p1: a.p, t2: a.t, p2: a.p }; mv = { create: true, x: p.x, y: p.y }; schedule(); return; }
-        const h = hit(p.x, p.y); if (h) { sel = h; const a = ptAt(p.x, p.y); mv = { d: h, a, o: { t1: h.t1, p1: h.p1, t2: h.t2, p2: h.p2 } }; schedule(); return; } if (sel) { sel = null; schedule(); } }
+        const h = hit(p.x, p.y); if (h) { sel = h; const a = ptAt(p.x, p.y); mv = { d: h, a, o: { t1: h.t1, p1: h.p1, t2: h.t2, p2: h.p2, sl: h.sl } }; cv.style.cursor = 'grabbing'; schedule(); return; } if (sel) { sel = null; schedule(); } }
       if (pts.size === 2) { const [A, B] = [...pts.values()]; pinch = { d: Math.hypot(A.x - B.x, A.y - B.y), r: { ...range }, cx: (A.x + B.x) / 2 }; drag = null; return; }
-      drag = { x: p.x, y: p.y, r: { ...range }, axis: p.x > PW(), t: performance.now(), lx: p.x, lt: performance.now(), sc: p.x > PW() ? { lo: scales.right.lo, hi: scales.right.hi } : null, pv: { lo: tf(scales.right, scales.right.lo), hi: tf(scales.right, scales.right.hi) }, vy: false }; vel = 0; });
+      drag = { x: p.x, y: p.y, r: { ...range }, axis: p.x > PW(), t: performance.now(), lx: p.x, lt: performance.now(), sc: p.x > PW() ? { lo: scales.right.lo, hi: scales.right.hi } : null, cur: cv.style.cursor = p.x > PW() ? 'ns-resize' : 'grabbing', pv: { lo: tf(scales.right, scales.right.lo), hi: tf(scales.right, scales.right.hi) }, vy: false }; vel = 0; });
     cv.addEventListener('pointermove', e => { const p = local(e); if (pts.has(e.pointerId)) pts.set(e.pointerId, p);
       if (pend && !mv?.done) { const a = ptAt(p.x, p.y); pend.t2 = a.t; pend.p2 = a.p; hover(p.x, p.y); return; }
-      if (mv?.d && pts.has(e.pointerId)) { const a = ptAt(p.x, p.y), dt = a.t - mv.a.t, dp = a.p - mv.a.p, o = mv.o; mv.d.t1 = o.t1 + dt; mv.d.p1 = o.p1 + dp; if (o.t2 != null) { mv.d.t2 = o.t2 + dt; mv.d.p2 = o.p2 + dp; } mv.moved = true; schedule(); return; }
+      if (mv?.d && pts.has(e.pointerId)) { const a = ptAt(p.x, p.y), dt = a.t - mv.a.t, dp = a.p - mv.a.p, o = mv.o; mv.d.t1 = o.t1 + dt; mv.d.p1 = o.p1 + dp; if (o.t2 != null) { mv.d.t2 = o.t2 + dt; mv.d.p2 = o.p2 + dp; } if (o.sl != null) mv.d.sl = o.sl + dp; mv.moved = true; schedule(); return; }
       if (pinch && pts.size === 2) { const [A, B] = [...pts.values()], d = Math.hypot(A.x - B.x, A.y - B.y), k = pinch.d / Math.max(10, d), span = (pinch.r.to - pinch.r.from) * k, at = pinch.r.from + pinch.cx / PW() * (pinch.r.to - pinch.r.from); setRange({ from: at - (pinch.cx / PW()) * span, to: at + (1 - pinch.cx / PW()) * span }); moved = true; return; }
       if (drag) { const dx = p.x - drag.x, dy = p.y - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) moved = true; if (!moved) return;
         if (drag.axis) { const R = scales.right, mid = (drag.sc.lo + drag.sc.hi) / 2, k = Math.exp(dy / 150), half = (drag.sc.hi - drag.sc.lo) / 2 * k; R.auto = false; R.min = mid - half; R.max = mid + half; schedule(); return; }
@@ -179,7 +192,7 @@
           // vertical pan like TradingView: dragging up or down moves the price scale too (auto-scale switches off; double-click the price axis or press Auto to reset)
           if (drag.vy || Math.abs(dy) > 8) { const R = scales.right, hh = PH() * (1 - R.m.top - R.m.bottom), d = dy / Math.max(1, hh) * (drag.pv.hi - drag.pv.lo); drag.vy = true; R.auto = false; R.min = itf(R, drag.pv.lo + d); R.max = itf(R, drag.pv.hi + d); schedule(); } if (e.pointerType !== 'mouse') { cross = null; } return; }
       if (e.pointerType === 'mouse') hover(p.x, p.y); });
-    const up = e => { const p = local(e); pts.delete(e.pointerId); if (pinch) { if (pts.size < 2) pinch = null; return; }
+    const up = e => { const p = local(e); pts.delete(e.pointerId); cv.style.cursor = tool ? 'crosshair' : ''; if (pinch) { if (pts.size < 2) pinch = null; return; }
       if (mv) { const m = mv; mv = null; drag = null; if (m.create && pend && Math.hypot(p.x - m.x, p.y - m.y) > 8) { draws.push(pend); sel = pend; pend = null; tool = null; emitDraw(); schedule(); } else if (m.d && m.moved) emitDraw(); return; }
       if (drag && !moved) { const ev = evAt(p.x, p.y); if (p.x <= PW() && p.y <= PH()) { for (const f of cbClick) f(ev); if (e.pointerType !== 'mouse') hover(p.x, p.y); } }
       else if (drag && !drag.axis && Math.abs(vel) > .15 && performance.now() - drag.lt < 80) { let v = vel * 16; const step = () => { v *= .94; if (Math.abs(v) < .3) { inertia = 0; return; } const sh = v / bs(); setRange({ from: range.from - sh, to: range.to - sh }); inertia = requestAnimationFrame(step); }; inertia = requestAnimationFrame(step); } // momentum: a flick keeps the chart gliding
