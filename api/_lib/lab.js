@@ -123,7 +123,7 @@ async function state(uid, id) {
   for (const t of trades) if (t.status === 'open' && t.qty != null) { const px = marks[t.sym] ?? marks[t.sym.replace(/^M(?=NQ|ES)/, '')]; if (px != null) t.upnl = pnlOf(t.sym, t.dir, Number(t.qty), Number(t.entry), px); }
   return { id, meta: meta(s), cfg, enabled: row.enabled, account: acct, trades, view, viewError, now: Date.now() };
 }
-const meta = s => ({ id: s.id, name: s.name, group: s.group, kind: s.kind, blurb: s.blurb, how: s.how, data: s.dataNote, params: params(s), syms: s.syms || null, choices: s.choices || null, bt: s.bt || null, honest: s.honest || null });
+const meta = s => ({ id: s.id, name: s.name, group: s.group, kind: s.kind, blurb: s.blurb, how: s.how, data: s.dataNote, params: params(s), syms: s.syms || null, choices: s.choices || null, choiceLabels: s.choiceLabels || null, bt: s.bt || null, honest: s.honest || null });
 async function api(uid, op, body, q) {
   const id = String(q.id || body.id || ''), s = strat(id);
   switch (op) {

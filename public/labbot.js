@@ -1,7 +1,8 @@
 // Strategy Lab tab: one page for every Lab bot (ICT, options, quant, order flow). The server's lab.js describes each bot (name, rules, dials, backtest choices)
 // and sends a "view" (status, candles + what the rules drew, or holdings for portfolio bots). Paper only: each bot has its own simulated account.
 const LABS = [ // [id, icon, name] in the menu, by group
-  ['ICT', [['fvg', 'star', 'FVG Bot'], ['fib', 'spark', 'Fibonacci OTE'], ['stdv', 'wave', 'STDV Bot'], ['qt', 'book', 'Quarterly Theory'], ['liq', 'scales', 'Liquidity Raid'], ['amt', 'flask', 'AMT Value Area']]]];
+  ['ICT', [['fvg', 'star', 'FVG Bot'], ['fib', 'spark', 'Fibonacci OTE'], ['stdv', 'wave', 'STDV Bot'], ['qt', 'book', 'Quarterly Theory'], ['liq', 'scales', 'Liquidity Raid'], ['amt', 'flask', 'AMT Value Area']]],
+  ['Quant', [['quant', 'flask', 'Quant RSI-2'], ['top', 'trophy', 'Top Picks'], ['proven', 'star', 'Proven Trend'], ['pairs', 'scales', 'Stat-Arb Pairs'], ['macro', 'coin', 'Macro Regime'], ['wallst', 'book', 'Wall Street']]]];
 const LABIDS = LABS.flatMap(([, x]) => x.map(y => y[0]));
 let labT = null, labS = null, labId = null;
 const labStop = () => { clearInterval(labT); labT = null; };
@@ -59,8 +60,8 @@ function labChart(v) {
   const p = v.pos || v.order; if (p) { const i0 = I(p.t0), tag = v.pos ? '' : 'order '; levels.push({ y: p.entry ?? v.last, name: tag + 'entry', color: 'var(--text)', i0, dash: '' }, { y: p.stop, name: 'stop', color: 'var(--down)', i0, fit: 1 }); if (p.target != null) levels.push({ y: p.target, name: 'target', color: 'var(--up)', i0, fit: 1 }); }
   const panes = (v.panes || []).map(q => ({ ...q, colors: q.colors }));
   if (v.bars && !panes.length && B.some(b => b.v)) panes.push({ name: 'Volume', short: 'Vol', type: 'bars', vals: B.map(b => b.v), colors: B.map(b => b.c >= b.o ? 'rgba(48,209,88,.5)' : 'rgba(255,69,58,.5)'), h: 50 });
-  bcChart(el, { bars: B, levels, zones, vlines, marks, panes, last: v.last, overlays: (d.lines || []).map(o => ({ ...o })), h: 320, tf: (t) => new Date(t * 1000).toLocaleTimeString([], { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false }), tfFull: t => labClock(t * 1000), style: v.bars ? 'candle' : 'line', color: 'var(--ac)' });
-  $('#lablg').innerHTML = bcLegend([['var(--up)', 'buy', 'tri'], ['var(--down)', 'sell', 'tri'], ['var(--ac)', 'armed'], ...(d.legend || [])]);
+  bcChart(el, { bars: B, levels, zones, vlines, marks, panes, last: v.last, overlays: (d.lines || []).map(o => ({ ...o })), h: 320, tf: v.line ? (t => new Date(t * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' })) : (t => new Date(t * 1000).toLocaleTimeString([], { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false })), tfFull: v.line ? (t => new Date(t * 1000).toLocaleDateString()) : (t => labClock(t * 1000)), style: v.bars ? 'candle' : 'line', color: 'var(--ac)' });
+  $('#lablg').innerHTML = v.line ? '<div class=mut style="font-size:12px;margin-top:6px">The rules\' result over the last year (start = 100), after costs.</div>' : bcLegend([['var(--up)', 'buy', 'tri'], ['var(--down)', 'sell', 'tri'], ['var(--ac)', 'armed'], ...(d.legend || [])]);
 }
 function labHold(v) {
   const el = $('#labhold'); if (!el) return; if (!v?.holdings) { el.innerHTML = ''; return; }
