@@ -608,3 +608,46 @@ body.wide .wrap{max-width:none}
 [hidden]{display:none!important}
 @media(min-width:1101px){.trgrid>.trside{position:sticky;top:76px;max-height:calc(100vh - 92px);overflow-y:auto;scrollbar-width:none;border-radius:var(--r)}}
 @media(max-width:760px){.trbar{flex-wrap:nowrap;flex-direction:column;align-items:stretch}.trbar .seg,.trtools{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;max-width:100%}.trbar .seg button,.trtools>*{flex:none}.trsel{font-size:13px}.trmenu{position:fixed;left:16px;right:16px;top:auto;bottom:90px;width:auto}}
+/* ---------- Trade on phones: TradingView-mobile layout (full-screen chart, buy/sell on the chart, toolbar, sheets) ---------- */
+.trmov,.trmbar,.trscrim{display:none}
+@media(max-width:760px){
+ body.wide .topbar{display:none!important}
+ body.wide .wrap{padding:0!important}
+ body.wide{overflow:hidden;overscroll-behavior:none}
+ .trwrap{display:block}
+ .trhead,.trbar,.trside{display:none}
+ .trgrid{display:block}
+ .trchartcard{position:fixed;left:0;right:0;top:0;bottom:calc(114px + env(safe-area-inset-bottom));border-radius:0!important;border:0!important;box-shadow:none!important;z-index:5;padding-top:env(safe-area-inset-top);background:var(--bg)!important}
+ .trchart{height:100%!important}
+ .trmov{display:block;position:absolute;left:12px;top:10px;z-index:6;pointer-events:none}
+ .trmtop{display:flex;align-items:baseline;gap:8px}.trmtop b{font-size:20px;font-weight:600;letter-spacing:-.02em;color:var(--text)}.trmexch{font-size:11px;color:var(--mut)}
+ .trmpx{font-size:14px;margin-top:2px;color:var(--text)}.trmpx #trmpx{font-weight:500}
+ .trqbs{display:grid;gap:8px;margin-top:10px;width:132px;pointer-events:auto}
+ .trqb{display:grid;justify-items:center;gap:0;height:50px;border-radius:12px;background:var(--panel);border:1.5px solid;font:600 12px/1.1 var(--sans);letter-spacing:.04em;cursor:pointer;padding:5px 6px}
+ .trqb b{font-size:14.5px;font-weight:600;letter-spacing:-.01em}
+ .trqb.sell{border-color:var(--down);color:var(--down)}.trqb.buy{border-color:var(--accent);color:var(--accent)}
+ :root[data-theme=dark] .trqb{background:#000}
+ .trqb:active{transform:scale(.96)}
+ .trlegend{top:auto;bottom:6px;left:10px;font-size:11px;max-width:calc(100% - 80px)}.trlegend>div:first-child{display:none}
+ .trmbar{display:flex;align-items:center;gap:2px;position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));height:50px;padding:0 8px;z-index:45;background:var(--panel);border-top:1px solid var(--line)}
+ .trmbar button{height:44px;min-width:46px;border:0;background:none;color:var(--text);display:grid;place-items:center;border-radius:12px;cursor:pointer}
+ .trmbar button:active{background:var(--tile)}
+ .trmbar .trmsy{display:flex;align-items:baseline;gap:10px;padding:0 8px;font-size:17px}.trmsy b{font-weight:600}.trmsy span{color:var(--mut);font-size:15px}
+ .trmsp{flex:1}
+ .trscrim{position:fixed;inset:0;z-index:78;background:rgba(0,0,0,.4);animation:pop .2s var(--ease) both}
+ body[data-trs] .trscrim{display:block}
+ /* sheets */
+ body[data-trs=sym] .trhead,body[data-trs=tf] .trbar,body[data-trs=tk] .trside,body[data-trs=acct] .trside{display:flex;flex-direction:column;align-items:stretch;gap:14px;position:fixed;left:0;right:0;bottom:0;z-index:80;max-height:86vh;overflow-y:auto;overscroll-behavior:contain;
+  background:var(--panel);border-radius:26px 26px 0 0;padding:10px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.25);animation:sheetup .32s var(--ease) both;border:0}
+ body[data-trs] .trhead:before,body[data-trs] .trbar:before,body[data-trs] .trside:before{content:'';width:38px;height:5px;border-radius:9px;background:var(--fill2);align-self:center;flex:none}
+ @keyframes sheetup{from{transform:translateY(100%)}}
+ body[data-trs=sym] .trsym{flex-direction:column;align-items:stretch}body[data-trs=sym] .trsearch{width:100%}body[data-trs=sym] .trres{position:static;width:100%;max-width:none;box-shadow:none;padding:0;margin-top:8px}
+ body[data-trs=sym] .trwatch{flex-wrap:wrap;overflow:visible}body[data-trs=sym] .trname{max-width:none}
+ body[data-trs=tf] .trbar .seg{flex-wrap:wrap}body[data-trs=tf] .trtools{flex-wrap:wrap}
+ body[data-trs=tf] #trindb{display:none}body[data-trs=tf] .trdd{width:100%;order:9}body[data-trs=tf] #trind,body[data-trs=tf] #trind[hidden]{display:grid!important;position:static;box-shadow:none;width:auto;padding:0;grid-template-columns:1fr 1fr;background:none}
+ body[data-trs=tk] .trside>:not(#trtk){display:none}body[data-trs=acct] #trtk{display:none}
+ body[data-trs] .trside>.card{box-shadow:none!important;border:0!important;padding:4px 2px 0!important;background:none!important}
+ body[data-trs=acct] .trtabs .tbl th,body[data-trs=acct] .trtabs .tbl td{padding:12px 8px}
+ #toasts{z-index:120}
+}
+@media(max-width:760px){.trlegend{top:178px!important;bottom:auto!important;left:12px;max-width:150px}.trlv{flex-direction:column;gap:2px}}
