@@ -67,5 +67,5 @@ const INDS = {
   bbw: { n: 'Bollinger Band Width', g: 'Volatility', d: 'Band width in %: low = a squeeze before a move', pane: 1, p: [P1('n', 'Length', 20, 2, 200)], run: (B, C, P) => { const m = IM.sma(C, P.n), s = IM.sd(C, P.n); return [{ id: 'w', v: m.map((x, i) => x == null ? null : 4 * s[i] / x * 100), c: 6, w: 2 }]; } },
 };
 const INDGROUPS = ['Moving averages', 'Bands & channels', 'Trend', 'Momentum', 'Volume', 'Volatility'];
-const indPalette = () => document.documentElement.dataset.theme == 'dark' ? ['#2962ff', '#2962ff', '#ff9800', '#f23645', '#b04dff', '#22ab94', '#ffeb3b', '#ff4081', '#787b86'] : ['#2962ff', '#2962ff', '#ff9800', '#f23645', '#9c27b0', '#089981', '#00bcd4', '#e91e63', '#787b86'];
+const indPalette = () => (typeof trDark === 'function' ? trDark() : document.documentElement.dataset.theme == 'dark') ? ['#2962ff', '#2962ff', '#ff9800', '#f23645', '#b04dff', '#22ab94', '#ffeb3b', '#ff4081', '#787b86'] : ['#2962ff', '#2962ff', '#ff9800', '#f23645', '#9c27b0', '#089981', '#00bcd4', '#e91e63', '#787b86'];
 if (typeof module !== 'undefined' && module.exports) module.exports = { INDS, IM, INDGROUPS }; // the MCP server computes the same indicators

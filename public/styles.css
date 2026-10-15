@@ -762,8 +762,10 @@ body.term{--on-accent:#fff;--bg:#f0f3fa;--bg2:#e9edf5;--panel:#fff;--panel2:#f8f
   --text:#131722;--mut:#787b86;--mut2:#9598a1;--accent:#2962ff;--accentbg:rgba(41,98,255,.1);--accent-rgb:41,98,255;--lnk:#2962ff;
   --up:#089981;--upbg:rgba(8,153,129,.12);--down:#f23645;--downbg:rgba(242,54,69,.1);--grid:#f0f3fa;--pop:#fff;--shadow:0 8px 28px rgba(19,23,34,.16);
   --sans:-apple-system,BlinkMacSystemFont,"Trebuchet MS",Roboto,Ubuntu,"Segoe UI",sans-serif;--r:8px;font-family:var(--sans);font-size:14px;letter-spacing:0;background:var(--bg)}
-:root[data-theme=dark] body.term{--bg:#0c0e15;--bg2:#10131b;--panel:#131722;--panel2:#171b26;--tile:#1e222d;--fill:#1e222d;--fill2:#2a2e39;--hov:#1a1e29;--line:#232733;--line2:#2a2e39;
-  --text:#d1d4dc;--mut:#787b86;--mut2:#5d606b;--accentbg:rgba(41,98,255,.16);--lnk:#5b8cff;--upbg:rgba(8,153,129,.16);--downbg:rgba(242,54,69,.15);--grid:#1a1e29;--pop:#1e222d;--shadow:0 10px 36px rgba(0,0,0,.6)}
+body.term[data-tt=tv]{--bg:#070b19;--bg2:#0a1024;--panel:#0b1123;--panel2:#0f1630;--tile:#141d3b;--fill:#141d3b;--fill2:#1d2850;--hov:#111a36;--line:#18213f;--line2:#243058;
+  --text:#c9d2ec;--mut:#7280a8;--mut2:#4f5b80;--accent:#3d5afe;--accentbg:rgba(61,90,254,.2);--accent-rgb:61,90,254;--lnk:#7d93ff;--up:#26a69a;--down:#ef5350;--upbg:rgba(38,166,154,.16);--downbg:rgba(239,83,80,.15);--grid:#141c38;--pop:#111a36;--shadow:0 10px 36px rgba(0,0,0,.6)}
+body.term[data-tt=oled]{--bg:#000;--bg2:#050505;--panel:#000;--panel2:#080808;--tile:#121212;--fill:#121212;--fill2:#1e1e1e;--hov:#0c0c0c;--line:#161616;--line2:#242424;
+  --text:#e8e8ea;--mut:#8a8a90;--mut2:#55555b;--accentbg:rgba(41,98,255,.18);--lnk:#5b8cff;--upbg:rgba(8,153,129,.16);--downbg:rgba(242,54,69,.15);--grid:#111;--pop:#0c0c0c;--shadow:0 10px 36px rgba(0,0,0,.8)}
 body.term .num{letter-spacing:0;font-variant-numeric:tabular-nums}
 body.term .btn{border-radius:6px}body.term .btn.sm{height:28px;padding:0 10px;border-radius:5px;font-size:12.5px}body.term .btn.pri{background:var(--accent);color:#fff}
 body.term .inp,body.term select.inp{height:34px;border-radius:6px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line2);font-size:13.5px}
@@ -896,3 +898,24 @@ body.term .toast{border-radius:6px}
  .trpanes.linked .trmleg{cursor:default}
 }
 @media(max-width:760px){.trtabbar,.trpbtns{display:none!important}}
+
+/* terminal "TradingView dark" theme: the deep-blue gradients and glows of the reference */
+@media(min-width:761px){
+ body.term[data-tt=tv] .trwrap{background:#1a2550;box-shadow:inset 0 0 0 1px #22306a}
+ body.term[data-tt=tv] .trchart,body.term[data-tt=tv] .trmini{background:radial-gradient(90% 70% at 50% 108%,rgba(61,90,254,.26),transparent 62%),radial-gradient(70% 50% at 100% 0%,rgba(98,64,255,.12),transparent 70%),linear-gradient(180deg,#0a1024 0%,#0d1430 55%,#111a3d 100%)!important}
+ body.term[data-tt=tv] .trpanes{background:#1f2c5c}
+ body.term[data-tt=tv] .trpanes[data-n="2"] .trchart.on,body.term[data-tt=tv] .trpanes[data-n="4"] .trchart.on{box-shadow:inset 0 0 0 1.5px #4d6bff,inset 0 0 30px rgba(77,107,255,.22),0 0 18px rgba(77,107,255,.45);z-index:1}
+ body.term[data-tt=tv] .trtop,body.term[data-tt=tv] .trlt,body.term[data-tt=tv] .trrange,body.term[data-tt=tv] .trside,body.term[data-tt=tv] .trtabs{background:linear-gradient(180deg,#0b1227,#0a1022)!important}
+ body.term[data-tt=tv] .trtabbar{background:#060a17}body.term[data-tt=tv] .trtab.on{background:#0b1227;box-shadow:0 -1px 12px rgba(61,90,254,.35)}
+ body.term[data-tt=tv] .trbar .seg button.on,body.term[data-tt=tv] .trlay button.on,body.term[data-tt=tv] .trlt button.on{color:#fff;background:rgba(61,90,254,.35);box-shadow:0 0 12px rgba(61,90,254,.55)}
+ body.term[data-tt=tv] .trqb.buy{background:#3d5afe;box-shadow:0 0 14px rgba(61,90,254,.6)}body.term[data-tt=tv] .trqb.sell{box-shadow:0 0 14px rgba(239,83,80,.45)}
+ body.term[data-tt=tv] .trwlr.on{background:linear-gradient(90deg,rgba(61,90,254,.28),transparent);border-left-color:#4d6bff}
+ body.term[data-tt=tv] .trptabs button.on,body.term[data-tt=tv] .trdockh .seg button.on{border-bottom-color:#4d6bff;text-shadow:0 0 12px rgba(77,107,255,.8)}
+ body.term[data-tt=tv] .trlegend .trln,body.term[data-tt=tv] .trmleg>b{text-shadow:0 0 10px rgba(120,150,255,.35)}
+}
+/* app themes: Dark is Apple's soft dark; OLED black is pure black */
+:root[data-theme=dark]:not([data-oled]){--bg:#111113;--bg2:#1c1c1e;--panel:#1c1c1e;--panel2:#232325;--tile:#2c2c2e;--fill:#2c2c2e;--fill2:#3a3a3c;--hov:#242426;--line:#2a2a2d;--line2:#3a3a3c;--glass:#111113;--pop:#232325;--face:#2c2c2e;--faceRing:#1c1c1e;--grid:#26262a}
+/* Apple system fonts (San Francisco on Apple devices; the closest system face elsewhere) */
+:root,:root[data-theme]{--sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue","Segoe UI Variable Text","Segoe UI",system-ui,Roboto,sans-serif}
+body{font-family:var(--sans);letter-spacing:-.005em}
+h1,.dbig,.trbig,.dbal{letter-spacing:-.025em}h1{font-weight:700}
