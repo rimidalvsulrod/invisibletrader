@@ -1,19 +1,16 @@
 // Manual Trading: a TradingView-style chart (TradingView's open-source Lightweight Charts) with timeframes, chart types, indicators, drawing tools
 // and a paper order ticket for stocks, ETFs, futures and crypto. Plus the Opposite Bot: it takes the reverse of every fill you get.
 let TR = null; // set on first visit (LS lives in app.js, loaded after this file)
-const trInit = () => TR || (TR = { sym: LS.get('mt:sym', 'SPY'), tf: LS.get('mt:tf', '5m'), type: LS.get('mt:type', 'candle'), ind: LS.get('mt:ind', ['ema9', 'ema21', 'vwap', 'vol']), side: 'buy', kind: 'market', tool: null, pend: null });
+const trInit = () => TR || (TR = { sym: LS.get('mt:sym', 'SPY'), tf: LS.get('mt:tf', '5m'), type: LS.get('mt:type2', 'smooth'), prm: LS.get('mt:prm', {}), ind: LS.get('mt:ind', ['ema9', 'ema21', 'vwap', 'vol']), side: 'buy', kind: 'market', tool: null, pend: null });
 let trChart = null, trMain = null, trS = {}, trData = null, trState = null, trT1 = null, trT2 = null, trLines = [], trDraw = [];
 const trSheet = n => { if (n) document.body.dataset.trs = n; else delete document.body.dataset.trs; if (n == 'sym') setTimeout(() => $('#trq')?.focus(), 250); };
-const trStop = () => { trSheet(null); clearInterval(trT1); clearInterval(trT2); trT1 = trT2 = null; if (trChart) { trChart.remove(); trChart = null; } removeEventListener('themechange', trTheme); };
+const trStop = () => { trSheet(null); $('#trpick')?.remove(); clearInterval(trT1); clearInterval(trT2); trT1 = trT2 = null; if (trChart) { trChart.remove(); trChart = null; } removeEventListener('themechange', trTheme); };
 const mtapi = async (op, body, qs = '') => { const r = await fetch('/api/powell' + (body ? '' : `?op=mt-${op}${qs}`), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'mt-' + op, ...body }) } : {});
   const j = await r.json().catch(() => ({ error: 'Bad response' })); if (!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), { status: r.status }); return j; };
 const TFS = [['1m', '1m'], ['5m', '5m'], ['15m', '15m'], ['30m', '30m'], ['1h', '1H'], ['4h', '4H'], ['1d', '1D'], ['1w', '1W'], ['1mo', '1M']];
-const TYPES = [['candle', 'Candles'], ['hollow', 'Hollow'], ['ha', 'Heikin Ashi'], ['bar', 'Bars'], ['line', 'Line'], ['area', 'Area']];
+const TYPES = [['smooth', 'Smooth'], ['candle', 'Candles'], ['hollow', 'Hollow candles'], ['ha', 'Heikin Ashi'], ['bar', 'Bars'], ['line', 'Line'], ['base', 'Baseline']];
 const WATCH = ['SPY', 'QQQ', 'AAPL', 'NVDA', 'TSLA', 'MSFT', 'NQ=F', 'ES=F', 'GC=F', 'CL=F', 'BTC-USD', 'ETH-USD', 'SOL-USD'];
-const IND = { // key: [label, kind ('ov' overlay | 'pane'), color]
-  sma20: ['SMA 20', 'ov', '#f5a623'], sma50: ['SMA 50', 'ov', '#a78bfa'], sma200: ['SMA 200', 'ov', '#ef4444'], ema9: ['EMA 9', 'ov', '#22c55e'], ema21: ['EMA 21', 'ov', '#3b82f6'],
-  vwap: ['VWAP', 'ov', '#ec4899'], bb: ['Bollinger 20, 2', 'ov', '#94a3b8'], st: ['Supertrend 10, 3', 'ov', ''], ichi: ['Ichimoku', 'ov', ''], vol: ['Volume', 'vol', ''],
-  rsi: ['RSI 14', 'pane', '#a78bfa'], macd: ['MACD 12, 26, 9', 'pane', '#3b82f6'], stoch: ['Stochastic 14, 3', 'pane', '#f5a623'], atr: ['ATR 14', 'pane', '#14b8a6'], obv: ['OBV', 'pane', '#ec4899'] };
+const IND = INDS; // public/indicators.js
 const trN = (x, d) => x == null || !isFinite(x) ? '-' : Number(x).toLocaleString('en-US', { minimumFractionDigits: d ?? (Math.abs(x) >= 1000 ? 2 : Math.abs(x) >= 1 ? 2 : 4), maximumFractionDigits: d ?? (Math.abs(x) >= 1000 ? 2 : Math.abs(x) >= 1 ? 2 : 6) });
 const trM = x => (x < 0 ? '-$' : '$') + Math.abs(x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const trCss = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -44,9 +41,9 @@ async function tradePage() {
    <div class=trgrid><div class="card trchartcard">
      <div class=trbar><div class=seg id=trtf>${TFS.map(([k, l]) => `<button data-v=${k} class="${TR.tf == k ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div class=trtools><select class="inp trsel" id=trtype>${TYPES.map(([k, l]) => `<option value=${k} ${TR.type == k ? 'selected' : ''}>${l}</option>`).join('')}</select>
-       <div class=trdd><button class="btn sm" id=trindb>${ic('flask', 14)} Indicators <span class="pill n" id=trindn>${TR.ind.length}</span></button><div class=trmenu id=trind hidden>${Object.entries(IND).map(([k, [l]]) => `<label><input type=checkbox value=${k} ${TR.ind.includes(k) ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></div>
+       <button class="btn sm" id=trindb>${ic('flask', 14)} Indicators <span class="pill n" id=trindn>${TR.ind.length}</span></button>
        <button class="btn sm ${TR.tool == 'h' ? 'on' : ''}" id=trh title="Horizontal line: click the chart">― Line</button><button class="btn sm ${TR.tool == 't' ? 'on' : ''}" id=trt title="Trend line: click two points">╱ Trend</button><button class="btn sm" id=trclr title="Remove the drawings on this symbol">${ic('x', 13)}</button><button class="btn sm" id=trfit title="Fit everything">Fit</button></div></div>
-     <div class=trchart id=trc><div class=trmov><div class=trmtop><b id=trmsym></b><span class=trmexch id=trmex></span></div><div class=trmpx><span class=num id=trmpx></span> <span class=num id=trmchg></span></div><div class=trqbs><button class="trqb sell" data-side=sell><b class=num id=trqsp>-</b>SELL</button><button class="trqb buy" data-side=buy><b class=num id=trqbp>-</b>BUY</button></div></div><div class=trlegend id=trleg></div></div></div>
+     <div class=trchart id=trc><div class=trmov><div class=trmtop><b id=trmsym></b><span class=trmexch id=trmex></span></div><div class=trmpx><span class=num id=trmpx></span> <span class=num id=trmchg></span></div><div class=trqbs><button class="trqb sell" data-side=sell><b class=num id=trqsp>-</b>SELL</button><button class="trqb buy" data-side=buy><b class=num id=trqbp>-</b>BUY</button></div></div><div class=trlegend id=trleg></div><div class=trbub id=trbub hidden></div></div></div>
     <div class=trside><div class="card pad trticket" id=trtk></div><div class="card pad" id=tracct></div><div class="card pad" id=tropp></div></div></div>
    <div class="card trtabs"><div class="row sb wrapf" style="padding:16px 20px 0;gap:10px"><div class=seg id=trtab>${[['pos', 'Positions'], ['ord', 'Orders'], ['fills', 'History']].map(([k, l], i) => `<button data-v=${k} class="${i ? '' : 'on'}">${l}</button>`).join('')}</div><button class="btn danger" id=trend>${ic('x', 14)} End trading day</button></div><div id=trtbl style="padding:6px 0 8px"></div></div></div>
    <div class=trscrim id=trscrim></div><div class=trmbar><button class=trmsy id=trmS><b id=trmsy></b><span id=trmtf></span></button><span class=trmsp></span><button id=trmD aria-label="Drawing tools"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><path d="M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20z"/><path d="M13.5 6.5l3 3"/></svg></button><button id=trmI aria-label="Timeframe and indicators"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx=16 cy=7 r=2 /><circle cx=10 cy=17 r=2 /></svg></button><button id=trmA aria-label="Account and positions"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><rect x=3 y=6 width=18 height=13 rx=3 /><path d="M16 12.5h2M3 9h18"/></svg></button></div>`;
@@ -57,14 +54,15 @@ async function tradePage() {
   addEventListener('themechange', trTheme);
 }
 function trLib() { return window.LightweightCharts ? Promise.resolve() : new Promise((ok, no) => { const s = document.createElement('script'); s.src = '/vendor/lwc.js'; s.onload = ok; s.onerror = () => no(new Error('chart library failed to load')); document.head.append(s); }); }
-function trOpts() { const dark = document.documentElement.dataset.theme == 'dark', fg = trCss('--mut'), grid = trCss('--grid');
-  return { layout: { background: { type: 'solid', color: 'transparent' }, textColor: fg, fontFamily: 'Poppins, -apple-system, sans-serif', fontSize: 11 }, grid: { vertLines: { color: grid }, horzLines: { color: grid } },
-    rightPriceScale: { borderVisible: false }, timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 6 }, crosshair: { mode: 0, vertLine: { color: dark ? '#555' : '#b5b5bd', labelBackgroundColor: dark ? '#222' : '#121214' }, horzLine: { color: dark ? '#555' : '#b5b5bd', labelBackgroundColor: dark ? '#222' : '#121214' } },
-    localization: { priceFormatter: p => trN(p) } }; }
+function trOpts() { const dark = document.documentElement.dataset.theme == 'dark', fg = trCss('--mut'), grid = trCss('--grid'), ac = trCss('--accent');
+  return { layout: { background: { type: 'solid', color: 'transparent' }, textColor: fg, fontFamily: 'Poppins, -apple-system, sans-serif', fontSize: 11 }, grid: { vertLines: { visible: false }, horzLines: { color: grid, style: 1 } },
+    rightPriceScale: { borderVisible: false, scaleMargins: { top: .12, bottom: .08 } }, timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 8, barSpacing: 7 },
+    crosshair: { mode: 0, vertLine: { color: ac, width: 1, style: 2, labelBackgroundColor: dark ? '#1c1c1e' : '#121214' }, horzLine: { visible: false, labelVisible: true, labelBackgroundColor: dark ? '#1c1c1e' : '#121214' } },
+    handleScale: { axisPressedMouseMove: true }, localization: { priceFormatter: p => trN(p) } }; }
 function trTheme() { if (trChart) { trChart.applyOptions(trOpts()); trPaint(); } }
 function trBuild() {
   const el = $('#trc'); trChart = LightweightCharts.createChart(el, { ...trOpts(), autoSize: true });
-  trChart.subscribeCrosshairMove(p => trLegend(p)); trChart.subscribeClick(p => trClick(p));
+  trChart.subscribeCrosshairMove(p => { trLegend(p); trBubble(p); }); trChart.subscribeClick(p => trClick(p));
 }
 function trWire() {
   const q = $('#trq'), res = $('#trres'); let t = null;
@@ -72,12 +70,11 @@ function trWire() {
   q.oninput = () => { clearTimeout(t); const v = q.value.trim(); if (!v) { res.hidden = true; return; } t = setTimeout(async () => { try { const r = await mtapi('search', null, '&q=' + encodeURIComponent(v)); res.innerHTML = r.results.map(x => `<button data-s="${esc(x.sym)}"><b>${esc(x.sym)}</b><span>${esc(x.name)}</span><i>${esc(x.type.toLowerCase())} · ${esc(x.ex)}</i></button>`).join('') || '<div class=mut style="padding:12px">No matches</div>'; res.hidden = false; res.querySelectorAll('button').forEach(b => b.onmousedown = () => { trSet(b.dataset.s); res.hidden = true; }); } catch (e) {} }, 250); };
   q.onblur = () => setTimeout(() => { res.hidden = true; if (!q.value.trim()) q.value = TR.sym; }, 150);
   $$('.trwatch .chip').forEach(b => b.onclick = () => trSet(b.dataset.s));
-  $('#trscrim').onclick = () => trSheet(null); $('#trmS').onclick = () => trSheet('sym'); $('#trmD').onclick = () => trSheet('tf'); $('#trmI').onclick = () => trSheet('tf'); $('#trmA').onclick = () => { trSheet('acct'); trStateLoad(); };
+  $('#trscrim').onclick = () => trSheet(null); $('#trmS').onclick = () => trSheet('sym'); $('#trmD').onclick = () => trSheet('tf'); $('#trmI').onclick = () => { trSheet(null); trPick(); }; $('#trmA').onclick = () => { trSheet('acct'); trStateLoad(); };
   $$('.trqb').forEach(b => b.onclick = () => { TR.side = b.dataset.side; trTicket(); trSheet('tk'); });
   $$('#trtf button').forEach(b => b.onclick = () => { trSheet(null); TR.tf = b.dataset.v; LS.set('mt:tf', TR.tf); $$('#trtf button').forEach(x => x.classList.toggle('on', x === b)); clearInterval(trT1); trT1 = setInterval(() => { if (!$('#trc')) return trStop(); trLoad(false); }, /^(1d|1w|1mo)$/.test(TR.tf) ? 3e4 : 5e3); trLoad(true); });
-  $('#trtype').onchange = e => { TR.type = e.target.value; LS.set('mt:type', TR.type); trPaint(true); };
-  $('#trindb').onclick = e => { e.stopPropagation(); $('#trind').hidden = !$('#trind').hidden; }; document.addEventListener('click', e => { const m = $('#trind'); if (m && !m.contains(e.target)) m.hidden = true; });
-  $$('#trind input').forEach(c => c.onchange = () => { TR.ind = $$('#trind input:checked').map(x => x.value); LS.set('mt:ind', TR.ind); $('#trindn').textContent = TR.ind.length; trPaint(true); });
+  $('#trtype').onchange = e => { TR.type = e.target.value; LS.set('mt:type2', TR.type); trPaint(true); };
+  $('#trindb').onclick = () => { trSheet(null); trPick(); };
   $('#trh').onclick = () => { trSheet(null); TR.tool = TR.tool == 'h' ? null : 'h'; TR.pend = null; $('#trh').classList.toggle('on', TR.tool == 'h'); $('#trt').classList.remove('on'); };
   $('#trt').onclick = () => { trSheet(null); TR.tool = TR.tool == 't' ? null : 't'; TR.pend = null; $('#trt').classList.toggle('on', TR.tool == 't'); $('#trh').classList.remove('on'); };
   $('#trclr').onclick = () => { LS.set('mt:draw:' + TR.sym, []); trPaint(true); toast('Drawings removed'); };
@@ -96,41 +93,61 @@ async function trLoad(fresh) {
 }
 function trBars() { const B = trData.B; if (TR.type != 'ha') return B; const o = []; B.forEach((b, i) => { const c = (b.o + b.h + b.l + b.c) / 4, op = i ? (o[i - 1].o + o[i - 1].c) / 2 : (b.o + b.c) / 2; o.push({ t: b.t, o: op, c, h: Math.max(b.h, op, c), l: Math.min(b.l, op, c), v: b.v }); }); return o; }
 function trPaint(rebuild) {
-  if (!trChart || !trData) return; const B = trBars(), up = trCss('--up'), dn = trCss('--down'), C = B.map(b => b.c), T = B.map(b => b.t);
+  if (!trChart || !trData) return; const B = trBars(), up = trCss('--up'), dn = trCss('--down'), ac = trCss('--accent'), acr = trCss('--accent-rgb'), C = B.map(b => b.c), T = B.map(b => b.t), pal = indPalette();
   if (rebuild) { for (const s of Object.values(trS)) trChart.removeSeries(s); trS = {}; trLines = []; }
-  const L = (key, opt) => trS[key] || (trS[key] = trChart.addLineSeries({ lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, ...opt }));
-  const ser = (a) => a.map((v, i) => v == null || !isFinite(v) ? { time: T[i] } : { time: T[i], value: v });
-  // main series
-  if (!trS.main) { const k = TR.type; trS.main = k == 'bar' ? trChart.addBarSeries({ upColor: up, downColor: dn, thinBars: false }) : k == 'line' ? trChart.addLineSeries({ color: trCss('--text'), lineWidth: 2 }) : k == 'area' ? trChart.addAreaSeries({ lineColor: trCss('--accent'), topColor: `rgba(${trCss('--accent-rgb')},.25)`, bottomColor: `rgba(${trCss('--accent-rgb')},0)`, lineWidth: 2 })
-    : trChart.addCandlestickSeries({ upColor: k == 'hollow' ? 'rgba(0,0,0,0)' : up, downColor: dn, borderUpColor: up, borderDownColor: dn, wickUpColor: up, wickDownColor: dn }); }
-  trS.main.setData(/line|area/.test(TR.type) ? B.map(b => ({ time: b.t, value: b.c })) : B.map(b => ({ time: b.t, open: b.o, high: b.h, low: b.l, close: b.c })));
+  const col = c => c === 'up' ? up : c === 'down' ? dn : typeof c === 'number' ? pal[c] : c || pal[8];
+  const ser = a => a.map((v, i) => v == null || !isFinite(v) ? { time: T[i] } : { time: T[i], value: v });
+  // the price
+  if (!trS.main) { const k = TR.type, base = { priceLineColor: ac, priceLineStyle: 2 };
+    trS.main = k == 'smooth' ? trChart.addAreaSeries({ ...base, lineColor: ac, lineWidth: 2.5, lineType: 2, topColor: `rgba(${acr},.22)`, bottomColor: `rgba(${acr},0)`, crosshairMarkerRadius: 6, crosshairMarkerBorderColor: trCss('--panel'), crosshairMarkerBorderWidth: 3, crosshairMarkerBackgroundColor: ac })
+      : k == 'line' ? trChart.addLineSeries({ ...base, color: ac, lineWidth: 2, crosshairMarkerRadius: 5, crosshairMarkerBorderColor: trCss('--panel'), crosshairMarkerBackgroundColor: ac })
+      : k == 'base' ? trChart.addBaselineSeries({ ...base, baseValue: { type: 'price', price: trData.prev || C[0] }, topLineColor: up, topFillColor1: up + '40', topFillColor2: up + '05', bottomLineColor: dn, bottomFillColor1: dn + '05', bottomFillColor2: dn + '40', lineWidth: 2 })
+      : k == 'bar' ? trChart.addBarSeries({ ...base, upColor: up, downColor: dn, thinBars: false })
+      : trChart.addCandlestickSeries({ ...base, upColor: k == 'hollow' ? 'rgba(0,0,0,0)' : up, downColor: dn, borderUpColor: up, borderDownColor: dn, wickUpColor: up + 'cc', wickDownColor: dn + 'cc' }); }
+  trS.main.setData(/smooth|line|base/.test(TR.type) ? B.map(b => ({ time: b.t, value: b.c })) : B.map(b => ({ time: b.t, open: b.o, high: b.h, low: b.l, close: b.c })));
   trMain = trS.main;
-  const panes = TR.ind.filter(k => IND[k]?.[1] == 'pane'), P = .17, mainBottom = panes.length * P + (TR.ind.includes('vol') ? .02 : .02);
-  trS.main.priceScale().applyOptions({ scaleMargins: { top: .06, bottom: Math.min(.7, mainBottom + (TR.ind.includes('vol') ? .1 : .04)) } });
-  const has = k => TR.ind.includes(k);
-  if (has('vol')) { if (!trS.vol) trS.vol = trChart.addHistogramSeries({ priceScaleId: 'vol', priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false }); trS.vol.priceScale().applyOptions({ scaleMargins: { top: 1 - mainBottom - .1, bottom: mainBottom } });
-    trS.vol.setData(B.map(b => ({ time: b.t, value: b.v, color: b.c >= b.o ? up + '55' : dn + '55' }))); }
-  for (const [k, n] of [['sma20', 20], ['sma50', 50], ['sma200', 200]]) if (has(k)) L(k, { color: IND[k][2] }).setData(ser(sma(C, n)));
-  for (const [k, n] of [['ema9', 9], ['ema21', 21]]) if (has(k)) L(k, { color: IND[k][2] }).setData(ser(ema(C, n)));
-  if (has('vwap')) L('vwap', { color: IND.vwap[2], lineWidth: 2 }).setData(ser(vwapA(B, TR.tf)));
-  if (has('bb')) { const m = sma(C, 20), sd = sdv(C, 20, m); L('bbm', { color: IND.bb[2], lineStyle: 2 }).setData(ser(m)); L('bbu', { color: IND.bb[2] }).setData(ser(m.map((v, i) => v == null ? null : v + 2 * sd[i]))); L('bbl', { color: IND.bb[2] }).setData(ser(m.map((v, i) => v == null ? null : v - 2 * sd[i]))); }
-  if (has('st')) { const s = superA(B); L('stu', { color: up, lineWidth: 2 }).setData(ser(s.map(x => x && x.d === 1 ? x.v : null))); L('std', { color: dn, lineWidth: 2 }).setData(ser(s.map(x => x && x.d === -1 ? x.v : null))); }
-  if (has('ichi')) { const tk = B.map((_, i) => midHL(B, i, 9)), kj = B.map((_, i) => midHL(B, i, 26)), sa = B.map((_, i) => i >= 26 && tk[i - 26] != null && kj[i - 26] != null ? (tk[i - 26] + kj[i - 26]) / 2 : null), sb = B.map((_, i) => i >= 26 ? midHL(B, i - 26, 52) : null);
-    L('ik', { color: '#3b82f6' }).setData(ser(tk)); L('ij', { color: '#ef4444' }).setData(ser(kj)); L('isa', { color: '#22c55e88' }).setData(ser(sa)); L('isb', { color: '#ef444488' }).setData(ser(sb)); }
-  // oscillator panes, stacked from the bottom
-  panes.forEach((k, i) => { const top = 1 - P * (i + 1) + .025, bottom = P * i + .01, ps = { priceScaleId: 'p_' + k }, mk = (key, opt) => { const s = L(key, { ...ps, ...opt }); s.priceScale().applyOptions({ scaleMargins: { top, bottom } }); return s; };
-    if (k == 'rsi') { const s = mk('rsi', { color: IND.rsi[2], lastValueVisible: true }); s.setData(ser(rsiA(C))); if (!s._lv) { s.createPriceLine({ price: 70, color: '#ef444488', lineStyle: 2, lineWidth: 1, axisLabelVisible: false }); s.createPriceLine({ price: 30, color: '#22c55e88', lineStyle: 2, lineWidth: 1, axisLabelVisible: false }); s._lv = 1; } }
-    if (k == 'macd') { const f = ema(C, 12), sl = ema(C, 26), m = f.map((v, i) => v == null || sl[i] == null ? null : v - sl[i]), sg = ema(m.map(x => x ?? 0), 9).map((v, i) => m[i] == null ? null : v);
-      if (!trS.mh) { trS.mh = trChart.addHistogramSeries({ ...ps, priceLineVisible: false, lastValueVisible: false }); trS.mh.priceScale().applyOptions({ scaleMargins: { top, bottom } }); } trS.mh.setData(m.map((v, i) => v == null || sg[i] == null ? { time: T[i] } : { time: T[i], value: v - sg[i], color: v - sg[i] >= 0 ? up + '99' : dn + '99' }));
-      mk('macd', { color: '#3b82f6', lastValueVisible: true }).setData(ser(m)); mk('macds', { color: '#f5a623' }).setData(ser(sg)); }
-    if (k == 'stoch') { const s = stochA(B); mk('stk', { color: '#f5a623', lastValueVisible: true }).setData(ser(s.k)); mk('std2', { color: '#3b82f6' }).setData(ser(s.d)); }
-    if (k == 'atr') mk('atr', { color: IND.atr[2], lastValueVisible: true }).setData(ser(rma(trueRange(B), 14)));
-    if (k == 'obv') { let o = 0; mk('obv', { color: IND.obv[2], lastValueVisible: true }).setData(ser(B.map((b, j) => (o += j ? Math.sign(b.c - B[j - 1].c) * b.v : 0)))); } });
+  // indicators: overlays on the price, oscillators in panes stacked from the bottom
+  const act = TR.ind.filter(k => IND[k]), panes = act.filter(k => IND[k].pane), PH = panes.length > 2 ? .15 : .18, mainBottom = panes.length * PH, hasVol = act.includes('vol');
+  trS.main.priceScale().applyOptions({ scaleMargins: { top: .1, bottom: Math.min(.72, mainBottom + (hasVol ? .13 : .06)) } }); trOut = {};
+  for (const k of act) { const D = IND[k], P = trPrm(k), outs = D.run(B, C, P, { tf: TR.tf }), pi = panes.indexOf(k), scale = D.vol ? 'vol' : pi >= 0 ? 'p_' + k : 'right', top = pi >= 0 ? 1 - PH * (pi + 1) + .03 : D.vol ? 1 - mainBottom - .12 : null, bottom = pi >= 0 ? PH * pi + .015 : D.vol ? mainBottom + .005 : null; trOut[k] = outs;
+    const firstLine = outs.find(x => !x.hist);
+    for (const o of outs) { const id = k + ':' + o.id; let s = trS[id];
+      if (!s) { s = trS[id] = o.hist ? trChart.addHistogramSeries({ priceScaleId: scale, priceLineVisible: false, lastValueVisible: false, priceFormat: D.vol ? { type: 'volume' } : undefined })
+        : trChart.addLineSeries({ priceScaleId: scale, color: col(o.c), lineWidth: o.w || 1.5, lineStyle: o.dash || 0, lineVisible: !o.dots, pointMarkersVisible: !!o.dots, pointMarkersRadius: 1.6, priceLineVisible: false, lastValueVisible: pi >= 0 && o === firstLine, crosshairMarkerVisible: false });
+        if (o.lv) for (const y of o.lv) s.createPriceLine({ price: y, color: pal[8] + '99', lineStyle: 2, lineWidth: 1, axisLabelVisible: false }); }
+      if (top != null) s.priceScale().applyOptions({ scaleMargins: { top, bottom } });
+      s.setData(o.hist ? o.v.map((v, i) => v == null || !isFinite(v) ? { time: T[i] } : { time: T[i], value: v, color: col(o.cs?.[i] || o.c) + (D.vol ? '55' : 'aa') }) : ser(o.v)); } }
   // drawings
   for (const d of trDraw) try { trChart.removeSeries(d); } catch (e) {} trDraw = []; for (const pl of trLines) try { trS.main.removePriceLine(pl); } catch (e) {} trLines = [];
-  for (const d of LS.get('mt:draw:' + TR.sym, [])) { if (d.k == 'h') trLines.push(trS.main.createPriceLine({ price: d.p, color: trCss('--accent'), lineWidth: 1, lineStyle: 0, axisLabelVisible: true, title: '' }));
-    if (d.k == 't' && d.t2 > d.t1) { const s = trChart.addLineSeries({ color: trCss('--accent'), lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }); s.setData([{ time: d.t1, value: d.p1 }, { time: d.t2, value: d.p2 }]); trDraw.push(s); } }
-  trOrderLines(); if (rebuild) trChart.timeScale().fitContent(); trLegend();
+  for (const d of LS.get('mt:draw:' + TR.sym, [])) { if (d.k == 'h') trLines.push(trS.main.createPriceLine({ price: d.p, color: ac, lineWidth: 1, lineStyle: 0, axisLabelVisible: true, title: '' }));
+    if (d.k == 't' && d.t2 > d.t1) { const s = trChart.addLineSeries({ color: ac, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }); s.setData([{ time: d.t1, value: d.p1 }, { time: d.t2, value: d.p2 }]); trDraw.push(s); } }
+  trOrderLines(); if (rebuild) trChart.timeScale().fitContent(); trLegend(); if ($('#trindn')) $('#trindn').textContent = act.length;
+}
+let trOut = {};
+const trPrm = k => { const P = {}; for (const [n, , d] of IND[k].p) P[n] = TR.prm[k]?.[n] ?? d; return P; };
+const trIndName = k => { const D = IND[k], P = trPrm(k); if (!D.p.length) return D.n; if (/ \d+$/.test(D.n)) return D.n.replace(/\d+$/, P.n); return `${D.n} ${D.p.map(([n]) => P[n]).join(', ')}`; };
+const DOT = { sma20: 1, sma50: 4, sma200: 2, ema9: 3, ema21: 5, wma: 6, hma: 4, dema: 7, tema: 6, vwma: 3, lsma: 5, ribbon: 1, vwap: 6, bb: 8, kc: 5, dc: 4, env: 7, st: 'up', psar: 6, ichi: 1, piv: 8, vol: 8, rsi: 4, srsi: 1, macd: 1, stoch: 2, cci: 6, willr: 7, roc: 3, ao: 'up', trix: 5, adx: 1, aroon: 'up', obv: 7, mfi: 3, cmf: 'up', atr: 5, stdev: 8, bbw: 6 };
+const trDot = k => { const c = DOT[k]; return c === 'up' ? trCss('--up') : indPalette()[c ?? 8]; };
+function trBubble(p) { // the pill price bubble that follows the crosshair (like the reference shots)
+  const el = $('#trbub'); if (!el || !trS.main) return; if (!p || !p.point || p.time == null) { el.hidden = true; return; } const d = p.seriesData?.get(trS.main), v = d ? (d.value ?? d.close) : null; if (v == null) { el.hidden = true; return; }
+  const y = trS.main.priceToCoordinate(v); if (y == null) { el.hidden = true; return; } el.textContent = trN(v); el.hidden = false; const w = el.offsetWidth, W = $('#trc').clientWidth - 70;
+  el.style.left = Math.max(4, Math.min(W - w, p.point.x - w / 2)) + 'px'; el.style.top = Math.max(4, y - 42) + 'px'; }
+/* the indicator picker: search, groups, switch on / off, settings for the ones on the chart */
+function trPick(q = '', grp = 'All') {
+  let el = $('#trpick'); if (!el) { el = document.createElement('div'); el.id = 'trpick'; el.className = 'trpickwrap'; document.body.append(el); }
+  const items = Object.entries(IND).filter(([k, d]) => (grp == 'All' || d.g == grp) && (!q || (d.n + ' ' + d.d + ' ' + d.g).toLowerCase().includes(q.toLowerCase()))), on = TR.ind.filter(k => IND[k]);
+  el.innerHTML = `<div class=trpbg></div><div class=trpbox><div class="row sb"><h2>Indicators</h2><button class="btn ic sm" id=trpx aria-label=Close>${ic('x', 14)}</button></div>
+    <input class=inp id=trpq placeholder="Search ${Object.keys(IND).length} indicators" value="${esc(q)}" autocomplete=off>
+    <div class="seg chips trpg">${['All', ...INDGROUPS].map(g => `<button data-g="${g}" class="${g == grp ? 'on' : ''}">${g}</button>`).join('')}</div>
+    ${on.length && !q && grp == 'All' ? `<div class=trph>On the chart · ${on.length}</div><div class=trpon>${on.map(k => `<div class=trpo><div class=trpoh><span class=trpdot style="background:${trDot(k)}"></span><b>${esc(trIndName(k))}</b><button class=trprm data-k=${k} aria-label="Remove">${ic('x', 12)}</button></div>${IND[k].p.length ? `<div class=trpp>${IND[k].p.map(([n, l, d, mn, mx, st]) => `<label><span>${l}</span><input class=inp type=number inputmode=decimal data-k=${k} data-n=${n} min=${mn} max=${mx} step=${st} value=${trPrm(k)[n]}></label>`).join('')}</div>` : ''}</div>`).join('')}</div>` : ''}
+    <div class=trph>${grp == 'All' && !q ? 'All indicators' : items.length + ' found'}</div><div class=trplist>${items.map(([k, d]) => `<button class="trpi ${TR.ind.includes(k) ? 'on' : ''}" data-k=${k}><span class=trpdot style="background:${trDot(k)}"></span><span class=trpt><b>${esc(d.n)}</b><span>${esc(d.d)}</span></span><span class=trpg2>${d.pane ? 'own pane' : d.vol ? 'bottom' : 'on price'}</span><span class="trsw sm ${TR.ind.includes(k) ? 'on' : ''}"><i></i></span></button>`).join('') || '<div class=empty style="padding:20px">Nothing matches.</div>'}</div></div>`;
+  const close = () => { el.classList.add('out'); setTimeout(() => el.remove(), 200); }, save = () => { LS.set('mt:ind', TR.ind); LS.set('mt:prm', TR.prm); trPaint(true); };
+  el.querySelector('.trpbg').onclick = close; $('#trpx').onclick = close;
+  const qi = $('#trpq'); qi.oninput = () => { const pos = qi.selectionStart; trPick(qi.value, grp); const n = $('#trpq'); n.focus(); n.setSelectionRange(pos, pos); };
+  el.querySelectorAll('.trpg button').forEach(b => b.onclick = () => trPick(q, b.dataset.g));
+  el.querySelectorAll('.trpi').forEach(b => b.onclick = () => { const k = b.dataset.k; TR.ind = TR.ind.includes(k) ? TR.ind.filter(x => x != k) : [...TR.ind, k]; save(); trPick(q, grp); });
+  el.querySelectorAll('.trprm').forEach(b => b.onclick = () => { TR.ind = TR.ind.filter(x => x != b.dataset.k); save(); trPick(q, grp); });
+  el.querySelectorAll('.trpp input').forEach(i => i.onchange = () => { const k = i.dataset.k, v = Math.min(+i.max, Math.max(+i.min, +i.value)); if (!isFinite(v)) return; TR.prm[k] = { ...(TR.prm[k] || {}), [i.dataset.n]: v }; save(); trPick(q, grp); });
 }
 function trOrderLines() { // your position and resting orders, drawn on the chart
   if (!trS.main || !trState) return; for (const pl of trS.main._ol || []) try { trS.main.removePriceLine(pl); } catch (e) {} const out = [];
@@ -140,8 +157,8 @@ function trOrderLines() { // your position and resting orders, drawn on the char
 function trLegend(p) {
   const el = $('#trleg'); if (!el || !trData) return; const B = trBars(); let i = B.length - 1; if (p && p.time != null) { const k = B.findIndex(b => b.t === p.time); if (k >= 0) i = k; } const b = B[i]; if (!b) return;
   const chg = i ? (b.c / B[i - 1].c - 1) * 100 : 0, vals = [];
-  for (const k of TR.ind) { if (k == 'vol') { vals.push(`<span>Vol ${trN(b.v, 0)}</span>`); continue; } const s = trS[k == 'st' ? null : k == 'bb' ? 'bbm' : k == 'macd' ? 'macd' : k == 'stoch' ? 'stk' : k == 'ichi' ? 'ik' : k]; const d = s && p?.seriesData?.get(s); vals.push(`<span style="color:${IND[k][2] || 'var(--mut)'}">${IND[k][0]}${d?.value != null ? ' ' + trN(d.value) : ''}</span>`); }
-  el.innerHTML = `<div><b>${esc(trData.sym)}</b> · ${TFS.find(x => x[0] == TR.tf)?.[1]} &nbsp;O <b>${trN(b.o)}</b> H <b>${trN(b.h)}</b> L <b>${trN(b.l)}</b> C <b>${trN(b.c)}</b> <span class="${chg >= 0 ? 'up' : 'down'}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</span></div><div class=trlv>${vals.join('')}</div>${TR.tool ? `<div class=trhint>${TR.tool == 'h' ? 'Click the chart to place a line' : TR.pend ? 'Click the second point' : 'Click the first point of the trend line'}</div>` : ''}`; }
+  for (const k of TR.ind) { if (!IND[k]) continue; const o = (trOut[k] || []).find(x => !x.hist) || trOut[k]?.[0], v = o?.v?.[i]; vals.push(`<span style="color:${trDot(k)}">${esc(trIndName(k))}${v != null && isFinite(v) ? ' <b>' + trN(v) + '</b>' : ''}</span>`); }
+  el.innerHTML = `<div><b>${esc(trData.sym)}</b> · ${TFS.find(x => x[0] == TR.tf)?.[1]} &nbsp;O <b>${trN(b.o)}</b> H <b>${trN(b.h)}</b> L <b>${trN(b.l)}</b> C <b>${trN(b.c)}</b> <span class="${chg >= 0 ? 'up' : 'down'}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</span></div><div class=trlv>${vals.join('')}${vals.length > 4 ? `<span class=trmore>+${vals.length - 4} more</span>` : ''}</div>${TR.tool ? `<div class=trhint>${TR.tool == 'h' ? 'Click the chart to place a line' : TR.pend ? 'Click the second point' : 'Click the first point of the trend line'}</div>` : ''}`; }
 function trClick(p) {
   if (!p || !p.point || !trS.main) return; const price = trS.main.coordinateToPrice(p.point.y); if (price == null) return;
   if (TR.tool == 'h') { const d = LS.get('mt:draw:' + TR.sym, []); d.push({ k: 'h', p: price }); LS.set('mt:draw:' + TR.sym, d); TR.tool = null; $('#trh').classList.remove('on'); trPaint(false); return; }
