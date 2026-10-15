@@ -4,7 +4,7 @@ let TR = null; // set on first visit (LS lives in app.js, loaded after this file
 const trInit = () => TR || (TR = { sym: LS.get('mt:sym', 'SPY'), tf: LS.get('mt:tf', '5m'), type: LS.get('mt:type3', 'candle'), cs: LS.get('mt:cs', 'gr'), prm: LS.get('mt:prm', {}), ind: LS.get('mt:ind', ['ema9', 'ema21', 'vwap', 'vol']), side: 'buy', kind: 'market', tool: null, pend: null });
 let trChart = null, trMain = null, trS = {}, trData = null, trState = null, trT1 = null, trT2 = null, trLines = [], trDraw = [];
 const trSheet = n => { if (n) document.body.dataset.trs = n; else delete document.body.dataset.trs; if (n == 'sym') setTimeout(() => $('#trq')?.focus(), 250); };
-const trStop = () => { trSheet(null); $('#trpick')?.remove(); clearInterval(trT1); clearInterval(trT2); trT1 = trT2 = null; if (trChart) { trChart.remove(); trChart = null; } removeEventListener('themechange', trTheme); };
+const trStop = () => { trTickStop(); trSheet(null); $('#trpick')?.remove(); clearInterval(trT1); clearInterval(trT2); trT1 = trT2 = null; if (trChart) { trChart.remove(); trChart = null; } removeEventListener('themechange', trTheme); };
 const mtapi = async (op, body, qs = '') => { const r = await fetch('/api/powell' + (body ? '' : `?op=mt-${op}${qs}`), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'mt-' + op, ...body }) } : {});
   const j = await r.json().catch(() => ({ error: 'Bad response' })); if (!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), { status: r.status }); return j; };
 const TFS = [['1m', '1m'], ['5m', '5m'], ['15m', '15m'], ['30m', '30m'], ['1h', '1H'], ['4h', '4H'], ['1d', '1D'], ['1w', '1W'], ['1mo', '1M']];
@@ -40,7 +40,7 @@ async function tradePage() {
      <div class=trwatch>${WATCH.map(s => `<button class="chip ${s == TR.sym ? 'on' : ''}" data-s="${s}">${s.replace('-USD', '').replace('=F', '')}</button>`).join('')}</div></div>
    <div class=trgrid><div class="card trchartcard">
      <div class=trbar><div class=seg id=trtf>${TFS.map(([k, l]) => `<button data-v=${k} class="${TR.tf == k ? 'on' : ''}">${l}</button>`).join('')}</div>
-      <div class=trtools><select class="inp trsel" id=trtype>${TYPES.map(([k, l]) => `<option value=${k} ${TR.type == k ? 'selected' : ''}>${l}</option>`).join('')}</select><select class="inp trsel" id=trcs aria-label="Candle colours">${[['gr', 'Green / Red'], ['bw', 'Blue / Gray']].map(([k, l]) => `<option value=${k} ${TR.cs == k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <div class=trtools><select class="inp trsel" id=trtype>${TYPES.map(([k, l]) => `<option value=${k} ${TR.type == k ? 'selected' : ''}>${l}</option>`).join('')}</select><select class="inp trsel" id=trcs aria-label="Candle colours">${[['gr', 'Green / Red'], ['bw', 'Blue / Gray'], ['mono', 'Black / White']].map(([k, l]) => `<option value=${k} ${TR.cs == k ? 'selected' : ''}>${l}</option>`).join('')}</select>
        <button class="btn sm" id=trindb>${ic('flask', 14)} Indicators <span class="pill n" id=trindn>${TR.ind.length}</span></button>
        <button class="btn sm ${TR.tool == 'h' ? 'on' : ''}" id=trh title="Horizontal line: click the chart">― Line</button><button class="btn sm ${TR.tool == 't' ? 'on' : ''}" id=trt title="Trend line: click two points">╱ Trend</button><button class="btn sm" id=trclr title="Remove the drawings on this symbol">${ic('x', 13)}</button><button class="btn sm" id=trfit title="Fit everything">Fit</button></div></div>
      <div class=trchart id=trc><div class=trmov><div class=trmtop><b id=trmsym></b><span class=trmexch id=trmex></span></div><div class=trmpx><span class=num id=trmpx></span> <span class=num id=trmchg></span></div><div class=trqbs><button class="trqb sell" data-side=sell><b class=num id=trqsp>-</b>SELL</button><button class="trqb buy" data-side=buy><b class=num id=trqbp>-</b>BUY</button></div></div><div class=trlegend id=trleg></div><div class=trbub id=trbub hidden></div></div></div>
@@ -49,7 +49,7 @@ async function tradePage() {
    <div class=trscrim id=trscrim></div><div class=trmbar><button class=trmsy id=trmS><b id=trmsy></b><span id=trmtf></span></button><span class=trmsp></span><button id=trmD aria-label="Drawing tools"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><path d="M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20z"/><path d="M13.5 6.5l3 3"/></svg></button><button id=trmI aria-label="Timeframe and indicators"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx=16 cy=7 r=2 /><circle cx=10 cy=17 r=2 /></svg></button><button id=trmA aria-label="Account and positions"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><rect x=3 y=6 width=18 height=13 rx=3 /><path d="M16 12.5h2M3 9h18"/></svg></button></div>`;
   if (matchMedia('(max-width: 760px)').matches) $('.trside').append($('.trtabs')); // phones: positions live in the account sheet
   await trLib(); trBuild(); trWire(); trTicket(); await trLoad(true); trStateLoad();
-  trT1 = setInterval(() => { if (!$('#trc')) return trStop(); trLoad(false); }, /^(1d|1w|1mo)$/.test(TR.tf) ? 3e4 : 5e3);
+  trT1 = setInterval(() => { if (!$('#trc')) return trStop(); trLoad(false); }, 15e3); trTick();
   trT2 = setInterval(() => { if (!$('#trc')) return trStop(); trStateLoad(); }, 4e3);
   addEventListener('themechange', trTheme);
 }
@@ -72,7 +72,7 @@ function trWire() {
   $$('.trwatch .chip').forEach(b => b.onclick = () => trSet(b.dataset.s));
   $('#trscrim').onclick = () => trSheet(null); $('#trmS').onclick = () => trSheet('sym'); $('#trmD').onclick = () => trSheet('tf'); $('#trmI').onclick = () => { trSheet(null); trPick(); }; $('#trmA').onclick = () => { trSheet('acct'); trStateLoad(); };
   $$('.trqb').forEach(b => b.onclick = () => { TR.side = b.dataset.side; trTicket(); trSheet('tk'); });
-  $$('#trtf button').forEach(b => b.onclick = () => { trSheet(null); TR.tf = b.dataset.v; LS.set('mt:tf', TR.tf); $$('#trtf button').forEach(x => x.classList.toggle('on', x === b)); clearInterval(trT1); trT1 = setInterval(() => { if (!$('#trc')) return trStop(); trLoad(false); }, /^(1d|1w|1mo)$/.test(TR.tf) ? 3e4 : 5e3); trLoad(true); });
+  $$('#trtf button').forEach(b => b.onclick = () => { trSheet(null); TR.tf = b.dataset.v; LS.set('mt:tf', TR.tf); $$('#trtf button').forEach(x => x.classList.toggle('on', x === b)); trLoad(true); });
   $('#trcs').onchange = e => { TR.cs = e.target.value; LS.set('mt:cs', TR.cs); trPaint(true); };
   $('#trtype').onchange = e => { TR.type = e.target.value; LS.set('mt:type3', TR.type); trPaint(true); };
   $('#trindb').onclick = () => { trSheet(null); trPick(); };
@@ -83,7 +83,7 @@ function trWire() {
   $$('#trtab button').forEach(b => b.onclick = () => { $$('#trtab button').forEach(x => x.classList.toggle('on', x === b)); trTable(); });
   $('#trend').onclick = async () => { if (!confirm('End the trading day? This cancels every open order and closes every position, yours and the Opposite Bot\'s, at the market.')) return; try { const r = await mtapi('endday', {}); toast(r.closed.length ? `Closed ${r.closed.length} position${r.closed.length > 1 ? 's' : ''}` : 'Nothing was open'); trStateLoad(); } catch (e) { toast(esc(e.message)); } };
 }
-function trSet(s) { s = String(s || '').trim().toUpperCase(); if (!s) return; trSheet(null); TR.sym = s; LS.set('mt:sym', s); $('#trq').value = s; $$('.trwatch .chip').forEach(b => b.classList.toggle('on', b.dataset.s == s)); trData = null; trLoad(true); trTicket(); }
+function trSet(s) { s = String(s || '').trim().toUpperCase(); if (!s) return; trSheet(null); setTimeout(trTick, 50); TR.sym = s; LS.set('mt:sym', s); $('#trq').value = s; $$('.trwatch .chip').forEach(b => b.classList.toggle('on', b.dataset.s == s)); trData = null; trLoad(true); trTicket(); }
 async function trLoad(fresh) {
   const sym = TR.sym, tf = TR.tf; let d; try { d = await mtapi('candles', null, `&sym=${encodeURIComponent(sym)}&tf=${tf}`); } catch (e) { if (fresh) { $('#trname').textContent = e.message; toast(esc(e.message)); } return; }
   if (sym !== TR.sym || tf !== TR.tf || !$('#trc')) return; const was = trData, sameSet = was && was.sym === d.sym && was.tf === tf && !fresh; TR.sym = d.sym; $('#trq').value = d.sym;
@@ -94,7 +94,7 @@ async function trLoad(fresh) {
 }
 function trBars() { const B = trData.B; if (TR.type != 'ha') return B; const o = []; B.forEach((b, i) => { const c = (b.o + b.h + b.l + b.c) / 4, op = i ? (o[i - 1].o + o[i - 1].c) / 2 : (b.o + b.c) / 2; o.push({ t: b.t, o: op, c, h: Math.max(b.h, op, c), l: Math.min(b.l, op, c), v: b.v }); }); return o; }
 function trPaint(rebuild) {
-  if (!trChart || !trData) return; const B = trBars(), dark = document.documentElement.dataset.theme == 'dark', bw = TR.cs == 'bw', up = bw ? '#1f5bff' : trCss('--up'), dn = bw ? (dark ? '#d4d4d8' : '#a1a1aa') : trCss('--down'), ac = trCss('--accent'), acr = trCss('--accent-rgb'), C = B.map(b => b.c), T = B.map(b => b.t), pal = indPalette();
+  if (!trChart || !trData) return; const B = trBars(), dark = document.documentElement.dataset.theme == 'dark', bw = TR.cs == 'bw', mono = TR.cs == 'mono', up = mono ? (dark ? '#ffffff' : '#ffffff') : bw ? '#1f5bff' : trCss('--up'), dn = mono ? (dark ? '#000000' : '#121214') : bw ? (dark ? '#d4d4d8' : '#a1a1aa') : trCss('--down'), edge = mono ? (dark ? '#d4d4d8' : '#121214') : null, ac = trCss('--accent'), acr = trCss('--accent-rgb'), C = B.map(b => b.c), T = B.map(b => b.t), pal = indPalette();
   if (rebuild) { for (const s of Object.values(trS)) trChart.removeSeries(s); trS = {}; trLines = []; }
   const col = c => c === 'up' ? up : c === 'down' ? dn : typeof c === 'number' ? pal[c] : c || pal[8];
   const ser = a => a.map((v, i) => v == null || !isFinite(v) ? { time: T[i] } : { time: T[i], value: v });
@@ -103,8 +103,8 @@ function trPaint(rebuild) {
     trS.main = k == 'smooth' ? trChart.addAreaSeries({ ...base, lineColor: ac, lineWidth: 2.5, lineType: 2, topColor: `rgba(${acr},.22)`, bottomColor: `rgba(${acr},0)`, crosshairMarkerRadius: 6, crosshairMarkerBorderColor: trCss('--panel'), crosshairMarkerBorderWidth: 3, crosshairMarkerBackgroundColor: ac })
       : k == 'line' ? trChart.addLineSeries({ ...base, color: ac, lineWidth: 2, crosshairMarkerRadius: 5, crosshairMarkerBorderColor: trCss('--panel'), crosshairMarkerBackgroundColor: ac })
       : k == 'base' ? trChart.addBaselineSeries({ ...base, baseValue: { type: 'price', price: trData.prev || C[0] }, topLineColor: up, topFillColor1: up + '40', topFillColor2: up + '05', bottomLineColor: dn, bottomFillColor1: dn + '05', bottomFillColor2: dn + '40', lineWidth: 2 })
-      : k == 'bar' ? trChart.addBarSeries({ ...base, upColor: up, downColor: dn, thinBars: false })
-      : trChart.addCandlestickSeries({ ...base, upColor: k == 'hollow' ? 'rgba(0,0,0,0)' : up, downColor: dn, borderUpColor: up, borderDownColor: dn, wickUpColor: up + 'cc', wickDownColor: dn + 'cc' }); }
+      : k == 'bar' ? trChart.addBarSeries({ ...base, upColor: mono ? (dark ? '#ffffff' : '#121214') : up, downColor: mono ? (dark ? '#8e8e93' : '#8a8a94') : dn, thinBars: false })
+      : trChart.addCandlestickSeries({ ...base, upColor: k == 'hollow' ? 'rgba(0,0,0,0)' : up, downColor: dn, borderUpColor: edge || up, borderDownColor: edge || dn, wickUpColor: edge || up + 'cc', wickDownColor: edge || dn + 'cc' }); }
   trS.main.setData(/smooth|line|base/.test(TR.type) ? B.map(b => ({ time: b.t, value: b.c })) : B.map(b => ({ time: b.t, open: b.o, high: b.h, low: b.l, close: b.c })));
   trMain = trS.main;
   // indicators: overlays on the price, oscillators in panes stacked from the bottom
@@ -117,7 +117,7 @@ function trPaint(rebuild) {
         : trChart.addLineSeries({ priceScaleId: scale, color: col(o.c), lineWidth: o.w || 1.5, lineStyle: o.dash || 0, lineVisible: !o.dots, pointMarkersVisible: !!o.dots, pointMarkersRadius: 1.6, priceLineVisible: false, lastValueVisible: pi >= 0 && o === firstLine, crosshairMarkerVisible: false });
         if (o.lv) for (const y of o.lv) s.createPriceLine({ price: y, color: pal[8] + '99', lineStyle: 2, lineWidth: 1, axisLabelVisible: false }); }
       if (top != null) s.priceScale().applyOptions({ scaleMargins: { top, bottom } });
-      s.setData(o.hist ? o.v.map((v, i) => v == null || !isFinite(v) ? { time: T[i] } : { time: T[i], value: v, color: col(o.cs?.[i] || o.c) + (D.vol ? '55' : 'aa') }) : ser(o.v)); } }
+      s.setData(o.hist ? o.v.map((v, i) => v == null || !isFinite(v) ? { time: T[i] } : { time: T[i], value: v, color: (mono && o.cs ? (o.cs[i] == 'up' ? (dark ? '#ffffff' : '#121214') : '#8e8e93') : col(o.cs?.[i] || o.c)) + (D.vol ? '55' : 'aa') }) : ser(o.v)); } }
   // drawings
   for (const d of trDraw) try { trChart.removeSeries(d); } catch (e) {} trDraw = []; for (const pl of trLines) try { trS.main.removePriceLine(pl); } catch (e) {} trLines = [];
   for (const d of LS.get('mt:draw:' + TR.sym, [])) { if (d.k == 'h') trLines.push(trS.main.createPriceLine({ price: d.p, color: ac, lineWidth: 1, lineStyle: 0, axisLabelVisible: true, title: '' }));
@@ -206,3 +206,27 @@ function trTable() { const el = $('#trtbl'); if (!el || !trState) return; const 
   el.querySelectorAll('[data-close]').forEach(b => b.onclick = async () => { b.disabled = true; try { await mtapi('close', { sym: b.dataset.close }); toast('Position closed'); trStateLoad(); } catch (e) { toast(esc(e.message)); b.disabled = false; } });
   el.querySelectorAll('[data-cancel]').forEach(b => b.onclick = async () => { await mtapi('cancel', { id: b.dataset.cancel }); trStateLoad(); });
   el.querySelectorAll('.trlink').forEach(b => b.onclick = () => trSet(b.dataset.s)); }
+
+/* ---------- live price: every second (crypto streams from Coinbase, everything else polls the server each second) ---------- */
+let trWS = null, trQT = null, trLastPx = null, trPaintAt = 0;
+const TFSEC = { '1m': 60, '2m': 120, '5m': 300, '15m': 900, '30m': 1800, '1h': 3600, '4h': 14400 };
+function trTickStop() { clearInterval(trQT); trQT = null; if (trWS) { trWS.onclose = null; try { trWS.close(); } catch (e) {} trWS = null; } }
+function trTick() {
+  trTickStop(); const sym = TR.sym;
+  if (/-USD$/.test(sym) && 'WebSocket' in window) { try { trWS = new WebSocket('wss://ws-feed.exchange.coinbase.com'); trWS.onopen = () => trWS.send(JSON.stringify({ type: 'subscribe', product_ids: [sym], channels: ['ticker'] }));
+    let pend = null, at = 0; trWS.onmessage = e => { const m = JSON.parse(e.data); if (m.type != 'ticker' || m.product_id != TR.sym) return; pend = +m.price; const n = Date.now(); if (n - at > 250) { at = n; trLive(pend); } }; // a few frames a second at most
+    trWS.onclose = () => { trWS = null; if ($('#trc') && TR.sym == sym) setTimeout(() => TR.sym == sym && trTick(), 3000); }; } catch (e) {} }
+  trQT = setInterval(async () => { if (!$('#trc')) return trTickStop(); if (trWS && trWS.readyState === 1) return; if (document.hidden) return;
+    try { const r = await mtapi('quote', null, '&sym=' + encodeURIComponent(sym)); if (r.sym === trData?.sym) trLive(r.px); } catch (e) {} }, 1000);
+}
+function trLive(px) {
+  if (!trData || !trS.main || !(px > 0)) return; const B = trData.B, last = B[B.length - 1]; if (!last) return; const sec = TFSEC[TR.tf], now = Math.floor(Date.now() / 1000) + TZ();
+  if (sec && now >= last.t + sec) { const t = last.t + Math.floor((now - last.t) / sec) * sec; B.push({ t, o: last.c, h: Math.max(last.c, px), l: Math.min(last.c, px), c: px, v: 0 }); }
+  else { last.c = px; last.h = Math.max(last.h, px); last.l = Math.min(last.l, px); }
+  const b = trBars()[B.length - 1], line = /smooth|line|base/.test(TR.type); try { trS.main.update(line ? { time: b.t, value: b.c } : { time: b.t, open: b.o, high: b.h, low: b.l, close: b.c }); } catch (e) {}
+  if (px !== trLastPx) { const el = $('#trpx'), dir = trLastPx == null ? 0 : px > trLastPx ? 1 : -1; trLastPx = px; const t = trN(px); if (el) { el.textContent = t; el.classList.remove('tkup', 'tkdn'); void el.offsetWidth; if (dir) el.classList.add(dir > 0 ? 'tkup' : 'tkdn'); }
+    if ($('#trmpx')) $('#trmpx').textContent = t; if ($('#trqsp')) { $('#trqsp').textContent = t; $('#trqbp').textContent = t; }
+    const ch = trData.prev ? (px / trData.prev - 1) * 100 : null; if (ch != null) { const h = `<span class="${ch >= 0 ? 'up' : 'down'}">${ch >= 0 ? '+' : ''}${trN(px - trData.prev)} (${ch >= 0 ? '+' : ''}${ch.toFixed(2)}%)</span>`; $('#trchg').innerHTML = h; if ($('#trmchg')) $('#trmchg').innerHTML = h; } }
+  if (Date.now() - trPaintAt > 5000) { trPaintAt = Date.now(); trPaint(false); } else trLegend(); // indicators follow every 5 s
+  if (TR.kind == 'market') trEst();
+}

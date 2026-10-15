@@ -684,3 +684,5 @@ body.wide .wrap{max-width:none}
 }
 .trmore{display:none}
 @media(max-width:760px){.trlv span:nth-child(n+5):not(.trmore){display:none}.trmore{display:inline;color:var(--mut)}}
+@keyframes tkup{0%{color:var(--up)}100%{color:inherit}}@keyframes tkdn{0%{color:var(--down)}100%{color:inherit}}
+.tkup{animation:tkup .8s ease-out}.tkdn{animation:tkdn .8s ease-out}

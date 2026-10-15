@@ -14,23 +14,32 @@ const norm = s => { s = String(s || '').trim().toUpperCase().replace(/\s+/g, '')
 /* ---------- market data ---------- */
 const TF = { '1m': ['1m', '5d'], '2m': ['2m', '5d'], '5m': ['5m', '30d'], '15m': ['15m', '60d'], '30m': ['30m', '60d'], '1h': ['60m', '730d'], '4h': ['60m', '730d', 4], '1d': ['1d', '10y'], '1w': ['1wk', '20y'], '1mo': ['1mo', 'max'] };
 async function candles(sym, tf = '5m') {
-  sym = norm(sym); const [iv, range, agg] = TF[tf] || TF['5m'], ttl = /m$/.test(iv) && iv !== '1mo' ? 8e3 : 6e4;
+  sym = norm(sym); if (isCrypto(sym) && CBG[tf]) try { return await cbCandles(sym, tf); } catch (e) {} /* crypto: Coinbase's own candles (live, exact) */ const [iv, range, agg] = TF[tf] || TF['5m'], ttl = /m$/.test(iv) && iv !== '1mo' ? 8e3 : 6e4;
   const j = await Y.get(`/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=${iv}&includePrePost=true`, ttl), r = j?.chart?.result?.[0];
   if (!r?.timestamp) throw err(404, 'no data for ' + sym); const q = r.indicators.quote[0]; let out = [];
   r.timestamp.forEach((t, i) => { const o = q.open[i], h = q.high[i], l = q.low[i], c = q.close[i]; if ([o, h, l, c].some(x => x == null)) return; const z = out[out.length - 1]; if (z && t <= z[0]) { if (t === z[0]) { z[2] = Math.max(z[2], h); z[3] = Math.min(z[3], l); z[4] = c; } return; } out.push([t, o, h, l, c, q.volume[i] || 0]); }); // strictly ascending for the chart
   if (agg) { const g = []; for (const x of out) { const k = Math.floor(x[0] / (agg * 3600)) * agg * 3600, y = g[g.length - 1]; if (y && y[0] === k) { y[2] = Math.max(y[2], x[2]); y[3] = Math.min(y[3], x[3]); y[4] = x[4]; y[5] += x[5]; } else g.push([k, x[1], x[2], x[3], x[4], x[5]]); } out = g; }
   if (/m$/.test(iv) && iv !== '1mo' && out.length > 20) { // bad ticks: a wick far outside its neighbours (Yahoo's pre/post-market prints) is cut back to the body
-    const rs = out.map(x => x[2] - x[3]).sort((a, b) => a - b), mr = rs[rs.length >> 1] || 0;
+    const rs = out.map(x => x[2] - x[3]).sort((a, b) => a - b), mr = Math.max(rs[rs.length >> 1] || 0, (out[out.length - 1][4] || 0) * .0008); // never 0 (flat minutes would snap every bar)
     for (let i = 0; i < out.length; i++) { const x = out[i], nb = out.slice(Math.max(0, i - 6), i + 7).filter(y => y !== x).map(y => y[4]).sort((p, q) => p - q), med = nb[nb.length >> 1], top = Math.max(x[1], x[4]), bot = Math.min(x[1], x[4]);
       if (Math.abs(top - med) > 12 * mr || Math.abs(bot - med) > 12 * mr) { x[1] = x[4] = med; x[2] = Math.max(x[2] - 0, med); x[3] = Math.min(x[3], med); } // a whole bar far off: snap it
       if (x[2] - Math.max(x[1], x[4], med) > 12 * mr) x[2] = Math.max(x[1], x[4]); if (Math.min(x[1], x[4], med) - x[3] > 12 * mr) x[3] = Math.min(x[1], x[4]); } }
   const m = r.meta || {}; return { sym, tf, name: m.longName || m.shortName || sym, cur: m.currency || 'USD', ex: m.fullExchangeName || m.exchangeName || '', bars: out.slice(-3000), price: m.regularMarketPrice ?? out[out.length - 1]?.[4], prev: m.chartPreviousClose ?? m.previousClose ?? null, spec: spec(sym), delayed: !!FUT[sym] };
 }
+const CBG = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '1d': 86400 }, CB = new Map();
+async function cbCandles(sym, tf) { // up to 900 bars from Coinbase Exchange (300 per request)
+  const g = CBG[tf], k = sym + tf, h = CB.get(k); if (h && Date.now() - h.at < 8e3) return h.v; let end = Math.floor(Date.now() / 1000), all = [];
+  for (let page = 0; page < 3; page++) { const start = end - g * 300, r = await fetch(`https://api.exchange.coinbase.com/products/${sym}/candles?granularity=${g}&start=${new Date(start * 1000).toISOString()}&end=${new Date(end * 1000).toISOString()}`, { headers: { 'user-agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10e3) });
+    if (!r.ok) { if (!all.length) throw new Error('Coinbase ' + r.status); break; } const a = await r.json(); if (!Array.isArray(a) || !a.length) break; all = all.concat(a); end = start; }
+  const m = new Map(); for (const [t, l, hi, o, c, v] of all) m.set(t, [t, o, hi, l, c, v]); const bars = [...m.values()].sort((a, b) => a[0] - b[0]); if (bars.length < 20) throw new Error('few candles');
+  const px = await quote(sym).catch(() => bars[bars.length - 1][4]), d = bars.filter(b => b[0] <= Date.now() / 1000 - 86400).pop();
+  const v = { sym, tf, name: sym.replace('-USD', '') + ' / US Dollar', cur: 'USD', ex: 'Coinbase', bars, price: px, prev: d ? d[4] : bars[0][1], spec: spec(sym), delayed: false };
+  CB.set(k, { at: Date.now(), v }); if (CB.size > 40) CB.delete(CB.keys().next().value); return v; }
 const QC = new Map();
 async function quote(sym) { // live price
-  sym = norm(sym); const h = QC.get(sym); if (h && Date.now() - h.at < 3e3) return h.px; let px = null;
+  sym = norm(sym); const h = QC.get(sym); if (h && Date.now() - h.at < 900) return h.px; let px = null;
   if (isCrypto(sym)) try { const r = await fetch(`https://api.exchange.coinbase.com/products/${sym}/ticker`, { headers: { 'user-agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8e3) }); if (r.ok) px = +(await r.json()).price || null; } catch (e) {}
-  if (px == null) { const j = await Y.get(`/v7/finance/spark?symbols=${encodeURIComponent(sym)}&range=1d&interval=5m`, 5e3); px = j?.spark?.result?.[0]?.response?.[0]?.meta?.regularMarketPrice ?? null; }
+  if (px == null) { const j = await Y.get(`/v7/finance/spark?symbols=${encodeURIComponent(sym)}&range=1d&interval=5m`, 900); px = j?.spark?.result?.[0]?.response?.[0]?.meta?.regularMarketPrice ?? null; }
   if (!(px > 0)) throw err(502, 'no live price for ' + sym); QC.set(sym, { at: Date.now(), px }); return px;
 }
 async function search(q) { const j = await Y.get('/v1/finance/search?q=' + encodeURIComponent(String(q).slice(0, 40)) + '&quotesCount=10&newsCount=0', 6e4);
@@ -103,6 +112,7 @@ async function state(uid) {
 async function api(uid, op, b, q) {
   switch (op) {
     case 'candles': return candles(q.sym || b.sym, q.tf || b.tf);
+    case 'quote': return { sym: norm(q.sym || b.sym), px: await quote(q.sym || b.sym), t: Date.now() }; // the 1-second ticker
     case 'search': return { results: await search(q.q || b.q || '') };
     case 'state': return state(uid);
     case 'order': await acct(uid, 'me'); return place(uid, b);
