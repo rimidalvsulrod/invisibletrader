@@ -1,1 +1,1 @@
-{"framework":null,"buildCommand":null,"installCommand":null,"outputDirectory":"public","rewrites":[{"source":"/mcp","destination":"/api/powell?op=mcp"}]}
+{"framework":null,"buildCommand":null,"installCommand":null,"outputDirectory":"public","rewrites":[{"source":"/mcp","destination":"/api/powell?op=mcp"}],"functions":{"api/powell.js":{"includeFiles":"public/indicators.js"}}}
