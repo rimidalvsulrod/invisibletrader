@@ -4,7 +4,7 @@ let TR = null; // set on first visit (LS lives in app.js, loaded after this file
 const trInit = () => TR || (TR = { sym: LS.get('mt:sym', 'SPY'), tf: LS.get('mt:tf', '5m'), type: LS.get('mt:type3', 'candle').replace('sharp', 'candle'), cs: LS.get('mt:cs', 'gr'), prm: LS.get('mt:prm', {}), ind: LS.get('mt:ind2', ['bb', 'vp', 'vol']), side: 'buy', kind: 'market', tool: null, pend: null, ext: LS.get('mt:ext', false) });
 let trChart = null, trMain = null, trS = {}, trData = null, trState = null, trT1 = null, trT2 = null, trT3 = null, trLines = [], trDraw = [], trWant = false, trNeedSnap = false;
 const trSheet = n => { if (n) document.body.dataset.trs = n; else delete document.body.dataset.trs; if (n == 'sym') setTimeout(() => $('#trq')?.focus(), 250); };
-const trStop = () => { trTickStop(); trSheet(null); $('#trpick')?.remove(); clearInterval(trT1); clearInterval(trT2); clearInterval(trT3); trT1 = trT2 = trT3 = null; trWant = false; if (trChart) { try { trChart.remove(); } catch (e) {} trChart = null; } trS = {}; trData = null; trDraw = []; trBotS = []; trBotPL = []; trCusS = []; trLines = []; trOut = {}; trLastPx = null; trMain = null; trState = null; removeEventListener('themechange', trTheme); document.querySelector('body > #trtk')?.remove(); trMiniKill(); clearInterval(trWLT); clearInterval(trClk); trWLT = trClk = null; trRO?.disconnect(); trRO = null; document.body.classList.remove('term', 'twall'); delete document.body.dataset.tt; document.getElementById('twall')?.remove(); };
+const trStop = () => { rpKill(); trTickStop(); trSheet(null); $('#trpick')?.remove(); clearInterval(trT1); clearInterval(trT2); clearInterval(trT3); trT1 = trT2 = trT3 = null; trWant = false; if (trChart) { try { trChart.remove(); } catch (e) {} trChart = null; } trS = {}; trData = null; trDraw = []; trBotS = []; trBotPL = []; trCusS = []; trLines = []; trOut = {}; trLastPx = null; trMain = null; trState = null; removeEventListener('themechange', trTheme); document.querySelector('body > #trtk')?.remove(); trMiniKill(); clearInterval(trWLT); clearInterval(trClk); trWLT = trClk = null; trRO?.disconnect(); trRO = null; document.body.classList.remove('term', 'twall'); delete document.body.dataset.tt; document.getElementById('twall')?.remove(); };
 const mtapi = async (op, body, qs = '') => { const r = await fetch('/api/powell' + (body ? '' : `?op=mt-${op}${qs}`), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'mt-' + op, ...body }) } : {});
   const j = await r.json().catch(() => ({ error: 'Bad response' })); if (!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), { status: r.status }); return j; };
 const TFS = [['1s', '1s'], ['5s', '5s'], ['15s', '15s'], ['1m', '1m'], ['5m', '5m'], ['15m', '15m'], ['30m', '30m'], ['1h', '1H'], ['4h', '4H'], ['1d', '1D'], ['1w', '1W'], ['1mo', '1M']];
@@ -45,7 +45,7 @@ async function tradePage() {
      <div class=trwatch>${WATCH.map(s => `<button class="chip ${s == TR.sym ? 'on' : ''}" data-s="${s}">${s.replace('-USD', '').replace('=F', '')}</button>`).join('')}</div></div>
     <div class=trbar><div class=seg id=trtf>${TFS.map(([k, l]) => `<button data-v=${k} class="${TR.tf == k ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div class=trtools><select class="inp trsel" id=trtype aria-label="Chart type">${TYPES.map(([k, l]) => `<option value=${k} ${TR.type == k ? 'selected' : ''}>${l}</option>`).join('')}</select><select class="inp trsel" id=trcs aria-label="Candle colours">${[['gr', 'Green / Red'], ['bw', 'Blue / Gray'], ['mono', 'Black / White']].map(([k, l]) => `<option value=${k} ${TR.cs == k ? 'selected' : ''}>${l}</option>`).join('')}</select>
-       <button class="btn sm" id=trindb>${IC('<path d="M3 17l5-6 4 4 8-9"/><path d="M15 6h5v5"/>', 16)} Indicators <span class="pill n" id=trindn>${TR.ind.length}</span></button><button class="btn sm trrthb" id=trrthb title="Regular trading hours only, or extended hours">${TR.ext ? 'ETH' : 'RTH'}</button><button class="btn sm trtradeb" id=trtradeb title="Open the order window">Trade</button><button class="btn sm trautob" id=trautob title="Auto: detect the market type and pick the best indicators">Auto</button>
+       <button class="btn sm" id=trindb>${IC('<path d="M3 17l5-6 4 4 8-9"/><path d="M15 6h5v5"/>', 16)} Indicators <span class="pill n" id=trindn>${TR.ind.length}</span></button><button class="btn sm trrthb" id=trrthb title="Regular trading hours only, or extended hours">${TR.ext ? 'ETH' : 'RTH'}</button><button class="btn sm" id=trrpb title="Replay: go back to any point and trade the market as it plays forward">${IC('<path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4h4"/><path d="M10 9l5 3-5 3z"/>', 16)} Replay</button><button class="btn sm troppb" id=troppb title="The Opposite Bot takes the reverse of every trade you make">Opposite <i class=trdot></i></button><button class="btn sm trtradeb" id=trtradeb title="Open the order window">Trade</button><button class="btn sm trautob" id=trautob title="Auto: detect the market type and pick the best indicators">Auto</button>
        <span class=trlay id=trlay>${[[1, '<rect x=4 y=4 width=16 height=16 rx=1.5 />'], [2, '<rect x=4 y=4 width=16 height=16 rx=1.5 /><path d="M12 4v16"/>'], [4, '<rect x=4 y=4 width=16 height=16 rx=1.5 /><path d="M12 4v16M4 12h16"/>']].map(([n, d]) => `<button data-n=${n} title="${n} chart${n > 1 ? 's' : ''}" class="${trLayN() == n ? 'on' : ''}">${IC(d, 17)}</button>`).join('')}<button data-n=link title="Same symbol on every chart (each keeps its own timeframe and indicators)" class="${trLink() ? 'on' : ''}">${IC('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>', 17)}</button></span>
        <button class="btn sm" id=trh title="Horizontal line: click the chart">― Line</button><button class="btn sm" id=trt title="Trend line: click two points">╱ Trend</button><button class="btn sm" id=trclr title="Remove the drawings on this symbol">${ic('x', 13)}</button><button class="btn sm" id=trfit title="Fit everything">Fit</button>
        <button class="btn sm trthm" id=trwallb title="Terminal wallpaper: your own picture or video">${IC('<rect x=3 y=4 width=18 height=16 rx=2 /><circle cx=9 cy=10 r=2 /><path d="M21 16l-5-5-9 9"/>', 16)}</button><input type=file id=trwallf accept="image/*,video/mp4,video/webm,video/quicktime" hidden><button class="btn sm" id=trshot title="Save a picture of the chart">${IC('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx=12 cy=13 r=3.5 />', 16)}</button><button class="btn sm" id=trfs title="Full screen">${IC('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>', 16)}</button><button class="btn sm" id=trthm title="Light or dark">${IC('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>', 16)}</button></div></div></div>
@@ -94,7 +94,7 @@ function trWire() {
   $$('#trtf button').forEach(b => b.onclick = () => { trSheet(null); TR.tf = b.dataset.v; TR.rng = null; trFit = true; trRngUi(); trTabSet({ tf: TR.tf }); LS.set('mt:tf', TR.tf); $$('#trtf button').forEach(x => x.classList.toggle('on', x === b)); trLoad(true); });
   $('#trcs').onchange = e => { TR.cs = e.target.value; LS.set('mt:cs', TR.cs); trPaint(true); };
   $('#trtype').onchange = e => { TR.type = e.target.value; LS.set('mt:type3', TR.type); trPaint(true); };
-  $('#trindb').onclick = () => { trSheet(null); trPick('', 'All', null); }; $('#trautob').onclick = () => { trSheet(null); trAuto(); }; $('#trtradeb').onclick = () => trOrderWin(TR.side); $('#trrthb').onclick = () => $('.trrange [data-x]').click();
+  $('#trindb').onclick = () => { trSheet(null); trPick('', 'All', null); }; $('#trautob').onclick = () => { trSheet(null); trAuto(); }; $('#trtradeb').onclick = () => trOrderWin(TR.side); $('#trrpb').onclick = () => TR.rp || TR.rpPick ? rpExit() : rpPickStart(); $('#troppb').onclick = trOppToggle; $('#trrthb').onclick = () => $('.trrange [data-x]').click();
   $('#trh').onclick = () => trTool('hline');
   $('#trt').onclick = () => trTool('trend');
   $('#trclr').onclick = () => { LS.set('mt:draw:' + TR.sym, []); trChart?.setDrawings([]); toast('Drawings removed'); };
@@ -124,6 +124,7 @@ async function trLoadSec(fresh) {
   trPaint(true); trTicketPrice(); }
 function trAggTrades(tr, sec) { const m = new Map(); for (const [t, p, v] of tr) { const k = Math.floor(t / 1000 / sec) * sec, b = m.get(k); if (!b) m.set(k, { t: k + TZ(), o: p, h: p, l: p, c: p, v }); else { b.h = Math.max(b.h, p); b.l = Math.min(b.l, p); b.c = p; b.v += v; } } return [...m.values()].sort((a, b) => a.t - b.t); }
 async function trLoad(fresh) {
+  if (TR.rp) return; // replay owns the chart
   if (SECT[TR.tf]) { if (fresh || !trData?.sec) return trLoadSec(fresh); return; } // second charts keep building from the live stream
   const sym = TR.sym, tf = TR.tf; let d; try { d = await mtapi('candles', null, `&sym=${encodeURIComponent(sym)}&tf=${tf}&ext=${TR.ext ? 1 : 0}`); } catch (e) { if (fresh) { $('#trname').textContent = e.message; toast(esc(e.message)); } return; }
   if (sym !== TR.sym || tf !== TR.tf || !$('#trc')) return; const was = trData, sameSet = was && was.sym === d.sym && was.tf === tf && !fresh; TR.sym = d.sym; $('#trq').value = d.sym;
@@ -204,7 +205,8 @@ function trPick(q = '', grp = 'All', mi = trPickM) { trPickM = mi; const tgt = m
   el.querySelectorAll('.trpp input').forEach(i => i.onchange = () => { const k = i.dataset.k, v = Math.min(+i.max, Math.max(+i.min, +i.value)); if (!isFinite(v)) return; TR.prm[k] = { ...(TR.prm[k] || {}), [i.dataset.n]: v }; save(); trPick(q, grp); });
 }
 function trOrderLines() { // your position and resting orders, drawn on the chart
-  if (!trS.main || !trState) return; for (const pl of trS.main._ol || []) try { trS.main.removePriceLine(pl); } catch (e) {} const out = [];
+  if (!trS.main || (!trState && !TR.rp)) return; for (const pl of trS.main._ol || []) try { trS.main.removePriceLine(pl); } catch (e) {} const out = [];
+  if (TR.rp) { rpLines(out); trS.main._ol = out; return; }
   const p = trState.me.positions.find(x => x.sym == trData?.sym); if (p) out.push(trS.main.createPriceLine({ price: p.avg, color: p.qty > 0 ? trCss('--up') : trCss('--down'), lineWidth: 2, lineStyle: 0, title: `${p.qty > 0 ? 'Long' : 'Short'} ${trN(Math.abs(p.qty), p.mult === 1 && /-USD/.test(p.sym) ? undefined : 0)}  ${trM(p.upnl)}` }));
   for (const o of trState.orders.filter(x => x.sym == trData?.sym)) out.push(trS.main.createPriceLine({ price: o.px, color: o.side == 'buy' ? trCss('--up') : trCss('--down'), lineWidth: 1, lineStyle: 2, title: `${o.grp ? (o.kind == 'stop' ? 'SL' : 'TP') : o.kind} ${o.side} ${trN(o.qty, 0)}` }));
   trS.main._ol = out; }
@@ -214,6 +216,7 @@ function trLegend(p) {
   for (const k of TR.ind) { if (!IND[k]) continue; if (IND[k].bot) { const r = trBotR[k + '|' + trData.sym]?.r; vals.push(`<span style="color:${trDot(k)}">${esc(IND[k].n)}${r ? ': <b>' + esc(String(r.status || '').slice(0, 90)) + '</b>' : ' …'}</span>`); continue; } const o = (trOut[k] || []).find(x => !x.hist) || trOut[k]?.[0], v = o?.v?.[i]; vals.push(`<span style="color:${trDot(k)}">${esc(trIndName(k))}${v != null && isFinite(v) ? ' <b>' + trN(v) + '</b>' : ''}</span>`); }
   const uc = b.c >= b.o ? 'up' : 'down'; el.innerHTML = `<div><b class=trln>${esc(trPhone() ? trData.sym : trData.name || trData.sym)}</b> · ${TFS.find(x => x[0] == TR.tf)?.[1]} · ${esc(trData.ex || '')} <span class=trohlc>O<b class=${uc}>${trN(b.o)}</b>H<b class=${uc}>${trN(b.h)}</b>L<b class=${uc}>${trN(b.l)}</b>C<b class=${uc}>${trN(b.c)}</b><b class=${chg >= 0 ? 'up' : 'down'}>${chg >= 0 ? '+' : ''}${trN(b.c - (i ? B[i - 1].c : b.o))} (${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%)</b></span></div><div class=trlv>${vals.join('')}${vals.length > 4 ? `<span class=trmore>+${vals.length - 4} more</span>` : ''}</div>${trChart?.getTool() ? `<div class=trhint>${/hline|vline/.test(trChart.getTool()) ? 'Click the chart to place it' : 'Click (or press and drag) the first point, then the second. Esc cancels.'}</div>` : ''}`; trLtUi(); }
 function trClick(p) {
+  if (TR.rpPick && p?.time != null) { rpBegin(p.time); return; }
   if (!p || !p.point || !trS.main) return; const price = trS.main.coordinateToPrice(p.point.y); if (price == null) return;
   if (trChart.getTool()) return;
   if (TR.kind != 'market') { const f = $('#trpxin'); if (f) { f.value = +price.toPrecision(7); trEst(); } } // limit / stop: click the chart to set the price
@@ -243,7 +246,7 @@ function trTicket() { // the order window: TradingView-style (floating on deskto
   for (const id of ['twtpon', 'twslon']) $('#' + id).onclick = e => { const on = !e.currentTarget.classList.contains('on'); e.currentTarget.classList.toggle('on', on); LS.set(id == 'twtpon' ? 'mt:tpon' : 'mt:slon', on); setEx(id, on); };
   if (tpOn) setEx('twtpon', true); if (slOn) setEx('twslon', true);
   $('#twx').onclick = () => trOrderWin(false);
-  $('#trgo').onclick = async () => { const go = $('#trgo'), qty = +$('#trqty').value; LS.set(qk, qty); go.disabled = true;
+  $('#trgo').onclick = async () => { const go = $('#trgo'), qty = +$('#trqty').value; LS.set(qk, qty); if (TR.rp) { rpOrder({ side: TR.side, kind: TR.kind, qty, px: +($('#trpxin')?.value || 0), sl: +$('#trsl').value || null, tp: +$('#trtp').value || null }); trOrderWin(false); return; } go.disabled = true;
     try { const r = await mtapi('order', { sym: TR.sym, side: TR.side, kind: TR.kind, qty, px: +($('#trpxin')?.value || 0), sl: +$('#trsl').value || null, tp: +$('#trtp').value || null }); toast(r.filled ? `${TR.side == 'buy' ? 'Bought' : 'Sold'} ${qty} ${esc(TR.sym)} at ${trN(r.filled)}` : `${TR.kind} order placed`); trSheet(null); trStateLoad(); }
     catch (e) { toast(esc(e.message)); } finally { go.disabled = false; } };
   trTicketPrice(); }
@@ -268,6 +271,7 @@ function trAcct() { const me = trState.me, op = trState.opp, pm = me.equity - me
    <div class=trvs><div><span>You</span><i style="--w:${Math.max(4, 50 + Math.max(-48, Math.min(48, (pm - po) / (Math.abs(pm) + Math.abs(po) || 1) * 48)))}%"></i><span>Opposite</span></div><b>${pm === po ? 'Even' : pm > po ? 'You are ahead' : 'The Opposite Bot is ahead'} by ${trM(Math.abs(pm - po))}</b></div>
    <div class=mut style="font-size:12px;margin-top:10px">${op.enabled ? 'On: you buy, it sells the same amount; you sell, it buys. It closes everything when you press End trading day.' : 'Off. Switch it on and it mirrors your next trades.'}</div>`;
   const sm = $('#trsum'); if (sm) sm.innerHTML = `<span>Equity <b class=num>${trM(me.equity)}</b></span><span>Open P&L <b class="num ${me.upnl >= 0 ? 'up' : 'down'}">${trM(me.upnl)}</b></span><span>Total <b class="num ${pm >= 0 ? 'up' : 'down'}">${pm >= 0 ? '+' : ''}${trM(pm)}</b></span><span>Opposite Bot <b class="num ${po >= 0 ? 'up' : 'down'}">${op.enabled ? (po >= 0 ? '+' : '') + trM(po) : 'off'}</b></span>`;
+  trOppUi(TR.rp ? RP?.opp : op.enabled);
   $('#trop').onclick = async () => { try { await mtapi('opp', { on: !op.enabled }); trStateLoad(); toast(op.enabled ? 'Opposite Bot off' : 'Opposite Bot on: it will take the other side of your trades'); } catch (e) { toast(esc(e.message)); } };
   $('#trrst').onclick = async () => { if (!confirm('Reset your paper account to $100,000? Positions, orders and history are cleared.')) return; await mtapi('reset', { acct: 'me' }); await mtapi('reset', { acct: 'opp' }); trStateLoad(); toast('Accounts reset'); }; }
 function trTable() { const el = $('#trtbl'); if (!el || !trState) return; const tab = $('#trtab .on')?.dataset.v || 'pos', S = trState;
@@ -288,10 +292,10 @@ function trTickStop() { clearInterval(trQT); trQT = null; if (trWS) { trWS.onclo
 function trTick() {
   trTickStop(); const sym = TR.sym;
   if (/-USD$/.test(sym) && 'WebSocket' in window) { try { trWS = new WebSocket('wss://ws-feed.exchange.coinbase.com'); trWS.onopen = () => trWS.send(JSON.stringify({ type: 'subscribe', product_ids: [sym], channels: ['ticker'] }));
-    let at = 0; trWS.onmessage = e => { const m = JSON.parse(e.data); if (m.type != 'ticker' || m.product_id != TR.sym || !trS.main) return; const px = +m.price; if (!trUpd(px, +m.last_size || 0)) return; const n = Date.now(); if (n - at > (trData.sec ? 120 : 250)) { at = n; trRender(px); } }; // every trade counts for the bar; at most ~8 redraws a second
+    let at = 0; trWS.onmessage = e => { const m = JSON.parse(e.data); if (m.type != 'ticker' || m.product_id != TR.sym || !trS.main || TR.rp) return; const px = +m.price; if (!trUpd(px, +m.last_size || 0)) return; const n = Date.now(); if (n - at > (trData.sec ? 120 : 250)) { at = n; trRender(px); } }; // every trade counts for the bar; at most ~8 redraws a second
     trWS.onclose = () => { trWS = null; if ($('#trc') && TR.sym == sym) setTimeout(() => TR.sym == sym && trTick(), 3000); }; } catch (e) {} }
   trQT = setInterval(async () => { if (!$('#trc')) return trTickStop(); if (trWS && trWS.readyState === 1) return; if (document.hidden) return;
-    try { const r = await mtapi('quote', null, '&sym=' + encodeURIComponent(sym)); if (r.sym === trData?.sym) trLive(r.px, 0); } catch (e) {} }, 1000);
+    if (TR.rp) return; try { const r = await mtapi('quote', null, '&sym=' + encodeURIComponent(sym)); if (r.sym === trData?.sym && !TR.rp) trLive(r.px, 0); } catch (e) {} }, 1000);
 }
 function trUpd(px, vol = 0) { // add one price to the data (a new bar when the time has moved on)
   if (!trData || !(px > 0)) return false; const B = trData.B, last = B[B.length - 1]; if (!last) return false; const sec = TFSEC[TR.tf], now = Math.floor(Date.now() / 1000) + TZ();
@@ -503,3 +507,66 @@ async function trCustomRun(rebuild) {
       if (pi >= 0) sr.priceScale().applyOptions({ scaleMargins: { top: 1 - PH * (pBase + pi + 1) + .03, bottom: PH * (pBase + pi) + .015 } }); for (const lv of o.levels) sr.createPriceLine({ price: lv, color: pal[8] + '99', lineStyle: 2, lineWidth: 1, axisLabelVisible: false });
       sr.setData(T.map((t, i) => o.values[i] == null ? { time: t } : { time: t, value: o.values[i], ...(o.style == 'histogram' ? { color: c + 'aa' } : {}) })); trCusS.push(sr); });
     IND[k].col = r.out[0]?.color || IND[k].col; }); trLegend(); }
+
+/* ---------- Opposite Bot switch in the toolbar ---------- */
+function trOppUi(on) { const b = $('#troppb'); if (b) { b.classList.toggle('on', !!on); b.title = on ? 'Opposite Bot is ON: it takes the reverse of your trades. Click to turn it off.' : 'Opposite Bot is off. Click to turn it on.'; } }
+async function trOppToggle() { const on = TR.rp ? !RP.opp : !trState?.opp?.enabled; if (TR.rp) { RP.opp = on; LS.set('mt:rpopp', on); trOppUi(on); rpUi(); toast(on ? 'Opposite Bot on for this replay' : 'Opposite Bot off for this replay'); return; }
+  try { await mtapi('opp', { on }); trOppUi(on); toast(on ? 'Opposite Bot on: it takes the other side of your trades' : 'Opposite Bot off'); trStateLoad(); } catch (e) { toast(esc(e.message)); } }
+
+/* ---------- Terminal Replay: go back to any moment, let the market play forward at your speed, trade it as if it were live ---------- */
+let RP = null, rpT = null;
+const RPSPD = [1, 2, 5, 10, 30, 60, 120, 300, 600, 1800];
+function rpPickStart() { trSheet(null); if (!trData) return; if (SECT[TR.tf]) { toast('Replay needs history: switched to 1 minute'); TR.tf = '1m'; LS.set('mt:tf', '1m'); trUiSync(); trLoad(true).then(rpPickStart); return; }
+  TR.rpPick = true; $('#trrpb')?.classList.add('on'); rpBar(`<div class=rppick><b>Replay</b><span>Click the chart where the replay should start, or pick a time:</span><input type=datetime-local id=rpdt class=inp><button class="btn sm pri" id=rpgo>Start</button><button class="btn sm" id=rprand>Random point</button><button class="btn sm" id=rpx>Cancel</button></div>`);
+  const B = trData.B, f = t => new Date((t - TZ()) * 1000 - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 16), dt = $('#rpdt'); dt.min = f(B[Math.min(B.length - 1, 30)].t); dt.max = f(B[B.length - 2].t); dt.value = f(B[Math.max(30, B.length - 300)].t);
+  $('#rpgo').onclick = () => { const t = Date.parse(dt.value) / 1000 + TZ(); if (!isFinite(t)) return toast('Pick a date and time'); rpBegin(t); };
+  $('#rprand').onclick = () => { const i = 60 + Math.floor(Math.random() * Math.max(1, B.length - 120)); rpBegin(B[i].t); }; $('#rpx').onclick = rpExit; }
+function rpBegin(t) {
+  const all = trData.B.map(b => ({ ...b })), i = all.findIndex(b => b.t >= t); if (i < 0 || i >= all.length - 1) return toast('Pick an earlier point: there is nothing after it to replay'); if (i < 20) return toast('Too early: pick a point with some history before it (or a bigger timeframe to go further back)');
+  TR.rpPick = false; TR.rp = true; trTickStop(); const bs = TFSEC[TR.tf] || (TR.tf == '1d' ? 86400 : TR.tf == '1w' ? 604800 : 2592000);
+  RP = { all, i, bs, simT: all[i].t, speed: LS.get('mt:rpspd', 60), play: false, last: 0, live: { ...all[i], h: all[i].o, l: all[i].o, c: all[i].o }, px: all[i].o, opp: LS.get('mt:rpopp', false), acct: { me: rpAcct(), opp: rpAcct() }, orders: [], fills: [], seq: 0 };
+  trData = { ...trData, B: all.slice(0, i).concat([RP.live]) }; trFit = true; trPaint(true); rpUi(); trOppUi(RP.opp); toast('Replay ready: press play. Your replay trades use a separate $100,000 paper account.'); }
+const rpAcct = () => ({ cash: 1e5, start: 1e5, qty: 0, avg: 0, realized: 0, n: 0, won: 0 });
+function rpPath(b, p) { // the price inside a bar as it forms: open, then the nearer extreme, then the other, then the close
+  const up = b.c >= b.o, a = up ? b.l : b.h, z = up ? b.h : b.l; if (p < 1 / 3) return b.o + (a - b.o) * p * 3; if (p < 2 / 3) return a + (z - a) * (p - 1 / 3) * 3; return z + (b.c - z) * (p - 2 / 3) * 3; }
+function rpStep(dtSec) { const R = RP; if (!R) return; let newBar = false;
+  R.simT += dtSec;
+  while (R.i < R.all.length) { const b = R.all[R.i], end = b.t + R.bs; if (R.simT < end) break;
+    trData.B[trData.B.length - 1] = { ...b }; rpTick(b.c, b); R.i++; newBar = true; if (R.i >= R.all.length) { R.play = false; toast('Replay reached the end of the data'); break; }
+    const nb = R.all[R.i]; if (R.simT < nb.t) R.simT = nb.t; R.live = { ...nb, h: nb.o, l: nb.o, c: nb.o }; trData.B.push(R.live); }
+  if (R.i < R.all.length) { const b = R.all[R.i], p = Math.max(0, Math.min(1, (R.simT - b.t) / R.bs)), px = rpPath(b, p); R.live.c = px; R.live.h = Math.max(R.live.h, px); R.live.l = Math.min(R.live.l, px); R.live.v = b.v * p; rpTick(px, R.live); }
+  if (newBar) trPaint(false); else trRender(R.px); rpUi(); }
+function rpLoop() { clearInterval(rpT); rpT = setInterval(() => { if (!RP || !RP.play) return; const now = performance.now(), dt = RP.last ? (now - RP.last) / 1000 : 0; RP.last = now; rpStep(Math.min(dt, .25) * RP.speed); }, 50); }
+function rpKill() { clearInterval(rpT); rpT = null; RP = null; if (TR) { TR.rp = false; TR.rpPick = false; } $('#rpbar')?.remove(); }
+function rpExit() { const R = RP; if (R) { const m = R.acct.me, eq = rpEq(m); toast(`Replay finished: ${eq >= m.start ? '+' : ''}${trM(eq - m.start)} over ${m.n} trade${m.n == 1 ? '' : 's'}`); }
+  rpKill(); $('#trrpb')?.classList.remove('on'); trData = null; trLoad(true); trTick(); trStateLoad(); }
+// replay paper accounts: market, limit and stop orders, with stop-loss / take-profit brackets, against the replayed price
+const rpMult = () => trData?.spec?.mult || 1, rpEq = a => a.cash + a.qty * (RP?.px || 0) * rpMult();
+function rpFill(acct, side, qty, px, why) { const a = RP.acct[acct], d = side == 'buy' ? 1 : -1, m = rpMult(); px = px * (1 + d * .0002);
+  if (a.qty * d < 0) { const close = Math.min(Math.abs(a.qty), qty), pnl = (px - a.avg) * -d * close * m; a.realized += pnl; a.n++; if (pnl > 0) a.won++; a.qty += d * close; qty -= close; if (!a.qty) a.avg = 0; RP.fills.unshift({ acct, side, qty: close, px, pnl, t: RP.simT, why }); }
+  if (qty > 0) { a.avg = (a.avg * Math.abs(a.qty) + px * qty) / (Math.abs(a.qty) + qty); a.qty += d * qty; RP.fills.unshift({ acct, side, qty, px, pnl: 0, t: RP.simT, why }); }
+  a.cash = a.start + a.realized - a.qty * a.avg * m; }
+function rpOrder(o) { const R = RP; if (!R) return; if (!(o.qty > 0)) return toast('Enter a quantity'); const id = ++R.seq;
+  if (o.kind == 'market') { rpFill('me', o.side, o.qty, R.px, 'market'); if (R.opp) rpFill('opp', o.side == 'buy' ? 'sell' : 'buy', o.qty, R.px, 'opposite of yours'); toast(`${o.side == 'buy' ? 'Bought' : 'Sold'} ${o.qty} at ${trN(R.px)} (replay)`); rpBrackets(o, id); }
+  else { if (!(o.px > 0)) return toast('Enter a price'); R.orders.push({ id, ...o, acct: 'me' }); toast(`${o.kind} ${o.side} ${o.qty} at ${trN(o.px)} placed (replay)`); }
+  trOrderLines(); rpUi(); }
+function rpBrackets(o, id) { const ex = o.side == 'buy' ? 'sell' : 'buy'; if (o.sl) RP.orders.push({ id: ++RP.seq, grp: id, side: ex, kind: 'stop', qty: o.qty, px: o.sl, acct: 'me', br: 1 }); if (o.tp) RP.orders.push({ id: ++RP.seq, grp: id, side: ex, kind: 'limit', qty: o.qty, px: o.tp, acct: 'me', br: 1 }); }
+function rpTick(px, bar) { const R = RP; R.px = px; let hit = false;
+  for (const o of [...R.orders]) { const touch = o.kind == 'limit' ? (o.side == 'buy' ? px <= o.px : px >= o.px) : (o.side == 'buy' ? px >= o.px : px <= o.px); if (!touch) continue;
+    R.orders = R.orders.filter(x => x !== o && !(o.grp && x.grp === o.grp)); const fp = o.kind == 'limit' ? o.px : px; rpFill('me', o.side, o.qty, fp, o.br ? (o.kind == 'stop' ? 'stop-loss' : 'take-profit') : o.kind);
+    if (R.opp) rpFill('opp', o.side == 'buy' ? 'sell' : 'buy', o.qty, fp, 'opposite of yours'); if (!o.br) rpBrackets(o, o.id); hit = true; toast(`Replay: ${o.br ? (o.kind == 'stop' ? 'stop-loss' : 'take-profit') : o.kind + ' order'} filled at ${trN(fp)}`); }
+  if (hit) trOrderLines(); }
+function rpClose() { const a = RP.acct.me; if (!a.qty) return; const side = a.qty > 0 ? 'sell' : 'buy', q = Math.abs(a.qty); RP.orders = RP.orders.filter(o => !o.br); rpFill('me', side, q, RP.px, 'closed by you'); if (RP.opp && RP.acct.opp.qty) rpFill('opp', RP.acct.opp.qty > 0 ? 'sell' : 'buy', Math.abs(RP.acct.opp.qty), RP.px, 'closed with yours'); trOrderLines(); rpUi(); }
+function rpLines(out) { const a = RP.acct.me; if (a.qty) out.push(trS.main.createPriceLine({ price: a.avg, color: a.qty > 0 ? trCss('--up') : trCss('--down'), lineWidth: 2, lineStyle: 0, title: `${a.qty > 0 ? 'Long' : 'Short'} ${trN(Math.abs(a.qty), Number.isInteger(a.qty) ? 0 : undefined)}  ${trM((RP.px - a.avg) * a.qty * rpMult())}` }));
+  for (const o of RP.orders) out.push(trS.main.createPriceLine({ price: o.px, color: o.side == 'buy' ? trCss('--up') : trCss('--down'), lineWidth: 1, lineStyle: 2, title: `${o.br ? (o.kind == 'stop' ? 'SL' : 'TP') : o.kind} ${o.side} ${trN(o.qty, 0)}` })); }
+function rpBar(html) { let el = $('#rpbar'); if (!el) { el = document.createElement('div'); el.id = 'rpbar'; el.className = 'rpbar'; ($('.trchartcard') || document.body).append(el); } el.innerHTML = html; return el; }
+function rpUi() { const R = RP; if (!R) return; const m = R.acct.me, o = R.acct.opp, eq = rpEq(m), op = rpEq(o), up = (m.qty ? (R.px - m.avg) * m.qty * rpMult() : 0), d = new Date((R.simT - TZ()) * 1000);
+  let el = $('#rpbar'); if (!el || !el.querySelector('.rpctl')) { el = rpBar(`<div class=rpctl><b class=rpt>REPLAY</b><button class="btn sm" id=rpplay aria-label="Play or pause"></button><button class="btn sm" id=rpstep title="Next bar">⏭</button>
+    <select class=inp id=rpspd title="Speed: how much faster than real time">${RPSPD.map(x => `<option value=${x} ${R.speed == x ? 'selected' : ''}>${x}×</option>`).join('')}</select><span class="rpclock num" id=rpclock></span><span class=rpsp></span>
+    <span class=rpst id=rpst></span><button class="btn sm" id=rpclose>Close position</button><button class="btn sm" id=rpnew title="Pick another start point">New start</button><button class="btn sm danger" id=rpx>Exit replay</button></div>`);
+    $('#rpplay').onclick = () => { R.play = !R.play; R.last = 0; if (R.play) rpLoop(); rpUi(); }; $('#rpstep').onclick = () => { R.play = false; const b = R.all[R.i]; if (b) rpStep(b.t + R.bs - R.simT + .001); };
+    $('#rpspd').onchange = e => { R.speed = +e.target.value; LS.set('mt:rpspd', R.speed); }; $('#rpclose').onclick = rpClose; $('#rpx').onclick = rpExit; $('#rpnew').onclick = () => { rpKill(); trData = null; trLoad(true).then(rpPickStart); }; }
+  $('#rpplay').innerHTML = R.play ? '❚❚ Pause' : '▶ Play'; $('#rpplay').classList.toggle('pri', !R.play);
+  $('#rpclock').textContent = d.toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: R.bs < 3600 ? '2-digit' : undefined });
+  $('#rpst').innerHTML = `Equity <b class=num>${trM(eq)}</b> <span class="num ${eq >= m.start ? 'up' : 'down'}">${eq >= m.start ? '+' : ''}${trM(eq - m.start)}</span>${m.qty ? ` · ${m.qty > 0 ? 'Long' : 'Short'} ${trN(Math.abs(m.qty), Number.isInteger(m.qty) ? 0 : undefined)} <span class="num ${up >= 0 ? 'up' : 'down'}">${trM(up)}</span>` : ''} · ${m.n} trade${m.n == 1 ? '' : 's'}${m.n ? ', ' + Math.round(m.won / m.n * 100) + '% won' : ''}${R.opp ? ` · Opposite <span class="num ${op >= o.start ? 'up' : 'down'}">${op >= o.start ? '+' : ''}${trM(op - o.start)}</span>` : ''}`;
+  $('#rpclose').hidden = !m.qty; }

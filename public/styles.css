@@ -1015,3 +1015,13 @@ body.term .twgo.buy,body.term .trtradeb{background:var(--accent)!important}
 .indtop{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}.indtop .mut{font-size:13.5px;margin-top:4px;max-width:620px}
 .indgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}.indc{padding:16px 18px;cursor:pointer;display:grid;gap:6px;transition:box-shadow .2s}.indc .mut{font-size:12.5px;line-height:1.4}.indc.on{box-shadow:inset 0 0 0 2px var(--accent)}.indc .trsw{pointer-events:none}
 @media(max-width:760px){.home4{grid-template-columns:1fr;gap:12px}.h4{min-height:0;padding:22px;border-radius:26px}.h4 b{font-size:21px}.h4i{width:48px;height:48px}}
+/* Terminal Replay */
+@media(min-width:761px){.trchartcard{position:relative}}
+.rpbar{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);z-index:40;max-width:calc(100% - 24px);background:var(--panel2,var(--panel));border:1px solid var(--line2);border-radius:12px;padding:8px 10px;box-shadow:0 12px 40px rgba(0,0,0,.35);font-size:12.5px;color:var(--text);animation:pop .25s cubic-bezier(.22,1,.36,1) both}
+.rpctl,.rppick{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.rppick span{color:var(--mut)}.rppick .inp{height:30px;width:auto;font-size:12.5px;padding:0 8px}
+.rpt{font:800 11px var(--sans);letter-spacing:.08em;color:#fff;background:#f23645;border-radius:5px;padding:4px 7px}
+.rpbar .btn.sm{height:30px}.rpbar select.inp{height:30px;width:auto;padding:0 6px;font-size:12.5px}.rpclock{font-weight:600}.rpsp{flex:1;min-width:6px}.rpst{color:var(--mut);white-space:nowrap}.rpst b{color:var(--text)}
+body.term[data-tt=tv] .rpbar{background:#141a2e;border-color:#26325e;box-shadow:0 12px 40px rgba(0,0,0,.5),0 0 24px rgba(61,90,254,.2)}
+.troppb .trdot{width:7px;height:7px;border-radius:50%;background:var(--mut2);display:inline-block;margin-left:6px}.troppb.on .trdot{background:var(--up);box-shadow:0 0 8px var(--up)}.troppb.on{color:var(--up)!important}
+#trrpb.on{color:#f23645!important}
+@media(max-width:760px){.rpbar{position:fixed;left:8px;right:8px;transform:none;bottom:calc(112px + env(safe-area-inset-bottom));max-width:none;padding:8px}.rpst{white-space:normal;flex-basis:100%}.rpsp{display:none}}
