@@ -76,6 +76,8 @@ const SCHEMA = [
   // Claude connection (MCP): personal token (hash only) and the Trade page's reported view / snapshot / pending commands
   `CREATE TABLE IF NOT EXISTS apitok (uid text PRIMARY KEY, hash text NOT NULL, created bigint, last bigint, trade boolean NOT NULL DEFAULT true)`,
   `CREATE INDEX IF NOT EXISTS apitok_hash ON apitok (hash)`,
+  `CREATE TABLE IF NOT EXISTS ubot (id text NOT NULL, uid text NOT NULL, cfg text, enabled boolean NOT NULL DEFAULT false, paper double precision NOT NULL DEFAULT 10000, state text, created bigint, updated bigint, PRIMARY KEY (uid, id))`,
+  `CREATE TABLE IF NOT EXISTS ubtrades (id text PRIMARY KEY, uid text NOT NULL, bot text NOT NULL, ts bigint NOT NULL, sym text, dir text, qty double precision, entry double precision, stop double precision, tp double precision, status text NOT NULL, exitp double precision, pnl double precision, reason text, exitts bigint)`,
   `CREATE TABLE IF NOT EXISTS mtview (uid text PRIMARY KEY, ts bigint, data text, snap text, snapts bigint, reqsnap bigint NOT NULL DEFAULT 0, cmds text)`, // BTC-USD order flow, one row a minute (order-flow bots), kept 8 days // daily closes for the portfolio bots, shared by everyone
   `CREATE TABLE IF NOT EXISTS btctrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, slug text NOT NULL, tf text, side text, price double precision, qty double precision, fee double precision, fair double precision, edge double precision, s0 double precision, s double precision, secs double precision, mode text, status text NOT NULL DEFAULT 'open', pnl double precision, wend bigint)`,
 ];

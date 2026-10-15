@@ -988,3 +988,11 @@ body.term[data-tt=oled] .trwin{background:#0b0b0b;border-color:#262626}
 .twgo.buy,.trtradeb{background:#2962ff!important;color:#fff!important}.tws.buy.on{background:rgba(41,98,255,.28);color:#5b8cff}.tws.buy.on b{color:#7aa2ff}
 body.term .twgo.buy,body.term .trtradeb{background:var(--accent)!important}
 @media(min-width:761px){.trrthb{display:none!important}}
+/* build your own bot */
+.ubed{margin-top:16px}.ubgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:14px}.ubgrid label{display:grid;gap:6px;font-size:13px;font-weight:500;align-content:start}.ubgrid label .mut{font-size:11.5px;font-weight:400}
+.ubh{font-size:15px;margin:20px 0 8px;font-weight:600}.ubh .mut{font-weight:400;font-size:12.5px;margin-left:6px}
+.ubrow{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1.4fr) auto auto;gap:8px;margin-bottom:8px;align-items:center}.ubrow .ubn{width:100px}.ubrow .ubn[hidden]{display:none}.ubrow .inp{height:42px;font-size:13.5px}
+.ubext{align-content:center!important}.ubtpl{gap:6px!important}.ubtpl button{height:32px!important;padding:0 12px!important;font-size:12.5px!important}
+.ubchart{position:relative;height:380px;margin-top:8px}.ublist{margin-bottom:8px}.ubcard .dbal{font-size:24px}
+#ubres .card{margin-top:16px}
+@media(max-width:760px){.ubrow{grid-template-columns:1fr 1fr;}.ubrow .ubop{grid-column:1/-1;grid-row:2}.ubrow .uba{grid-column:1/-1}.ubrow .ubb{grid-column:1/2}.ubchart{height:300px}}

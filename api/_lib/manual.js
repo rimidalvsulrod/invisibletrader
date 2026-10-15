@@ -117,6 +117,7 @@ async function state(uid) {
   return { me: { ...me, ...(await stats(uid, 'me')) }, opp: { ...opp, ...(await stats(uid, 'opp')) }, orders: orders.map(o => ({ ...o, ts: Number(o.ts) })), fills: fills.map(f => ({ ...f, ts: Number(f.ts) })), now: Date.now() };
 }
 async function api(uid, op, b, q) {
+  if (op.startsWith('ub-')) return require('./userbot').api(uid, op.slice(3), b, q); // your own bots
   switch (op) {
     case 'candles': return candles(q.sym || b.sym, q.tf || b.tf, (q.ext ?? b.ext) !== '0' && (q.ext ?? b.ext) !== false);
     case 'mcpinfo': return require('./mcp').info(uid);
@@ -146,6 +147,6 @@ async function api(uid, op, b, q) {
   }
 }
 let busy = false, last = 0;
-async function tick() { if (busy || Date.now() - last < 2e4) return; busy = true; last = Date.now(); // runner: fill resting orders even while nobody has the page open
+async function tick() { require('./userbot').tick().catch(e => console.error('userbot', e.message)); if (busy || Date.now() - last < 2e4) return; busy = true; last = Date.now(); // runner: fill resting orders even while nobody has the page open
   try { for (const r of await db.q("SELECT DISTINCT uid FROM mtord WHERE status='open'")) await check(r.uid).catch(e => console.error('manual', e.message)); } finally { busy = false; } }
 module.exports = { api, tick, candles, quote, spec, norm, fill, equity, check, endDay, START };

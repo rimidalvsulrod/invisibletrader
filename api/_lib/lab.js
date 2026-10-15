@@ -148,6 +148,8 @@ async function dash(uid) {
     const st = await db.one("SELECT count(*)::int AS n, sum(CASE WHEN pnl>0 THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN pnl<>0 THEN 1 ELSE 0 END)::int AS c FROM mtfill WHERE uid=$1 AND acct=$2", [uid, a]), e = await MT.equity(uid, a);
     const last = (await db.q('SELECT pnl, fee FROM mtfill WHERE uid=$1 AND acct=$2 ORDER BY ts DESC LIMIT 40', [uid, a])).map(x => Number(x.pnl) - Number(x.fee)).reverse();
     bots.unshift({ route, name, group: a === 'me' ? 'Manual' : 'Bot', enabled: a === 'me' ? st.n > 0 : r.enabled, start: e.start, balance: e.equity, pnl: e.equity - e.start, n: st.c || 0, won: st.w || 0, open: e.positions.length, curve: last.reduce((x, y) => (x.push((x[x.length - 1] || 0) + y), x), []) }); } } catch (e) {}
+  try { for (const b of await require('./userbot').list(uid)) { const tr = (await db.q("SELECT pnl FROM ubtrades WHERE uid=$1 AND bot=$2 AND status='closed' ORDER BY exitts DESC LIMIT 40", [uid, b.id])).map(x => Number(x.pnl)).reverse();
+    bots.push({ route: 'build/' + b.id, name: b.cfg.name, group: 'Your bot · ' + b.cfg.sym, enabled: b.enabled, start: b.paper, balance: b.balance, pnl: b.pnl, n: b.n, won: b.won, open: 0, curve: tr.reduce((x, y) => (x.push((x[x.length - 1] || 0) + y), x), []) }); } } catch (e) {}
   return { bots, now: Date.now() };
 }
 async function prefs(uid, body, user, op) {
