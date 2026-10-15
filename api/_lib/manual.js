@@ -13,11 +13,13 @@ const norm = s => { s = String(s || '').trim().toUpperCase().replace(/\s+/g, '')
 
 /* ---------- market data ---------- */
 const TF = { '1m': ['1m', '5d'], '2m': ['2m', '5d'], '5m': ['5m', '30d'], '15m': ['15m', '60d'], '30m': ['30m', '60d'], '1h': ['60m', '730d'], '4h': ['60m', '730d', 4], '1d': ['1d', '10y'], '1w': ['1wk', '20y'], '1mo': ['1mo', 'max'] };
-async function candles(sym, tf = '5m') {
+const ETF_ = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }), etMin = t => { const [h, m] = ETF_.format(new Date(t * 1000)).split(':').map(Number); return h * 60 + m; };
+async function candles(sym, tf = '5m', ext = true) {
   sym = norm(sym); if (isCrypto(sym) && CBG[tf]) try { return await cbCandles(sym, tf); } catch (e) {} /* crypto: Coinbase's own candles (live, exact) */ const [iv, range, agg] = TF[tf] || TF['5m'], ttl = /m$/.test(iv) && iv !== '1mo' ? 8e3 : 6e4;
   const j = await Y.get(`/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=${iv}&includePrePost=true`, ttl), r = j?.chart?.result?.[0];
   if (!r?.timestamp) throw err(404, 'no data for ' + sym); const q = r.indicators.quote[0]; let out = [];
   r.timestamp.forEach((t, i) => { const o = q.open[i], h = q.high[i], l = q.low[i], c = q.close[i]; if ([o, h, l, c].some(x => x == null)) return; const z = out[out.length - 1]; if (z && t <= z[0]) { if (t === z[0]) { z[2] = Math.max(z[2], h); z[3] = Math.min(z[3], l); z[4] = c; } return; } out.push([t, o, h, l, c, q.volume[i] || 0]); }); // strictly ascending for the chart
+  if (!ext && /m$/.test(iv) && iv !== '1mo' && !/=F$|^\^/.test(sym)) out = out.filter(x => { const mm = etMin(x[0]); return mm >= 570 && mm < 960; }); // regular trading hours only (9:30 to 16:00 New York), like TradingView's default
   if (agg) { const g = []; for (const x of out) { const k = Math.floor(x[0] / (agg * 3600)) * agg * 3600, y = g[g.length - 1]; if (y && y[0] === k) { y[2] = Math.max(y[2], x[2]); y[3] = Math.min(y[3], x[3]); y[4] = x[4]; y[5] += x[5]; } else g.push([k, x[1], x[2], x[3], x[4], x[5]]); } out = g; }
   if (/m$/.test(iv) && iv !== '1mo' && out.length > 20) { // bad ticks: a wick far outside its neighbours (Yahoo's pre/post-market prints) is cut back to the body
     const rs = out.map(x => x[2] - x[3]).sort((a, b) => a - b), mr = Math.max(rs[rs.length >> 1] || 0, (out[out.length - 1][4] || 0) * .0008); // never 0 (flat minutes would snap every bar)
@@ -116,7 +118,7 @@ async function state(uid) {
 }
 async function api(uid, op, b, q) {
   switch (op) {
-    case 'candles': return candles(q.sym || b.sym, q.tf || b.tf);
+    case 'candles': return candles(q.sym || b.sym, q.tf || b.tf, (q.ext ?? b.ext) !== '0' && (q.ext ?? b.ext) !== false);
     case 'mcpinfo': return require('./mcp').info(uid);
     case 'mcpnew': return require('./mcp').newToken(uid);
     case 'mcprevoke': return require('./mcp').revoke(uid);

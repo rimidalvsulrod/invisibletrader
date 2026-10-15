@@ -1,16 +1,16 @@
 // Manual Trading: a TradingView-style chart (TradingView's open-source Lightweight Charts) with timeframes, chart types, indicators, drawing tools
 // and a paper order ticket for stocks, ETFs, futures and crypto. Plus the Opposite Bot: it takes the reverse of every fill you get.
 let TR = null; // set on first visit (LS lives in app.js, loaded after this file)
-const trInit = () => TR || (TR = { sym: LS.get('mt:sym', 'SPY'), tf: LS.get('mt:tf', '5m'), type: LS.get('mt:type3', 'candle').replace('sharp', 'candle'), cs: LS.get('mt:cs', 'gr'), prm: LS.get('mt:prm', {}), ind: LS.get('mt:ind2', ['bb', 'vp', 'vol']), side: 'buy', kind: 'market', tool: null, pend: null });
+const trInit = () => TR || (TR = { sym: LS.get('mt:sym', 'SPY'), tf: LS.get('mt:tf', '5m'), type: LS.get('mt:type3', 'candle').replace('sharp', 'candle'), cs: LS.get('mt:cs', 'gr'), prm: LS.get('mt:prm', {}), ind: LS.get('mt:ind2', ['bb', 'vp', 'vol']), side: 'buy', kind: 'market', tool: null, pend: null, ext: LS.get('mt:ext', false) });
 let trChart = null, trMain = null, trS = {}, trData = null, trState = null, trT1 = null, trT2 = null, trT3 = null, trLines = [], trDraw = [], trWant = false, trNeedSnap = false;
 const trSheet = n => { if (n) document.body.dataset.trs = n; else delete document.body.dataset.trs; if (n == 'sym') setTimeout(() => $('#trq')?.focus(), 250); };
-const trStop = () => { trTickStop(); trSheet(null); $('#trpick')?.remove(); clearInterval(trT1); clearInterval(trT2); clearInterval(trT3); trT1 = trT2 = trT3 = null; trWant = false; if (trChart) { try { trChart.remove(); } catch (e) {} trChart = null; } trS = {}; trData = null; trDraw = []; trBotS = []; trBotPL = []; trLines = []; trOut = {}; trLastPx = null; trMain = null; trState = null; removeEventListener('themechange', trTheme); trMiniKill(); clearInterval(trWLT); clearInterval(trClk); trWLT = trClk = null; trRO?.disconnect(); trRO = null; document.body.classList.remove('term', 'twall'); delete document.body.dataset.tt; document.getElementById('twall')?.remove(); };
+const trStop = () => { trTickStop(); trSheet(null); $('#trpick')?.remove(); clearInterval(trT1); clearInterval(trT2); clearInterval(trT3); trT1 = trT2 = trT3 = null; trWant = false; if (trChart) { try { trChart.remove(); } catch (e) {} trChart = null; } trS = {}; trData = null; trDraw = []; trBotS = []; trBotPL = []; trCusS = []; trLines = []; trOut = {}; trLastPx = null; trMain = null; trState = null; removeEventListener('themechange', trTheme); document.querySelector('body > #trtk')?.remove(); trMiniKill(); clearInterval(trWLT); clearInterval(trClk); trWLT = trClk = null; trRO?.disconnect(); trRO = null; document.body.classList.remove('term', 'twall'); delete document.body.dataset.tt; document.getElementById('twall')?.remove(); };
 const mtapi = async (op, body, qs = '') => { const r = await fetch('/api/powell' + (body ? '' : `?op=mt-${op}${qs}`), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'mt-' + op, ...body }) } : {});
   const j = await r.json().catch(() => ({ error: 'Bad response' })); if (!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), { status: r.status }); return j; };
 const TFS = [['1s', '1s'], ['5s', '5s'], ['15s', '15s'], ['1m', '1m'], ['5m', '5m'], ['15m', '15m'], ['30m', '30m'], ['1h', '1H'], ['4h', '4H'], ['1d', '1D'], ['1w', '1W'], ['1mo', '1M']];
 const TYPES = [['candle', 'Candles'], ['smooth', 'Area'], ['hollow', 'Hollow candles'], ['ha', 'Heikin Ashi'], ['bar', 'Bars'], ['line', 'Line'], ['base', 'Baseline']];
 const RANGES = [['1D', '1m', 1], ['5D', '5m', 5], ['1M', '30m', 31], ['3M', '1h', 92], ['6M', '1d', 183], ['YTD', '1d', 'ytd'], ['1Y', '1d', 365], ['5Y', '1w', 1826], ['All', '1mo', 0]];
-const trPhone = () => matchMedia('(max-width: 760px)').matches, trLayN = () => trPhone() ? 1 : LS.get('mt:lay2', 4), trSideP = () => LS.get('mt:side', 'wl');
+const trPhone = () => matchMedia('(max-width: 760px)').matches, trLayN = () => trPhone() ? 1 : LS.get('mt:lay2', 4), trSideP = () => LS.get('mt:side', 'wl') == 'acct' ? 'acct' : 'wl';
 let trMini = [], trFit = true, trRO = null, trWLT = null, trClk = null;
 const WATCH = ['SPY', 'QQQ', 'AAPL', 'NVDA', 'TSLA', 'MSFT', 'NQ=F', 'ES=F', 'GC=F', 'CL=F', 'BTC-USD', 'ETH-USD', 'SOL-USD'];
 const IND = INDS; // public/indicators.js
@@ -45,20 +45,20 @@ async function tradePage() {
      <div class=trwatch>${WATCH.map(s => `<button class="chip ${s == TR.sym ? 'on' : ''}" data-s="${s}">${s.replace('-USD', '').replace('=F', '')}</button>`).join('')}</div></div>
     <div class=trbar><div class=seg id=trtf>${TFS.map(([k, l]) => `<button data-v=${k} class="${TR.tf == k ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div class=trtools><select class="inp trsel" id=trtype aria-label="Chart type">${TYPES.map(([k, l]) => `<option value=${k} ${TR.type == k ? 'selected' : ''}>${l}</option>`).join('')}</select><select class="inp trsel" id=trcs aria-label="Candle colours">${[['gr', 'Green / Red'], ['bw', 'Blue / Gray'], ['mono', 'Black / White']].map(([k, l]) => `<option value=${k} ${TR.cs == k ? 'selected' : ''}>${l}</option>`).join('')}</select>
-       <button class="btn sm" id=trindb>${IC('<path d="M3 17l5-6 4 4 8-9"/><path d="M15 6h5v5"/>', 16)} Indicators <span class="pill n" id=trindn>${TR.ind.length}</span></button>
+       <button class="btn sm" id=trindb>${IC('<path d="M3 17l5-6 4 4 8-9"/><path d="M15 6h5v5"/>', 16)} Indicators <span class="pill n" id=trindn>${TR.ind.length}</span></button><button class="btn sm trrthb" id=trrthb title="Regular trading hours only, or extended hours">${TR.ext ? 'ETH' : 'RTH'}</button><button class="btn sm trtradeb" id=trtradeb title="Open the order window">Trade</button><button class="btn sm trautob" id=trautob title="Auto: detect the market type and pick the best indicators">Auto</button>
        <span class=trlay id=trlay>${[[1, '<rect x=4 y=4 width=16 height=16 rx=1.5 />'], [2, '<rect x=4 y=4 width=16 height=16 rx=1.5 /><path d="M12 4v16"/>'], [4, '<rect x=4 y=4 width=16 height=16 rx=1.5 /><path d="M12 4v16M4 12h16"/>']].map(([n, d]) => `<button data-n=${n} title="${n} chart${n > 1 ? 's' : ''}" class="${trLayN() == n ? 'on' : ''}">${IC(d, 17)}</button>`).join('')}<button data-n=link title="Same symbol on every chart (each keeps its own timeframe and indicators)" class="${trLink() ? 'on' : ''}">${IC('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>', 17)}</button></span>
        <button class="btn sm" id=trh title="Horizontal line: click the chart">― Line</button><button class="btn sm" id=trt title="Trend line: click two points">╱ Trend</button><button class="btn sm" id=trclr title="Remove the drawings on this symbol">${ic('x', 13)}</button><button class="btn sm" id=trfit title="Fit everything">Fit</button>
        <button class="btn sm trthm" id=trwallb title="Terminal wallpaper: your own picture or video">${IC('<rect x=3 y=4 width=18 height=16 rx=2 /><circle cx=9 cy=10 r=2 /><path d="M21 16l-5-5-9 9"/>', 16)}</button><input type=file id=trwallf accept="image/*,video/mp4,video/webm,video/quicktime" hidden><button class="btn sm" id=trshot title="Save a picture of the chart">${IC('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx=12 cy=13 r=3.5 />', 16)}</button><button class="btn sm" id=trfs title="Full screen">${IC('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>', 16)}</button><button class="btn sm" id=trthm title="Light or dark">${IC('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>', 16)}</button></div></div></div>
    <div class=trlt>${[['cur', 'Cursor', '<path d="M5 3l14 7-6 2-2 6z"/>'], ['trend', 'Trend line', '<path d="M4 19L20 5"/><circle cx=4 cy=19 r=1.6 /><circle cx=20 cy=5 r=1.6 />'], ['ray', 'Ray', '<path d="M4 18L21 6"/><circle cx=4 cy=18 r=1.6 /><circle cx=12 cy=12.4 r=1.6 />'], ['hline', 'Horizontal line', '<path d="M3 12h18"/><circle cx=12 cy=12 r=1.6 />'], ['vline', 'Vertical line', '<path d="M12 3v18"/><circle cx=12 cy=12 r=1.6 />'], ['rect', 'Rectangle', '<rect x=4 y=6 width=16 height=12 rx=1 />'], ['fib', 'Fibonacci retracement', '<path d="M3 5h18M3 9.5h18M3 14h18M3 19h18"/><path d="M5 19L19 5" stroke-dasharray="2 2"/>'], ['trindb', 'Indicators', '<path d="M3 17l5-6 4 4 8-9"/>'], ['trfit', 'Fit everything', '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'], ['del', 'Delete the selected drawing', '<path d="M7 7l10 10M17 7L7 17"/>'], ['trclr', 'Remove all drawings', '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>']].map(([k, t, d]) => `<button data-p=${k} title="${t}" aria-label="${t}">${IC(d, 19)}</button>`).join('')}</div>
    <div class=trgrid><div class="card trchartcard"><div class=trpanes id=trpanes>
      <div class="trchart on" id=trc><div class=trmov><div class=trmtop><b id=trmsym></b><span class=trmexch id=trmex></span></div><div class=trmpx><span class=num id=trmpx></span> <span class=num id=trmchg></span></div><div class=trqbs><button class="trqb sell" data-side=sell><b class=num id=trqsp>-</b>SELL</button><button class="trqb buy" data-side=buy><b class=num id=trqbp>-</b>BUY</button></div></div><div class=trlegend id=trleg></div><div class=trbub id=trbub hidden></div></div></div></div>
-    <div class=trside><div class=trptabs id=trptabs>${[['wl', 'Watchlist'], ['tk', 'Order'], ['acct', 'Account']].map(([k, l]) => `<button data-v=${k} class="${trSideP() == k ? 'on' : ''}">${l}</button>`).join('')}</div><div class=trwl id=trwl></div><div class="card pad trticket" id=trtk></div><div class="card pad" id=tracct></div><div class="card pad" id=tropp></div></div></div>
-   <div class=trrange>${RANGES.map(([k]) => `<button data-r=${k}>${k}</button>`).join('')}<span class=trmsp></span><span class=num id=trclock></span><button data-sc=2 title="Percent scale">%</button><button data-sc=1 title="Log scale">log</button><button data-sc=a title="Auto-fit the price scale" class=on>auto</button><span class=trpaper>Paper trading</span></div>
+    <div class=trside><div class=trptabs id=trptabs>${[['wl', 'Watchlist'], ['acct', 'Account']].map(([k, l]) => `<button data-v=${k} class="${trSideP() == k ? 'on' : ''}">${l}</button>`).join('')}</div><div class=trwl id=trwl></div><div class="card pad trticket" id=trtk></div><div class="card pad" id=tracct></div><div class="card pad" id=tropp></div></div></div>
+   <div class=trrange>${RANGES.map(([k]) => `<button data-r=${k}>${k}</button>`).join('')}<span class=trmsp></span><span class=num id=trclock></span><button data-x=1 title="Regular trading hours only (like TradingView) or extended hours with pre- and after-market" class="${TR.ext ? 'on' : ''}">${TR.ext ? 'ETH' : 'RTH'}</button><button data-sc=2 title="Percent scale">%</button><button data-sc=1 title="Log scale">log</button><button data-sc=a title="Auto-fit the price scale" class=on>auto</button><span class=trpaper>Paper trading</span></div>
    <div class="card trtabs"><div class=trdockh><div class=seg id=trtab>${[['pos', 'Positions'], ['ord', 'Orders'], ['fills', 'History']].map(([k, l], i) => `<button data-v=${k} class="${i ? '' : 'on'}">${l}</button>`).join('')}</div><div class=trsum id=trsum></div><button class="btn danger sm" id=trend>${ic('x', 13)} End trading day</button></div><div id=trtbl></div></div></div>
    <div class=trscrim id=trscrim></div><div class=trmbar><button class=trmsy id=trmS aria-label="Change symbol"><b id=trmsy></b></button><button class=trmtfb id=trmT aria-label="Change timeframe"><span id=trmtf></span></button><span class=trmsp></span><button id=trmD aria-label="Drawing tools"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><path d="M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20z"/><path d="M13.5 6.5l3 3"/></svg></button><button id=trmI aria-label="Timeframe and indicators"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx=16 cy=7 r=2 /><circle cx=10 cy=17 r=2 /></svg></button><button id=trmA aria-label="Account and positions"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><rect x=3 y=6 width=18 height=13 rx=3 /><path d="M16 12.5h2M3 9h18"/></svg></button></div>`;
   if (trPhone()) { $('.trwrap').prepend($('.trbar')); $('.trwrap').prepend($('.trhead')); $('.trside').append($('.trtabs')); } /* sheets must sit outside the chart card (its stacking context put them under the dimming layer) */ // phones: positions live in the account sheet
-  else { document.body.classList.add('term'); document.body.dataset.tt = trTT(); }
-  await trBotReg(); await trLib(); trBuild(); trWire(); trTicket(); trTermStart(); await trLoad(true); trStateLoad();
+  else { document.body.classList.add('term'); document.body.dataset.tt = trTT(); const tk = $('#trtk'); tk.className = 'trwin'; document.body.append(tk); }
+  trCustomReg(); await trBotReg(); await trLib(); trBuild(); trWire(); trTicket(); trTermStart(); await trLoad(true); trStateLoad();
   trT1 = setInterval(() => { if (!$('#trc')) return trStop(); trLoad(false); }, 15e3); trTick();
   trT2 = setInterval(() => { if (!$('#trc')) return trStop(); trStateLoad(); }, 4e3);
   addEventListener('themechange', trTheme);
@@ -90,11 +90,11 @@ function trWire() {
   q.onblur = () => setTimeout(() => { res.hidden = true; if (!q.value.trim()) q.value = TR.sym; }, 150);
   $$('.trwatch .chip').forEach(b => b.onclick = () => trSet(b.dataset.s));
   $('#trscrim').onclick = () => trSheet(null); $('#trmS').onclick = () => trSheet('sym'); $('#trmT').onclick = () => trSheet('tf'); $('#trmD').onclick = () => trSheet('tf'); $('#trmI').onclick = () => { trSheet(null); trPick('', 'All', null); }; $('#trmA').onclick = () => { trSheet('acct'); trStateLoad(); };
-  $$('.trqb').forEach(b => b.onclick = () => { TR.side = b.dataset.side; trTicket(); if (trPhone()) trSheet('tk'); else trSideSet('tk'); });
+  $$('.trqb').forEach(b => b.onclick = () => trOrderWin(b.dataset.side));
   $$('#trtf button').forEach(b => b.onclick = () => { trSheet(null); TR.tf = b.dataset.v; TR.rng = null; trFit = true; trRngUi(); trTabSet({ tf: TR.tf }); LS.set('mt:tf', TR.tf); $$('#trtf button').forEach(x => x.classList.toggle('on', x === b)); trLoad(true); });
   $('#trcs').onchange = e => { TR.cs = e.target.value; LS.set('mt:cs', TR.cs); trPaint(true); };
   $('#trtype').onchange = e => { TR.type = e.target.value; LS.set('mt:type3', TR.type); trPaint(true); };
-  $('#trindb').onclick = () => { trSheet(null); trPick('', 'All', null); };
+  $('#trindb').onclick = () => { trSheet(null); trPick('', 'All', null); }; $('#trautob').onclick = () => { trSheet(null); trAuto(); }; $('#trtradeb').onclick = () => trOrderWin(TR.side); $('#trrthb').onclick = () => $('.trrange [data-x]').click();
   $('#trh').onclick = () => trTool('hline');
   $('#trt').onclick = () => trTool('trend');
   $('#trclr').onclick = () => { LS.set('mt:draw:' + TR.sym, []); trChart?.setDrawings([]); toast('Drawings removed'); };
@@ -108,6 +108,7 @@ function trWire() {
   $('#trwallf').onchange = async e => { const f = e.target.files[0]; if (!f) return; const vid = /^video/.test(f.type); if (f.size > (vid ? 80 : 30) * 1048576) { toast(`Too big (max ${vid ? 80 : 30} MB)`); return; } try { await idbPut('twall', f); LS.set('mt:wall', { mime: f.type, at: Date.now() }); trWall(); toast('Terminal wallpaper set'); } catch (err) { toast('Could not save that file here'); } };
   $('#trshot').onclick = () => { const u = trShot(); if (!u) return; const a = document.createElement('a'); a.href = u; a.download = `${trData?.sym || 'chart'}-${TR.tf}.jpg`; a.click(); };
   $('#trfs').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.().catch(() => {});
+  $('.trrange [data-x]').onclick = e => { TR.ext = !TR.ext; LS.set('mt:ext', TR.ext); e.target.textContent = TR.ext ? 'ETH' : 'RTH'; e.target.classList.toggle('on', TR.ext); $('#trrthb').textContent = TR.ext ? 'ETH' : 'RTH'; toast(TR.ext ? 'Extended hours: pre- and after-market included' : 'Regular trading hours only'); trData = null; trLoad(true); trMini.forEach(m => { m.B = null; trMiniLoad(m); }); };
   $$('.trrange [data-sc]').forEach(b => b.onclick = () => { const k = b.dataset.sc, ps = trS.main?.priceScale(); if (!ps) return; if (k == 'a') { ps.applyOptions({ autoScale: true }); b.classList.add('on'); return; } const on = !b.classList.contains('on'); $$('.trrange [data-sc]').forEach(x => x.dataset.sc != 'a' && x.classList.remove('on')); b.classList.toggle('on', on); ps.applyOptions({ mode: on ? +k : 0 }); trVP(); });
   $$('#trtab button').forEach(b => b.onclick = () => { $$('#trtab button').forEach(x => x.classList.toggle('on', x === b)); trTable(); });
   $('#trend').onclick = async () => { if (!confirm('End the trading day? This cancels every open order and closes every position, yours and the Opposite Bot\'s, at the market.')) return; try { const r = await mtapi('endday', {}); toast(r.closed.length ? `Closed ${r.closed.length} position${r.closed.length > 1 ? 's' : ''}` : 'Nothing was open'); trStateLoad(); } catch (e) { toast(esc(e.message)); } };
@@ -124,7 +125,7 @@ async function trLoadSec(fresh) {
 function trAggTrades(tr, sec) { const m = new Map(); for (const [t, p, v] of tr) { const k = Math.floor(t / 1000 / sec) * sec, b = m.get(k); if (!b) m.set(k, { t: k + TZ(), o: p, h: p, l: p, c: p, v }); else { b.h = Math.max(b.h, p); b.l = Math.min(b.l, p); b.c = p; b.v += v; } } return [...m.values()].sort((a, b) => a.t - b.t); }
 async function trLoad(fresh) {
   if (SECT[TR.tf]) { if (fresh || !trData?.sec) return trLoadSec(fresh); return; } // second charts keep building from the live stream
-  const sym = TR.sym, tf = TR.tf; let d; try { d = await mtapi('candles', null, `&sym=${encodeURIComponent(sym)}&tf=${tf}`); } catch (e) { if (fresh) { $('#trname').textContent = e.message; toast(esc(e.message)); } return; }
+  const sym = TR.sym, tf = TR.tf; let d; try { d = await mtapi('candles', null, `&sym=${encodeURIComponent(sym)}&tf=${tf}&ext=${TR.ext ? 1 : 0}`); } catch (e) { if (fresh) { $('#trname').textContent = e.message; toast(esc(e.message)); } return; }
   if (sym !== TR.sym || tf !== TR.tf || !$('#trc')) return; const was = trData, sameSet = was && was.sym === d.sym && was.tf === tf && !fresh; TR.sym = d.sym; $('#trq').value = d.sym;
   trData = { ...d, B: d.bars.map(x => ({ t: x[0] + TZ(), o: x[1], h: x[2], l: x[3], c: x[4], v: x[5] })) };
   const last = trData.B[trData.B.length - 1]; if (last && d.price && /m$|h$/.test(tf) && /-USD$/.test(d.sym)) { last.c = d.price; last.h = Math.max(last.h, d.price); last.l = Math.min(last.l, d.price); }
@@ -132,12 +133,14 @@ async function trLoad(fresh) {
   trPaint(!sameSet); trTicketPrice();
 }
 function trBars() { const B = trData.B; if (TR.type != 'ha') return B; const o = []; B.forEach((b, i) => { const c = (b.o + b.h + b.l + b.c) / 4, op = i ? (o[i - 1].o + o[i - 1].c) / 2 : (b.o + b.c) / 2; o.push({ t: b.t, o: op, c, h: Math.max(b.h, op, c), l: Math.min(b.l, op, c), v: b.v }); }); return o; }
+function trSecOpts() { trChart?.applyOptions({ minRange: SECT[TR.tf] ? .0025 : 0, timeScale: { secondsVisible: !!SECT[TR.tf] } }); }
 function trView() { // what part of the history is on screen: a picked range (1D, 5D ...) or the newest bars filling the width
   if (!trChart || !trData) return; const B = trData.B, n = B.length, ts = trChart.timeScale(); if (!n) return;
   if (TR.rng != null) { const last = B[n - 1].t, r = TR.rng, from = r === 0 ? B[0].t : r == 'ytd' ? Date.UTC(new Date().getFullYear(), 0, 1) / 1000 : last - r * 86400; let i = B.findIndex(b => b.t >= from); if (i < 0) i = 0; ts.setVisibleLogicalRange({ from: i - .5, to: n + 3 }); return; }
   const w = $('#trc')?.clientWidth || 800, vis = Math.max(40, Math.min(trPhone() ? 70 : 220, Math.round(w / 8))); if (n > vis || trData.sec) ts.setVisibleLogicalRange({ from: n - vis, to: n + Math.max(3, Math.round(vis * .04)) }); else ts.fitContent(); }
 function trPaint(rebuild) {
   if (!trChart || !trData) return; const B = trBars(), dark = trDark(), mono = TR.cs == 'mono', { up, dn, edge = null } = trCol(), ac = trCss('--accent'), acr = trCss('--accent-rgb'), C = B.map(b => b.c), T = B.map(b => b.t), pal = indPalette();
+  if (rebuild) trSecOpts();
   if (rebuild) { for (const s of Object.values(trS)) try { trChart.removeSeries(s); } catch (e) {} trS = {}; trLines = []; }
   const col = c => c === 'up' ? up : c === 'down' ? dn : typeof c === 'number' ? pal[c] : c || pal[8];
   const ser = a => a.map((v, i) => v == null || !isFinite(v) ? { time: T[i] } : { time: T[i], value: v });
@@ -151,10 +154,14 @@ function trPaint(rebuild) {
   trS.main.setData(/smooth|line|base/.test(TR.type) ? B.map(b => ({ time: b.t, value: b.c })) : B.map(b => ({ time: b.t, open: b.o, high: b.h, low: b.l, close: b.c })));
   trMain = trS.main;
   // indicators: overlays on the price, oscillators in panes stacked from the bottom
-  const act = TR.ind.filter(k => IND[k] && k != 'vp' && !IND[k].bot), panes = act.filter(k => IND[k].pane), PH = panes.length > 2 ? .15 : .18, mainBottom = panes.length * PH, hasVol = act.includes('vol');
+  const act = TR.ind.filter(k => IND[k] && k != 'vp' && !IND[k].bot && !IND[k].custom), panes = act.filter(k => IND[k].pane), cpn = TR.ind.filter(k => IND[k]?.custom && IND[k].pane).length, PH = trPH = panes.length + cpn > 2 ? .15 : .18, mainBottom = (panes.length + cpn) * PH, hasVol = act.includes('vol');
   trS.main.priceScale().applyOptions({ scaleMargins: { top: .1, bottom: Math.min(.72, mainBottom + (hasVol ? .13 : .06)) } }); trOut = {};
   for (const k of act) { const D = IND[k], P = trPrm(k), outs = D.run(B, C, P, { tf: TR.tf }), pi = panes.indexOf(k), scale = D.vol ? 'vol' : pi >= 0 ? 'p_' + k : 'right', top = pi >= 0 ? 1 - PH * (pi + 1) + .03 : D.vol ? 1 - mainBottom - .12 : null, bottom = pi >= 0 ? PH * pi + .015 : D.vol ? mainBottom + .005 : null; trOut[k] = outs;
     const firstLine = outs.find(x => !x.hist);
+    if (!trS[k + ':fill'] && (k == 'st' || outs.some(o => o.fill))) trS[k + ':fill'] = trChart.addFillSeries({ priceScaleId: scale }); // TradingView-style shading (Supertrend to the candle bodies, between the Bollinger bands)
+    if (trS[k + ':fill']) { const F = trS[k + ':fill'], mid = i => (B[i].o + B[i].c) / 2;
+      if (k == 'st') { const u = outs.find(o => o.id == 'u').v, d = outs.find(o => o.id == 'd').v; F.setData(T.map((t, i) => u[i] != null ? { time: t, a: u[i], b: mid(i), color: 'rgba(38,166,154,.13)' } : d[i] != null ? { time: t, a: d[i], b: mid(i), color: 'rgba(239,83,80,.13)' } : { time: t })); }
+      else { const o1 = outs.find(o => o.fill), o2 = outs.find(o => o.id == o1.fill); F.setData(T.map((t, i) => ({ time: t, a: o1.v[i], b: o2?.v[i], color: col(o1.c) + '18' }))); } }
     for (const o of outs) { const id = k + ':' + o.id; let s = trS[id];
       if (!s) { s = trS[id] = o.hist ? trChart.addHistogramSeries({ priceScaleId: scale, priceLineVisible: false, lastValueVisible: false, priceFormat: D.vol ? { type: 'volume' } : undefined })
         : trChart.addLineSeries({ priceScaleId: scale, color: col(o.c), lineWidth: o.w || 1.5, lineStyle: o.dash || 0, lineVisible: !o.dots, pointMarkersVisible: !!o.dots, pointMarkersRadius: 1.6, priceLineVisible: false, lastValueVisible: pi >= 0 && o === firstLine, crosshairMarkerVisible: false });
@@ -163,13 +170,13 @@ function trPaint(rebuild) {
       s.setData(o.hist ? o.v.map((v, i) => v == null || !isFinite(v) ? { time: T[i] } : { time: T[i], value: v, color: (mono && o.cs ? (o.cs[i] == 'up' ? (dark ? '#ffffff' : '#121214') : '#8e8e93') : col(o.cs?.[i] || o.c)) + (D.vol ? '55' : 'aa') }) : ser(o.v)); } }
   // drawings
   if (rebuild) trChart.setDrawings(trDrawGet(TR.sym));
-  trOrderLines(); if (rebuild) trView(); trVP(); trBots(rebuild); trLegend(); if ($('#trindn')) $('#trindn').textContent = act.length;
+  trOrderLines(); if (rebuild) trView(); trVP(); trBots(rebuild); trCustomRun(rebuild); trLegend(); if ($('#trindn')) $('#trindn').textContent = act.length;
 }
 let trOut = {};
 const trPrm = k => { const P = {}; for (const [n, , d] of IND[k].p) P[n] = TR.prm[k]?.[n] ?? d; return P; };
 const trIndName = k => { const D = IND[k], P = trPrm(k); if (!D.p.length) return D.n; if (/ \d+$/.test(D.n)) return D.n.replace(/\d+$/, P.n); return `${D.n} ${D.p.map(([n]) => P[n]).join(', ')}`; };
 const DOT = { sma20: 1, sma50: 6, sma200: 7, ema9: 2, ema21: 4, wma: 6, hma: 4, dema: 7, tema: 6, vwma: 3, lsma: 5, ribbon: 1, vwap: 6, bb: 8, kc: 5, dc: 4, env: 7, st: 'up', psar: 6, ichi: 1, piv: 8, vol: 8, rsi: 4, srsi: 1, macd: 1, stoch: 2, cci: 6, willr: 7, roc: 3, ao: 'up', trix: 5, adx: 1, aroon: 'up', obv: 7, mfi: 3, cmf: 'up', atr: 5, stdev: 8, bbw: 6 };
-const trDot = k => { if (IND[k]?.bot) return IND[k].col; const c = DOT[k]; return c === 'up' ? trCss('--up') : indPalette()[c ?? 8]; };
+const trDot = k => { if (IND[k]?.bot || IND[k]?.custom) return IND[k].col; const c = DOT[k]; return c === 'up' ? trCss('--up') : indPalette()[c ?? 8]; };
 function trBubble(p) { // the pill price bubble that follows the crosshair (like the reference shots)
   const el = $('#trbub'); if (!el || !trS.main) return; if (!p || !p.point || p.time == null) { el.hidden = true; return; } const d = p.seriesData?.get(trS.main), v = d ? (d.value ?? d.close) : null; if (v == null) { el.hidden = true; return; }
   const y = trS.main.priceToCoordinate(v); if (y == null) { el.hidden = true; return; } el.textContent = trN(v); el.hidden = false; const w = el.offsetWidth, W = $('#trc').clientWidth - 70;
@@ -183,12 +190,16 @@ function trPick(q = '', grp = 'All', mi = trPickM) { trPickM = mi; const tgt = m
     <input class=inp id=trpq placeholder="Search ${Object.keys(IND).length} indicators" value="${esc(q)}" autocomplete=off>
     <div class="seg chips trpg">${['All', ...INDGROUPS.filter(g => !tgt || g != 'Bots')].map(g => `<button data-g="${g}" class="${g == grp ? 'on' : ''}">${g}</button>`).join('')}</div>
     ${on.length && !q && grp == 'All' ? `<div class=trph>On the chart · ${on.length}</div><div class=trpon>${on.map(k => `<div class=trpo><div class=trpoh><span class=trpdot style="background:${trDot(k)}"></span><b>${esc(trIndName(k))}</b><button class=trprm data-k=${k} aria-label="Remove">${ic('x', 12)}</button></div>${IND[k].p.length ? `<div class=trpp>${IND[k].p.map(([n, l, d, mn, mx, st]) => `<label><span>${l}</span><input class=inp type=number inputmode=decimal data-k=${k} data-n=${n} min=${mn} max=${mx} step=${st} value=${trPrm(k)[n]}></label>`).join('')}</div>` : ''}</div>`).join('')}</div>` : ''}
-    <div class=trph>${grp == 'All' && !q ? 'All indicators' : items.length + ' found'}</div><div class=trplist>${items.map(([k, d]) => `<button class="trpi ${cur.includes(k) ? 'on' : ''}" data-k=${k}><span class=trpdot style="background:${trDot(k)}"></span><span class=trpt><b>${esc(d.n)}</b><span>${esc(d.d)}</span></span><span class=trpg2>${d.bot ? 'bot signals' : d.pane ? 'own pane' : d.vol ? 'bottom' : 'on price'}</span><span class="trsw sm ${cur.includes(k) ? 'on' : ''}"><i></i></span></button>`).join('') || '<div class=empty style="padding:20px">Nothing matches.</div>'}</div></div>`;
+    ${grp == 'Custom' && !tgt ? `<div class=trcimp><button class="btn sm pri" id=trcimp>Import indicator file…</button><button class="btn sm" id=trcpaste>Paste code…</button><button class="btn sm" id=trctpl>Download template</button><input type=file id=trcfile accept=".js,.txt" hidden><div class=mut>Your own indicator as a small JavaScript file. It runs sandboxed in a background worker: it only sees the candles, nothing else.</div></div>` : ''}<div class=trph>${grp == 'All' && !q ? 'All indicators' : items.length + ' found'}</div><div class=trplist>${items.map(([k, d]) => `<button class="trpi ${cur.includes(k) ? 'on' : ''}" data-k=${k}><span class=trpdot style="background:${trDot(k)}"></span><span class=trpt><b>${esc(d.n)}</b><span>${esc(d.d)}</span></span>${d.custom ? `<span class=trcdel data-del=${k} title="Delete this indicator">${ic('x', 11)}</span>` : ''}<span class=trpg2>${d.custom ? 'yours' : d.bot ? 'bot signals' : d.pane ? 'own pane' : d.vol ? 'bottom' : 'on price'}</span><span class="trsw sm ${cur.includes(k) ? 'on' : ''}"><i></i></span></button>`).join('') || '<div class=empty style="padding:20px">Nothing matches.</div>'}</div></div>`;
   const close = () => { el.classList.add('out'); setTimeout(() => el.remove(), 200); trPickM = null; }, save = () => { if (tgt) { trMiniSave(); trMiniPaint(tgt); return; } LS.set('mt:ind2', TR.ind); LS.set('mt:prm', TR.prm); trPaint(true); };
   el.querySelector('.trpbg').onclick = close; $('#trpclose').onclick = close;
   const qi = $('#trpq'); qi.oninput = () => { const pos = qi.selectionStart; trPick(qi.value, grp); const n = $('#trpq'); n.focus(); n.setSelectionRange(pos, pos); };
   el.querySelectorAll('.trpg button').forEach(b => b.onclick = () => trPick(q, b.dataset.g));
-  el.querySelectorAll('.trpi').forEach(b => b.onclick = () => { const k = b.dataset.k, nx = cur.includes(k) ? cur.filter(x => x != k) : [...cur, k]; if (tgt) tgt.ind = nx; else TR.ind = nx; save(); trPick(q, grp); });
+  if ($('#trcimp')) { $('#trcimp').onclick = () => $('#trcfile').click(); $('#trcfile').onchange = async e => { const f = e.target.files[0]; if (f) { trCustomAdd(await f.text(), f.name); trPick(q, 'Custom'); } };
+    $('#trcpaste').onclick = () => { const c = prompt('Paste your indicator code (see the template for the format):'); if (c) { trCustomAdd(c, 'pasted'); trPick(q, 'Custom'); } };
+    $('#trctpl').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([CUSTOM_TPL], { type: 'text/javascript' })); a.download = 'my-indicator.js'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }; }
+  el.querySelectorAll('.trcdel').forEach(b => b.onclick = e => { e.stopPropagation(); if (!confirm('Delete this indicator?')) return; const k = b.dataset.del; LS.set('mt:custom', LS.get('mt:custom', []).filter(x => 'c_' + x.id != k)); delete IND[k]; TR.ind = TR.ind.filter(x => x != k); LS.set('mt:ind2', TR.ind); trPaint(true); trPick(q, grp); });
+  el.querySelectorAll('.trpi').forEach(b => b.onclick = e => { if (e.target.closest('.trcdel')) return; const k = b.dataset.k, nx = cur.includes(k) ? cur.filter(x => x != k) : [...cur, k]; if (tgt) tgt.ind = nx; else TR.ind = nx; save(); trPick(q, grp); });
   el.querySelectorAll('.trprm').forEach(b => b.onclick = () => { TR.ind = TR.ind.filter(x => x != b.dataset.k); save(); trPick(q, grp); });
   el.querySelectorAll('.trpp input').forEach(i => i.onchange = () => { const k = i.dataset.k, v = Math.min(+i.max, Math.max(+i.min, +i.value)); if (!isFinite(v)) return; TR.prm[k] = { ...(TR.prm[k] || {}), [i.dataset.n]: v }; save(); trPick(q, grp); });
 }
@@ -210,23 +221,43 @@ function trClick(p) {
 
 /* ---------- order ticket, account, the Opposite Bot ---------- */
 const trCrypto = () => /-USD$/.test(TR.sym), trFut = () => /=F$/.test(TR.sym);
-function trTicket() {
-  const el = $('#trtk'); if (!el) return; const q = LS.get('mt:qty:' + (trCrypto() ? 'c' : trFut() ? 'f' : 's'), trCrypto() ? .01 : 1), quick = trCrypto() ? [.001, .01, .1, 1] : trFut() ? [1, 2, 5, 10] : [1, 10, 50, 100];
-  el.innerHTML = `<div class=trsides><button class="trbs buy ${TR.side == 'buy' ? 'on' : ''}" data-v=buy>Buy</button><button class="trbs sell ${TR.side == 'sell' ? 'on' : ''}" data-v=sell>Sell</button></div>
-   <div class=seg id=trkind style="margin-top:14px;width:100%">${[['market', 'Market'], ['limit', 'Limit'], ['stop', 'Stop']].map(([k, l]) => `<button data-v=${k} class="${TR.kind == k ? 'on' : ''}" style="flex:1">${l}</button>`).join('')}</div>
-   <label class=trf>Quantity <span class=mut>${trCrypto() ? 'coins' : trFut() ? 'contracts' : 'shares'}</span><input class=inp id=trqty type=number min=0 step=${trCrypto() ? 'any' : 1} value=${q}></label>
-   <div class=trquick>${quick.map(x => `<button class="btn sm" data-q=${x}>${x}</button>`).join('')}</div>
-   <label class=trf ${TR.kind == 'market' ? 'hidden' : ''}>${TR.kind == 'limit' ? 'Limit' : 'Stop'} price <span class=mut>or click the chart</span><input class=inp id=trpxin type=number step=any></label>
-   <div class=g2x><label class=trf>Stop-loss <span class=mut>optional</span><input class=inp id=trsl type=number step=any placeholder="-"></label><label class=trf>Take-profit <span class=mut>optional</span><input class=inp id=trtp type=number step=any placeholder="-"></label></div>
-   <div class=trest id=trest></div><button class="btn trgo ${TR.side}" id=trgo>${TR.side == 'buy' ? 'Buy' : 'Sell'} ${esc(TR.sym)}</button><div class=mut style="font-size:11.5px;margin-top:8px;text-align:center">Paper money. Nothing real is traded.</div>`;
-  $$('.trbs').forEach(b => b.onclick = () => { TR.side = b.dataset.v; trTicket(); }); $$('#trkind button').forEach(b => b.onclick = () => { TR.kind = b.dataset.v; trTicket(); trTicketPrice(); });
-  $$('.trquick button').forEach(b => b.onclick = () => { $('#trqty').value = b.dataset.q; trEst(); }); ['#trqty', '#trpxin', '#trsl', '#trtp'].forEach(s => $(s) && ($(s).oninput = trEst));
-  $('#trgo').onclick = async () => { const go = $('#trgo'), qty = +$('#trqty').value; LS.set('mt:qty:' + (trCrypto() ? 'c' : trFut() ? 'f' : 's'), qty); go.disabled = true;
-    try { const r = await mtapi('order', { sym: TR.sym, side: TR.side, kind: TR.kind, qty, px: +($('#trpxin')?.value || 0), sl: +$('#trsl').value || null, tp: +$('#trtp').value || null }); toast(r.filled ? `${TR.side == 'buy' ? 'Bought' : 'Sold'} ${qty} ${esc(TR.sym)} at ${trN(r.filled)}` : `${TR.kind} order placed`); $('#trsl').value = ''; $('#trtp').value = ''; trSheet(null); trStateLoad(); }
+const trTickSz = () => trFut() ? (trData?.spec?.tick || .25) : trCrypto() ? .01 : .01;
+function trTicket() { // the order window: TradingView-style (floating on desktop, a sheet on phones)
+  const el = $('#trtk'); if (!el) return; const qk = 'mt:qty:' + (trCrypto() ? 'c' : trFut() ? 'f' : 's'), q = LS.get(qk, trCrypto() ? .01 : 1), unit = trCrypto() ? 'coins' : trFut() ? 'contracts' : 'shares', px = trData ? trData.B[trData.B.length - 1].c : null, buy = TR.side == 'buy';
+  const sw = (id, on) => `<button class="trsw sm2 ${on ? 'on' : ''}" id=${id} role=switch aria-checked=${on}><i></i></button>`, tpOn = LS.get('mt:tpon', false), slOn = LS.get('mt:slon', false);
+  el.innerHTML = `<div class=twh id=twh><b>${esc(TR.sym)}</b><span class=twn>${esc(trData?.name || '')}</span><button class=twx id=twx aria-label="Close">${ic('x', 15)}</button></div>
+   <div class=twsides><button class="tws sell ${buy ? '' : 'on'}" data-v=sell><span>Sell</span><b class=num id=twsp>${trN(px)}</b></button><i class=twspr title="Paper fills include a small simulated slippage">${trN(trTickSz(), trTickSz() < 1 ? 2 : 0)}</i><button class="tws buy ${buy ? 'on' : ''}" data-v=buy><span>Buy</span><b class=num id=twbp>${trN(px)}</b></button></div>
+   <div class=twkinds id=trkind>${[['market', 'Market'], ['limit', 'Limit'], ['stop', 'Stop']].map(([k, l]) => `<button data-v=${k} class="${TR.kind == k ? 'on' : ''}">${l}</button>`).join('')}<i style="--k:${['market', 'limit', 'stop'].indexOf(TR.kind)}"></i></div>
+   <div class=twrow ${TR.kind == 'market' ? 'hidden' : ''}><span class=twl>${TR.kind == 'limit' ? 'Limit' : 'Stop'} price <i>or click the chart</i></span><div class=twin><input id=trpxin type=number step=any inputmode=decimal></div></div>
+   <div class=twrow><span class=twl>Quantity</span><div class=twin><input id=trqty type=number min=0 step=${trCrypto() ? 'any' : 1} inputmode=decimal value=${q}><span>${unit}</span></div><div class=twq>${(trCrypto() ? [.001, .01, .1, 1] : trFut() ? [1, 2, 5, 10] : [1, 10, 50, 100]).map(x => `<button data-q=${x}>${x}</button>`).join('')}</div></div>
+   <div class=twrow><span class=twl>Tick value</span><b class=num>${trN(trTickSz() * (trData?.spec?.mult || 1), 2)} USD</b></div>
+   <div class=twsec>Exits</div>
+   <div class=twex><span class=twl>Take profit price</span>${sw('twtpon', tpOn)}</div><div class="twin ${tpOn ? '' : 'off'}"><input id=trtp type=number step=any inputmode=decimal ${tpOn ? '' : 'disabled'}><span id=twtpt></span></div>
+   <div class=twex><span class=twl>Stop loss price</span>${sw('twslon', slOn)}</div><div class="twin ${slOn ? '' : 'off'}"><input id=trsl type=number step=any inputmode=decimal ${slOn ? '' : 'disabled'}><span id=twslt></span></div>
+   <div class=trest id=trest></div>
+   <button class="twgo ${TR.side}" id=trgo><b>${buy ? 'Buy' : 'Sell'}</b><span id=twgol></span></button><div class=twfoot>Paper money. Nothing real is traded.</div>`;
+  const tick = trTickSz(), last = () => trData ? trData.B[trData.B.length - 1].c : 0, d = () => buy ? 1 : -1, round = v => +(Math.round(v / tick) * tick).toFixed(tick < 1 ? 4 : 2);
+  const setEx = (id, on) => { const inp = $('#' + (id == 'twtpon' ? 'trtp' : 'trsl')); inp.disabled = !on; inp.parentElement.classList.toggle('off', !on); if (on && !inp.value) { const base = TR.kind == 'market' ? last() : +$('#trpxin')?.value || last(); inp.value = round(id == 'twtpon' ? base * (1 + d() * .01) : base * (1 - d() * .005)); } if (!on) inp.value = ''; trEst(); };
+  $$('#trtk .tws').forEach(b => b.onclick = () => { TR.side = b.dataset.v; trTicket(); }); $$('#trkind button').forEach(b => b.onclick = () => { TR.kind = b.dataset.v; trTicket(); trTicketPrice(); });
+  $$('.twq button').forEach(b => b.onclick = () => { $('#trqty').value = b.dataset.q; trEst(); }); ['#trqty', '#trpxin', '#trsl', '#trtp'].forEach(s2 => $(s2) && ($(s2).oninput = trEst));
+  for (const id of ['twtpon', 'twslon']) $('#' + id).onclick = e => { const on = !e.currentTarget.classList.contains('on'); e.currentTarget.classList.toggle('on', on); LS.set(id == 'twtpon' ? 'mt:tpon' : 'mt:slon', on); setEx(id, on); };
+  if (tpOn) setEx('twtpon', true); if (slOn) setEx('twslon', true);
+  $('#twx').onclick = () => trOrderWin(false);
+  $('#trgo').onclick = async () => { const go = $('#trgo'), qty = +$('#trqty').value; LS.set(qk, qty); go.disabled = true;
+    try { const r = await mtapi('order', { sym: TR.sym, side: TR.side, kind: TR.kind, qty, px: +($('#trpxin')?.value || 0), sl: +$('#trsl').value || null, tp: +$('#trtp').value || null }); toast(r.filled ? `${TR.side == 'buy' ? 'Bought' : 'Sold'} ${qty} ${esc(TR.sym)} at ${trN(r.filled)}` : `${TR.kind} order placed`); trSheet(null); trStateLoad(); }
     catch (e) { toast(esc(e.message)); } finally { go.disabled = false; } };
   trTicketPrice(); }
+function trOrderWin(side) { // open (with a side) or close the floating order window
+  const el = $('#trtk'); if (!el) return; if (side === false) { if (trPhone()) trSheet(null); el.classList.remove('open'); return; }
+  if (side) TR.side = side; trTicket(); if (trPhone()) { trSheet('tk'); return; }
+  el.classList.add('open'); const pos = LS.get('mt:twpos', null), W = el.offsetWidth, H = el.offsetHeight; let x = pos?.x ?? (innerWidth - W) / 2, y = pos?.y ?? Math.max(60, (innerHeight - H) / 2);
+  x = Math.max(8, Math.min(innerWidth - W - 8, x)); y = Math.max(8, Math.min(innerHeight - 60, y)); el.style.left = x + 'px'; el.style.top = y + 'px';
+  const h = $('#twh'); h.onpointerdown = e => { if (e.target.closest('button')) return; h.setPointerCapture(e.pointerId); const ox = e.clientX - el.offsetLeft, oy = e.clientY - el.offsetTop; // the window follows the pointer from where you grabbed it
+    h.onpointermove = ev => { el.style.left = Math.max(0, Math.min(innerWidth - 80, ev.clientX - ox)) + 'px'; el.style.top = Math.max(0, Math.min(innerHeight - 40, ev.clientY - oy)) + 'px'; };
+    h.onpointerup = () => { h.onpointermove = null; LS.set('mt:twpos', { x: el.offsetLeft, y: el.offsetTop }); }; }; }
 function trTicketPrice() { const f = $('#trpxin'); if (f && !f.value && trData) f.value = +trData.B[trData.B.length - 1].c.toPrecision(7); trEst(); }
-function trEst() { const el = $('#trest'); if (!el || !trData) return; const qty = +$('#trqty')?.value || 0, px = TR.kind == 'market' ? trData.B[trData.B.length - 1].c : +$('#trpxin')?.value || 0, m = trData.spec?.mult || 1, sl = +$('#trsl')?.value, tp = +$('#trtp')?.value, d = TR.side == 'buy' ? 1 : -1;
+function trEst() { const el = $('#trest'); if (!el || !trData) return; { const lp = trData.B[trData.B.length - 1].c, t = trN(lp); if ($('#twsp')) { $('#twsp').textContent = t; $('#twbp').textContent = t; } const q2 = +$('#trqty')?.value || 0, gl = $('#twgol'); if (gl) gl.textContent = `${q2} ${TR.sym.replace('-USD', '').replace('=F', '')} ${TR.kind.toUpperCase()}${TR.kind != 'market' && $('#trpxin')?.value ? ' @ ' + trN(+$('#trpxin').value) : ''}`;
+    for (const [inp, out] of [['#trtp', '#twtpt'], ['#trsl', '#twslt']]) { const v = +$(inp)?.value, o2 = $(out); if (o2) o2.textContent = v ? Math.round(Math.abs(v - (TR.kind == 'market' ? lp : +$('#trpxin')?.value || lp)) / trTickSz()) + ' ticks' : ''; } } const qty = +$('#trqty')?.value || 0, px = TR.kind == 'market' ? trData.B[trData.B.length - 1].c : +$('#trpxin')?.value || 0, m = trData.spec?.mult || 1, sl = +$('#trsl')?.value, tp = +$('#trtp')?.value, d = TR.side == 'buy' ? 1 : -1;
   el.innerHTML = `<div class="row sb"><span class=mut>${trFut() ? 'Contract value' : 'Cost'}</span><b class=num>${trM(qty * px * m)}</b></div>${sl ? `<div class="row sb"><span class=mut>Risk to stop</span><b class="num down">${trM(Math.abs(px - sl) * qty * m)}</b></div>` : ''}${tp ? `<div class="row sb"><span class=mut>Reward to target</span><b class="num up">${trM(Math.abs(tp - px) * qty * m)}</b></div>` : ''}${sl && tp ? `<div class="row sb"><span class=mut>Reward : risk</span><b class=num>${(Math.abs(tp - px) / Math.abs(px - sl)).toFixed(2)}</b></div>` : ''}`; }
 async function trStateLoad() { try { trState = await mtapi('state'); } catch (e) { return; } if (!$('#tracct')) return; trAcct(); trTable(); trOrderLines(); }
 function trAcct() { const me = trState.me, op = trState.opp, pm = me.equity - me.start, po = op.equity - op.start;
@@ -314,27 +345,27 @@ const trMiniCfg = () => LS.get('mt:mini2', [{ sym: 'AAPL', tf: '1h', type: 'cand
 function trMiniKill() { for (const m of trMini) { clearInterval(m.t); try { m.chart.remove(); } catch (e) {} } trMini = []; $$('.trmini').forEach(x => x.remove()); }
 const trLink = () => LS.get('mt:link', false); // every chart shows the main symbol (each keeps its own timeframe and indicators)
 const PBTN = (k, t, d) => `<button data-a=${k} title="${t}" aria-label="${t}"><svg width=15 height=15 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.8 stroke-linecap=round stroke-linejoin=round>${d}</svg></button>`;
-const PB_IND = PBTN('ind', 'Indicators on this chart', '<path d="M3 17l5-6 4 4 8-9"/>'), PB_TF = (tf) => `<select data-a=tf title="Timeframe of this chart">${TFS.filter(x => !SECT[x[0]]).map(([k, l]) => `<option value=${k} ${k == tf ? 'selected' : ''}>${l}</option>`).join('')}</select>`,
+const PB_AUTO = `<button data-a=auto class=trauto title="Auto: detect the market type and pick the best indicators">Auto</button>`, PB_IND = PBTN('ind', 'Indicators on this chart', '<path d="M3 17l5-6 4 4 8-9"/>'), PB_TF = (tf) => `<select data-a=tf title="Timeframe of this chart">${TFS.filter(x => !SECT[x[0]]).map(([k, l]) => `<option value=${k} ${k == tf ? 'selected' : ''}>${l}</option>`).join('')}</select>`,
   PB_TYPE = t => `<select data-a=type title="Chart style">${[['candle', 'Candles'], ['line', 'Line']].map(([k, l]) => `<option value=${k} ${k == t ? 'selected' : ''}>${l}</option>`).join('')}</select>`,
   PB_MAX = PBTN('max', 'Maximize this chart (double-click the chart works too)', '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>');
 function trMiniSave() { LS.set('mt:mini2', trMini.length ? Object.assign(trMiniCfg(), Object.fromEntries(trMini.map(m => [m.i, { sym: m.sym, tf: m.tf, type: m.type, ind: m.ind }]))) : trMiniCfg()); }
 function trFocus(k) { const host = $('#trpanes'); if (!host) return; if (k == null || host.dataset.focus == String(k)) delete host.dataset.focus; else host.dataset.focus = k; $$('.trpbtns [data-a=max]').forEach(b => b.classList.toggle('on', host.dataset.focus != null)); }
 function trPanes() { // 1, 2 or 4 charts: the first is the full chart, the others are compact ones with their own timeframe, style and indicators
   trMiniKill(); const host = $('#trpanes'); if (!host || !window.MimicCharts) return; $('#trc').dataset.i = 0; const n = trLayN(); host.dataset.n = n; delete host.dataset.focus; host.classList.toggle('linked', trLink()); const cfg = trMiniCfg();
-  let mb = $('#trc .trpbtns'); if (!mb) { mb = document.createElement('div'); mb.className = 'trpbtns'; $('#trc').append(mb); } mb.innerHTML = PB_MAX; mb.querySelector('[data-a=max]').onclick = () => trFocus(0); $('#trc').ondblclick = e => { if (!trChart?.getTool() && !e.target.closest('button,select')) trFocus(0); };
+  let mb = $('#trc .trpbtns'); if (!mb) { mb = document.createElement('div'); mb.className = 'trpbtns'; $('#trc').append(mb); } mb.innerHTML = PB_AUTO + PB_IND + PB_MAX; mb.querySelector('[data-a=max]').onclick = () => trFocus(0); mb.querySelector('[data-a=ind]').onclick = () => { trSheet(null); trPick('', 'All', null); }; mb.querySelector('[data-a=auto]').onclick = () => trAuto(); $('#trc').ondblclick = e => { if (!trChart?.getTool() && !e.target.closest('button,select')) trFocus(0); };
   for (let i = 0; i < n - 1; i++) { const c = cfg[i] || { sym: 'SPY', tf: '1h', type: 'candle', ind: [] }, el = document.createElement('div'); el.className = 'trmini'; el.dataset.i = i + 1; host.append(el);
     const m = { i, sym: c.sym, tf: c.tf, type: c.type || 'candle', ind: c.ind || [], el, chart: MimicCharts.createChart(el, trOpts()), B: null, is: [] };
-    el.insertAdjacentHTML('beforeend', `<div class=trmleg></div><div class=trpbtns>${PB_TF(m.tf)}${PB_TYPE(m.type)}${PB_IND}${PB_MAX}</div>`);
+    el.insertAdjacentHTML('beforeend', `<div class=trmleg></div><div class=trpbtns>${PB_TF(m.tf)}${PB_TYPE(m.type)}${PB_AUTO}${PB_IND}${PB_MAX}</div>`);
     m.s = m.type == 'line' ? m.chart.addLineSeries({ color: '#2962ff', lineWidth: 2, priceLineStyle: 2 }) : m.chart.addCandlestickSeries({ priceLineStyle: 2 });
     m.v = m.chart.addHistogramSeries({ priceScaleId: 'v', priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false }); m.v.priceScale().applyOptions({ scaleMargins: { top: .84, bottom: 0 } });
     m.chart.subscribeCrosshairMove(p => trMiniLeg(m, p)); m.el.querySelector('.trmleg').onclick = () => trMiniSwap(m);
     el.ondblclick = e => { if (!e.target.closest('button,select')) trFocus(i + 1); };
-    el.querySelector('[data-a=max]').onclick = () => trFocus(i + 1); el.querySelector('[data-a=ind]').onclick = () => { trSheet(null); trPick('', 'All', i); };
+    el.querySelector('[data-a=max]').onclick = () => trFocus(i + 1); el.querySelector('[data-a=ind]').onclick = () => { trSheet(null); trPick('', 'All', i); }; el.querySelector('[data-a=auto]').onclick = () => trAuto(m);
     el.querySelector('[data-a=tf]').onchange = e => { m.tf = e.target.value; m.B = null; trMiniSave(); trMiniLoad(m); };
     el.querySelector('[data-a=type]').onchange = e => { m.type = e.target.value; trMiniSave(); trPanes(); };
     trMini.push(m); trMiniLoad(m); m.t = setInterval(() => $('#trc') ? trMiniLoad(m) : clearInterval(m.t), 15e3); } }
 const trMiniSym = m => trLink() ? TR.sym : m.sym;
-async function trMiniLoad(m) { const sym = trMiniSym(m), tf = m.tf; try { const d = await mtapi('candles', null, `&sym=${encodeURIComponent(sym)}&tf=${tf}`); if (!trMini.includes(m) || sym !== trMiniSym(m) || tf !== m.tf) return; m.d = d; const first = !m.B; m.B = d.bars.map(x => ({ t: x[0] + TZ(), o: x[1], h: x[2], l: x[3], c: x[4], v: x[5] })); trMiniPaint(m); if (first) { const n = m.B.length, vis = Math.min(n, Math.round(m.el.clientWidth / 7)); m.chart.timeScale().setVisibleLogicalRange({ from: n - vis, to: n + 3 }); } } catch (e) { m.el.querySelector('.trmleg').textContent = sym + ': ' + e.message; } }
+async function trMiniLoad(m) { const sym = trMiniSym(m), tf = m.tf; try { const d = await mtapi('candles', null, `&sym=${encodeURIComponent(sym)}&tf=${tf}&ext=${TR.ext ? 1 : 0}`); if (!trMini.includes(m) || sym !== trMiniSym(m) || tf !== m.tf) return; m.d = d; const first = !m.B; m.B = d.bars.map(x => ({ t: x[0] + TZ(), o: x[1], h: x[2], l: x[3], c: x[4], v: x[5] })); trMiniPaint(m); if (first) { const n = m.B.length, vis = Math.min(n, Math.round(m.el.clientWidth / 7)); m.chart.timeScale().setVisibleLogicalRange({ from: n - vis, to: n + 3 }); } } catch (e) { m.el.querySelector('.trmleg').textContent = sym + ': ' + e.message; } }
 function trMiniPaint(m) { if (!m.B) return; const { up, dn, edge } = trCol(), pal = indPalette(), C = m.B.map(b => b.c), T = m.B.map(b => b.t);
   if (m.type == 'line') m.s.setData(m.B.map(b => ({ time: b.t, value: b.c }))); else { m.s.applyOptions({ upColor: up, downColor: dn, borderUpColor: edge || up, borderDownColor: edge || dn, wickUpColor: edge || up, wickDownColor: edge || dn }); m.s.setData(m.B.map(b => ({ time: b.t, open: b.o, high: b.h, low: b.l, close: b.c }))); }
   m.v.setData(m.B.map(b => ({ time: b.t, value: b.v || 0, color: (b.c >= b.o ? up : dn) + '55' })));
@@ -408,3 +439,67 @@ async function trWall() { const c = LS.get('mt:wall', false); let el = document.
   let blob = null; try { blob = await idbGet('twall'); } catch (e) {} if (!blob) { LS.set('mt:wall', false); return; }
   if (!el) { el = document.createElement('div'); el.id = 'twall'; el.setAttribute('aria-hidden', 'true'); document.body.prepend(el); } if (trWallURL) URL.revokeObjectURL(trWallURL); trWallURL = URL.createObjectURL(blob);
   el.innerHTML = /^video/.test(c.mime) ? `<video src="${trWallURL}" autoplay loop muted playsinline></video>` : `<img alt="" src="${trWallURL}">`; el.querySelector('video')?.play().catch(() => {}); document.body.classList.add('twall'); }
+
+/* ---------- Auto indicators: read what kind of market this is, then pick the indicators that suit it ---------- */
+function trRegime(B, tf) {
+  const n = B.length; if (n < 60) return null; const C = B.map(b => b.c), last = n - 1, L = 20;
+  let path = 0; for (let i = n - L; i < n; i++) path += Math.abs(C[i] - C[i - 1]); const er = path ? Math.abs(C[last] - C[n - L - 1]) / path : 0; // efficiency: 1 = straight line, 0 = pure chop
+  const atr = IM.rma(IM.tr(B), 14), atrp = atr.map((a, i) => a == null ? null : a / C[i]).filter(x => x != null), nowA = atrp[atrp.length - 1], rankA = atrp.slice(-200).filter(x => x <= nowA).length / Math.min(200, atrp.length);
+  const m = IM.sma(C, 20), sd = IM.sd(C, 20), bw = C.map((_, i) => m[i] == null ? null : 4 * sd[i] / m[i]).filter(x => x != null), nowW = bw[bw.length - 1], rankW = bw.slice(-200).filter(x => x <= nowW).length / Math.min(200, bw.length);
+  const adxO = IND.adx ? IND.adx.run(B, C, trPrmD('adx'), { tf }) : [], adx = adxO[0]?.v?.[last] ?? null, slope = m[last] != null && m[last - 5] != null ? (m[last] - m[last - 5]) / m[last - 5] : 0, intraday = /m$|h$|s$/.test(tf);
+  const has = k => IND[k] ? k : null, pick = a => a.map(has).filter(Boolean);
+  if ((adx != null && adx >= 25) || er >= .4) return { k: 'trend', name: `${slope >= 0 ? 'Up' : 'Down'}-trending`, why: `Strong direction (ADX ${adx == null ? '-' : adx.toFixed(0)}, efficiency ${(er * 100).toFixed(0)}%). Trend tools work best: Supertrend to trail, two EMAs for pullbacks, ADX to confirm the trend is still strong.`, ind: pick(['st', 'ema21', 'sma50', 'adx', 'vol']) };
+  if (rankW <= .2) return { k: 'squeeze', name: 'Squeeze (quiet before a move)', why: `Bollinger width is in its lowest ${Math.max(1, Math.round(rankW * 100))}% of the last 200 bars. Volatility contracts before breakouts: Bollinger inside Keltner shows the squeeze, band width shows when it releases.`, ind: pick(['bb', 'kc', 'bbw', 'vol']) };
+  if (rankA >= .85) return { k: 'volatile', name: 'Volatile', why: `Bar ranges are in the top ${Math.round((1 - rankA) * 100) || 1}% of the last 200 bars. Wide channels and ATR keep stops outside the noise; ${intraday ? 'VWAP' : 'the 20 average'} anchors fair value.`, ind: pick(['kc', 'atr', intraday ? 'vwap' : 'sma20', 'vol']) };
+  return { k: 'range', name: 'Ranging (choppy)', why: `No clear direction (ADX ${adx == null ? '-' : adx.toFixed(0)}, efficiency ${(er * 100).toFixed(0)}%). Mean-reversion tools fit: Bollinger Bands for the edges, RSI for stretched moves, ${intraday ? 'VWAP' : 'the 20 average'} as the middle.`, ind: pick(['bb', 'rsi', intraday ? 'vwap' : 'sma20', 'vol']) };
+}
+const trPrmD = k => { const P = {}; for (const [n, , d] of IND[k].p) P[n] = d; return P; };
+function trAuto(m) {
+  const B = m ? m.B : trData?.B, tf = m ? m.tf : TR.tf; if (!B) return toast('No data yet'); const r = trRegime(B, tf); if (!r) return toast('Not enough bars to judge this market yet');
+  if (m) { m.ind = r.ind.filter(k => k != 'vol'); trMiniSave(); trMiniPaint(m); }
+  else { const keep = TR.ind.filter(k => IND[k]?.bot || IND[k]?.custom); TR.ind = [...r.ind, ...keep]; LS.set('mt:ind2', TR.ind); TR.why = r; trPaint(true); }
+  trAutoNote(r, m); }
+function trAutoNote(r, m) { let el = $('#trautonote'); if (!el) { el = document.createElement('div'); el.id = 'trautonote'; el.className = 'trautonote'; document.body.append(el); }
+  el.innerHTML = `<div class=row style="justify-content:space-between;gap:10px"><b>${m ? esc((m.d?.name || trMiniSym(m)) + ' · ') : ''}${esc(r.name)}</b><button class=trprm aria-label=Close>${ic('x', 12)}</button></div><div>${esc(r.why)}</div><div class=mut style="margin-top:6px">Picked: ${r.ind.map(k => esc(IND[k].n)).join(', ')}</div>`;
+  el.classList.remove('out'); el.querySelector('button').onclick = () => el.classList.add('out'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.add('out'), 12e3); }
+
+/* ---------- your own indicators: a JavaScript file with calc(bars, params), run in a sandboxed Web Worker ---------- */
+const CUSTOM_TPL = `// name: My moving average cross
+// pane: false            (true = its own section under the price, like RSI)
+// param: fast Fast length 9
+// param: slow Slow length 21
+//
+// calc(bars, params) gets the candles, oldest first: [{ t, o, h, l, c, v }, ...]
+// and returns one or more lines: [{ name, values: [number or null per bar], color, width }]
+// Optional: style: 'histogram' for bars, and levels: [30, 70] for horizontal guide lines.
+// It runs in a sandbox (a Web Worker): no page, no network, no account access.
+function ema(a, n) { const k = 2 / (n + 1); let e = null; return a.map((x, i) => (e = e == null ? x : x * k + e * (1 - k), i >= n - 1 ? e : null)); }
+function calc(bars, params) {
+  const c = bars.map(b => b.c);
+  return [
+    { name: 'Fast EMA', values: ema(c, params.fast), color: '#00e5ff', width: 2 },
+    { name: 'Slow EMA', values: ema(c, params.slow), color: '#ff4081', width: 2 },
+  ];
+}
+`;
+let trCusS = [], trCusR = {}, trPH = .18;
+function trCustomParse(code, file) { const name = (code.match(/\/\/\s*name:\s*(.+)/i)?.[1] || file.replace(/\.(js|txt)$/i, '') || 'My indicator').trim().slice(0, 40), pane = /\/\/\s*pane:\s*true/i.test(code), p = [];
+  for (const m of code.matchAll(/\/\/\s*param:\s*(\w+)\s+(.+?)\s+(-?[\d.]+)\s*$/gim)) p.push([m[1], m[2], +m[3], -1e9, 1e9, .5]); return { name, pane, p }; }
+function trCustomReg() { for (const c of LS.get('mt:custom', [])) { const x = trCustomParse(c.code, c.name); IND['c_' + c.id] = { n: x.name, g: 'Custom', d: 'Your indicator' + (x.pane ? ' (own section)' : ''), p: x.p, custom: 1, pane: x.pane, code: c.code, col: '#00e5ff', run: () => [] }; }
+  if (!INDGROUPS.includes('Custom')) INDGROUPS.push('Custom'); DOT.__c = 1; }
+function trCustomAdd(code, file) { if (!/function\s+calc\s*\(/.test(code)) { toast('The file needs a function calc(bars, params)'); return; } if (code.length > 200e3) { toast('Too big (max 200 KB)'); return; }
+  const id = Date.now().toString(36), L = LS.get('mt:custom', []); L.push({ id, name: file, code }); LS.set('mt:custom', L); trCustomReg(); TR.ind = [...TR.ind, 'c_' + id]; LS.set('mt:ind2', TR.ind); trPaint(true); toast('Indicator added: ' + IND['c_' + id].n); }
+const WORKER_SRC = `self.onmessage = e => { const { code, bars, params } = e.data; try { const f = new Function('bars', 'params', '"use strict";' + code + '\\nreturn calc(bars, params);'); const out = f(bars, params); self.postMessage({ ok: true, out: Array.isArray(out) ? out.slice(0, 12).map(o => ({ name: String(o.name || '').slice(0, 40), values: Array.isArray(o.values) ? o.values.map(v => typeof v === 'number' && isFinite(v) ? v : null) : [], color: typeof o.color === 'string' ? o.color.slice(0, 30) : null, width: +o.width || 1.5, style: o.style === 'histogram' ? 'histogram' : 'line', levels: Array.isArray(o.levels) ? o.levels.slice(0, 6).map(Number).filter(isFinite) : [] })) : [] }); } catch (err) { self.postMessage({ ok: false, error: String(err && err.message || err) }); } };`;
+function trCustomCalc(k, B) { return new Promise(ok => { const w = new Worker(URL.createObjectURL(new Blob([WORKER_SRC], { type: 'text/javascript' }))), t = setTimeout(() => { w.terminate(); ok({ ok: false, error: 'took longer than 2 seconds' }); }, 2000);
+  w.onmessage = e => { clearTimeout(t); w.terminate(); ok(e.data); }; w.onerror = e => { clearTimeout(t); w.terminate(); ok({ ok: false, error: e.message }); }; w.postMessage({ code: IND[k].code, bars: B.map(b => ({ t: b.t - TZ(), o: b.o, h: b.h, l: b.l, c: b.c, v: b.v })), params: trPrm(k) }); }); }
+async function trCustomRun(rebuild) {
+  const ks = TR.ind.filter(k => IND[k]?.custom); if (!trS.main || !trData) return; const B = trBars(), key = trData.sym + TR.tf + B.length + B[B.length - 1]?.c + JSON.stringify(TR.prm);
+  if (!rebuild && trCusR.key === key && trCusR.ks === ks.join()) return; trCusR = { key, ks: ks.join() };
+  const res = await Promise.all(ks.map(k => trCustomCalc(k, B))); if (trCusR.key !== key) return;
+  for (const x of trCusS) try { trChart.removeSeries(x); } catch (e) {} trCusS = []; const T = B.map(b => b.t), pal = indPalette();
+  const panes = ks.filter(k => IND[k].pane), pBase = TR.ind.filter(k => IND[k]?.pane && !IND[k].custom && !IND[k].bot).length, PH = trPH;
+  ks.forEach((k, j) => { const r = res[j]; if (!r.ok) { toast(`${IND[k].n}: ${r.error}`); return; } const pi = panes.indexOf(k), scale = pi >= 0 ? 'cp_' + k : 'right';
+    r.out.forEach((o, n) => { const c = o.color || pal[(n + 2) % 8], sr = o.style == 'histogram' ? trChart.addHistogramSeries({ priceScaleId: scale, priceLineVisible: false, lastValueVisible: false }) : trChart.addLineSeries({ priceScaleId: scale, color: c, lineWidth: o.width, priceLineVisible: false, lastValueVisible: pi >= 0 && n == 0, crosshairMarkerVisible: false });
+      if (pi >= 0) sr.priceScale().applyOptions({ scaleMargins: { top: 1 - PH * (pBase + pi + 1) + .03, bottom: PH * (pBase + pi) + .015 } }); for (const lv of o.levels) sr.createPriceLine({ price: lv, color: pal[8] + '99', lineStyle: 2, lineWidth: 1, axisLabelVisible: false });
+      sr.setData(T.map((t, i) => o.values[i] == null ? { time: t } : { time: t, value: o.values[i], ...(o.style == 'histogram' ? { color: c + 'aa' } : {}) })); trCusS.push(sr); });
+    IND[k].col = r.out[0]?.color || IND[k].col; }); trLegend(); }

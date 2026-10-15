@@ -11,7 +11,7 @@
   const DEF = { candle: { upColor: '#089981', downColor: '#f23645', borderUpColor: '#089981', borderDownColor: '#f23645', wickUpColor: '#089981', wickDownColor: '#f23645', borderVisible: true },
     bar: { upColor: '#089981', downColor: '#f23645', thinBars: true }, line: LINE_DEF, area: { ...LINE_DEF, lineColor: '#2962ff', topColor: 'rgba(41,98,255,.3)', bottomColor: 'rgba(41,98,255,0)' },
     base: { ...LINE_DEF, baseValue: { price: 0 }, topLineColor: '#089981', bottomLineColor: '#f23645', topFillColor1: 'rgba(8,153,129,.28)', topFillColor2: 'rgba(8,153,129,.05)', bottomFillColor1: 'rgba(242,54,69,.05)', bottomFillColor2: 'rgba(242,54,69,.28)' },
-    hist: { color: '#26a69a', base: 0 } };
+    hist: { color: '#26a69a', base: 0 }, fill: { color: 'rgba(41,98,255,.1)', priceLineVisible: false, lastValueVisible: false } };
 
   function createChart(el, o = {}) {
     const opt = merge({ layout: { background: { color: 'transparent' }, textColor: '#787b86', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', fontSize: 11 }, grid: { vertLines: { color: 'rgba(128,128,128,.08)', visible: true }, horzLines: { color: 'rgba(128,128,128,.08)', visible: true } },
@@ -40,7 +40,8 @@
         for (let k = 0; k < s.data.length; k++) { const i = s.ix[k]; if (i < a || i > z) continue; const d = s.data[k];
           if (s.type == 'candle' || s.type == 'bar') { if (d.high != null) { sc.lo = Math.min(sc.lo, d.low); sc.hi = Math.max(sc.hi, d.high); } }
           else if (d.value != null && isFinite(d.value)) { sc.lo = Math.min(sc.lo, d.value); sc.hi = Math.max(sc.hi, d.value); if (s.type == 'hist') { sc.lo = Math.min(sc.lo, 0); sc.hi = Math.max(sc.hi, 0); } } } }
-      for (const id in scales) { const sc = scales[id]; if (!sc.auto && sc.min != null) { sc.lo = sc.min; sc.hi = sc.max; continue; } if (!isFinite(sc.lo)) { sc.lo = 0; sc.hi = 1; } if (sc.hi === sc.lo) { const e = Math.abs(sc.hi) * .01 || 1; sc.lo -= e; sc.hi += e; } }
+      for (const id in scales) { const sc = scales[id]; if (!sc.auto && sc.min != null) { sc.lo = sc.min; sc.hi = sc.max; continue; } if (!isFinite(sc.lo)) { sc.lo = 0; sc.hi = 1; } if (sc.hi === sc.lo) { const e = Math.abs(sc.hi) * .01 || 1; sc.lo -= e; sc.hi += e; }
+        if (sc === scales.right && opt.minRange) { const mid = (sc.lo + sc.hi) / 2, mr = Math.abs(mid) * opt.minRange; if (sc.hi - sc.lo < mr) { sc.lo = mid - mr / 2; sc.hi = mid + mr / 2; } } } // a floor on the visible range: one-cent moves on a 1-second chart are not full-height bars
     }
     const tf = (sc, p) => sc.mode === 1 ? Math.log(Math.max(p, 1e-12)) : p, itf = (sc, v) => sc.mode === 1 ? Math.exp(v) : v;
     const yOf = (sc, p) => { const h = PH(), top = h * sc.m.top, hh = h * (1 - sc.m.top - sc.m.bottom), lo = tf(sc, sc.lo), hi = tf(sc, sc.hi); return top + (1 - (tf(sc, p) - lo) / (hi - lo)) * hh; };
@@ -104,6 +105,8 @@
           g.fillStyle = wick; g.fillRect(x - (w > 12 ? 1 : .5), Math.round(y(d.high)), w > 12 ? 2 : 1, Math.max(1, Math.round(y(d.low) - y(d.high))));
           if (bw >= 3) { const hollow = /rgba\(0, ?0, ?0, ?0\)|transparent/.test(body); if (!hollow) { g.fillStyle = body; g.fillRect(Math.round(x - bw / 2), top, Math.round(bw), h); } if (o.borderVisible !== false && edge && (hollow || edge !== body)) { g.strokeStyle = edge; g.lineWidth = 1; g.strokeRect(Math.round(x - bw / 2) + .5, top + .5, Math.round(bw) - 1, Math.max(0, h - 1)); } } } glowOff(); return; }
       if (s.type == 'bar') { const tk = Math.max(1, Math.min(w * .35, 8)); g.lineWidth = o.thinBars === false && w > 6 ? 2 : 1; for (let k = 0; k < s.data.length; k++) { const i = s.ix[k]; if (i < a || i > z) continue; const d = s.data[k]; if (d.open == null) continue; const x = Math.round(xOf(i)) + .5; g.strokeStyle = d.close >= d.open ? o.upColor : o.downColor; g.beginPath(); g.moveTo(x, y(d.high)); g.lineTo(x, y(d.low)); g.moveTo(x - tk, y(d.open)); g.lineTo(x, y(d.open)); g.moveTo(x, y(d.close)); g.lineTo(x + tk, y(d.close)); g.stroke(); } return; }
+      if (s.type == 'fill') { let prev = null; for (let k = 0; k < s.data.length; k++) { const i = s.ix[k], d = s.data[k]; if (i < a - 1 || i > z + 1 || d.a == null || d.b == null || !isFinite(d.a) || !isFinite(d.b)) { prev = null; continue; } const cur = [xOf(i), y(d.a), y(d.b), d.color || o.color];
+          if (prev) { g.fillStyle = cur[3]; g.beginPath(); g.moveTo(prev[0], prev[1]); g.lineTo(cur[0], cur[1]); g.lineTo(cur[0], cur[2]); g.lineTo(prev[0], prev[2]); g.closePath(); g.fill(); } prev = cur; } return; }
       if (s.type == 'hist') { const bw = Math.max(1, Math.min(w * .75, 40)), y0 = y(o.base ?? 0); for (let k = 0; k < s.data.length; k++) { const i = s.ix[k]; if (i < a || i > z) continue; const d = s.data[k]; if (d.value == null || !isFinite(d.value)) continue; const yv = y(d.value); g.fillStyle = d.color || o.color; g.fillRect(Math.round(xOf(i) - bw / 2), Math.min(yv, y0), Math.max(1, Math.round(bw)), Math.max(1, Math.abs(y0 - yv))); } return; }
       // line, area, baseline: build the visible path (breaks on missing values)
       const pts = []; for (let k = 0; k < s.data.length; k++) { const i = s.ix[k]; if (i < a - 1 || i > z + 1) continue; const d = s.data[k]; pts.push(d.value == null || !isFinite(d.value) ? null : [xOf(i), y(d.value), d.color]); }
@@ -205,7 +208,7 @@
     return {
       applyOptions: x => { merge(opt, x); if (x.rightPriceScale?.scaleMargins) scales.right.m = { ...x.rightPriceScale.scaleMargins }; schedule(); },
       remove: () => { dead = true; window.removeEventListener('keydown', onKey); ro.disconnect(); cancelAnimationFrame(raf); cancelAnimationFrame(inertia); cv.remove(); },
-      addCandlestickSeries: o => addSeries('candle', o), addBarSeries: o => addSeries('bar', o), addLineSeries: o => addSeries('line', o), addAreaSeries: o => addSeries('area', o), addBaselineSeries: o => addSeries('base', o), addHistogramSeries: o => addSeries('hist', o),
+      addCandlestickSeries: o => addSeries('candle', o), addBarSeries: o => addSeries('bar', o), addLineSeries: o => addSeries('line', o), addAreaSeries: o => addSeries('area', o), addBaselineSeries: o => addSeries('base', o), addHistogramSeries: o => addSeries('hist', o), addFillSeries: o => addSeries('fill', o),
       removeSeries: api => { const k = series.findIndex(s => s.api === api); if (k < 0) throw new Error('unknown series'); series.splice(k, 1); dirtyT = true; schedule(); },
       subscribeCrosshairMove: f => cbMove.push(f), subscribeClick: f => cbClick.push(f),
       priceScale: id => scaleApi(id || 'right'),
