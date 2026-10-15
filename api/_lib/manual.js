@@ -112,6 +112,11 @@ async function state(uid) {
 async function api(uid, op, b, q) {
   switch (op) {
     case 'candles': return candles(q.sym || b.sym, q.tf || b.tf);
+    case 'mcpinfo': return require('./mcp').info(uid);
+    case 'mcpnew': return require('./mcp').newToken(uid);
+    case 'mcprevoke': return require('./mcp').revoke(uid);
+    case 'mcptrade': return require('./mcp').setTrade(uid, b.on);
+    case 'view': return require('./mcp').view(uid, b); // the Trade page reports its view; the reply carries Claude's commands
     case 'quote': return { sym: norm(q.sym || b.sym), px: await quote(q.sym || b.sym), t: Date.now() }; // the 1-second ticker
     case 'search': return { results: await search(q.q || b.q || '') };
     case 'state': return state(uid);

@@ -727,3 +727,31 @@ input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
  body[data-trs=tk] .trside,body[data-trs=acct] .trside,body[data-trs=sym] .trhead,body[data-trs=tf] .trbar{padding-bottom:calc(20px + env(safe-area-inset-bottom))}
  aside{max-height:calc(100dvh - 54px - env(safe-area-inset-bottom))}
 }
+
+/* ---------- wallpapers ---------- */
+#wall{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+#wall .wmedia{position:absolute;inset:0}
+#wall img,#wall video,#wall iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent;object-fit:cover}
+#wall .wdim{position:absolute;inset:0;background:var(--bg);opacity:var(--wdim,.5)}
+body.hasWall{background:transparent}
+body.hasWall .topbar,:root[data-theme] body.hasWall .topbar{background:transparent!important}
+body.hasWall.wallfrost .card:not(.trchartcard),body.hasWall.wallfrost .obbox,body.hasWall.wallfrost .trpbox{background:color-mix(in srgb,var(--panel) 74%,transparent)!important;-webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%)}
+body.hasWall.wallfrost aside,body.hasWall.wallfrost #tabbar{background:color-mix(in srgb,var(--panel) 78%,transparent)!important;-webkit-backdrop-filter:blur(18px) saturate(150%)!important;backdrop-filter:blur(18px) saturate(150%)!important}
+body.hasWall.wallfrost .trchartcard,body.hasWall.wallfrost .trchart{background:transparent!important}
+body.hasWall.wallfrost .dhero{background:var(--accent)!important}
+:root[data-theme=dark] body.hasWall.wallfrost .dhero{background:color-mix(in srgb,var(--panel) 74%,transparent)!important}
+body.hasWall:not(.wallfrost) aside{background:var(--panel)!important}
+.wpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px;margin-top:14px}
+.wptile{position:relative;border:0;background:none;padding:0;cursor:pointer;text-align:left;color:var(--text);display:grid;gap:6px}
+.wpth{display:block;aspect-ratio:4/3;border-radius:18px;background:var(--tb,var(--tile));box-shadow:inset 0 0 0 1px var(--line2);transition:box-shadow .2s,transform .2s var(--spring)}
+.wptile{--bg:var(--tile)}.wptile:hover .wpth{transform:translateY(-2px)}
+.wptile.on .wpth{box-shadow:0 0 0 2.5px var(--accent)}
+.wpn{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wpx{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--panel);display:grid;place-items:center;font-style:normal;font-size:15px;line-height:1;color:var(--mut);box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.wpset{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}.wpset label{display:grid;gap:6px;font-size:13px}.wpset label span{display:flex;justify-content:space-between}
+.wprow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;font-size:13.5px;flex-wrap:wrap}
+.wpcols button{width:34px;padding:0;display:grid;place-items:center}.wpcols i{width:18px;height:18px;border-radius:50%;display:block;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+.wpcols button.on i{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent)}
+.wpadd{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.mcpb{background:var(--tile);border-radius:16px;padding:12px 14px}.mcpb b{font-size:13px}.mcpb pre{margin:8px 0 0;font:12px/1.5 var(--mono);white-space:pre-wrap;word-break:break-all;color:var(--text);max-height:150px;overflow:auto}
+@media(max-width:560px){.wpset{grid-template-columns:1fr}}

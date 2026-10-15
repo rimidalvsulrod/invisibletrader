@@ -347,9 +347,10 @@ function help(){
 /* ---------- Settings (this device) ---------- */
 function settingsPage(){
   app.innerHTML=`<div class="ph fade"><div><h1>Settings</h1><p class=lead>Appearance, account and brokerage.</p></div></div>
-   <div class=grid style="max-width:720px"><div class="card pad"><h2>Appearance</h2><div class=seg id=sth style="margin-top:12px">${Object.entries(THEMES).map(([k,l])=>`<button data-v=${k} class="${LS.get('theme','light')==k?'on':''}">${l}</button>`).join('')}</div></div>${OWNER?'<div class="card pad" id=brk><h2>Brokerage</h2></div>':''}
+   <div class=grid style="max-width:720px"><div class="card pad"><h2>Appearance</h2><div class=seg id=sth style="margin-top:12px">${Object.entries(THEMES).map(([k,l])=>`<button data-v=${k} class="${LS.get('theme','light')==k?'on':''}">${l}</button>`).join('')}</div></div><div id=wallcard></div>${OWNER?'<div id=mcpcard></div>':''}${OWNER?'<div class="card pad" id=brk><h2>Brokerage</h2></div>':''}
    ${OWNER?`<div class="card pad row sb"><div><h2>Account</h2><div class=mut style="font-size:13px;margin-top:4px">${esc(USER?.email||'')}</div></div><a class=btn href="#/account">Manage</a></div>`:'<div class="card pad"><h2>Not logged in</h2><a class="btn pri" style="margin-top:12px" href="#/account">Log in</a></div>'}</div>`;
   $$('#sth button').forEach(b=>b.onclick=()=>{LS.set('theme',b.dataset.v);applyTheme();renderSide();settingsPage();window.dispatchEvent(new Event('themechange'))});
+  if(typeof extrasMount=='function')extrasMount();
   if(OWNER&&typeof brokerMount=='function')brokerMount();
 }
 

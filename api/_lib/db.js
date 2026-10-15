@@ -72,7 +72,11 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS mtord (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, sym text NOT NULL, side text NOT NULL, qty double precision NOT NULL, kind text NOT NULL, px double precision, sl double precision, tp double precision, status text NOT NULL DEFAULT 'open', fpx double precision, fts bigint, grp text)`,
   `CREATE INDEX IF NOT EXISTS mtord_us ON mtord (uid, status)`,
   `CREATE TABLE IF NOT EXISTS mtfill (id text PRIMARY KEY, uid text NOT NULL, acct text NOT NULL, ts bigint NOT NULL, sym text NOT NULL, side text NOT NULL, qty double precision NOT NULL, px double precision NOT NULL, pnl double precision NOT NULL DEFAULT 0, fee double precision NOT NULL DEFAULT 0, why text)`,
-  `CREATE INDEX IF NOT EXISTS mtfill_ua ON mtfill (uid, acct, ts)`, // BTC-USD order flow, one row a minute (order-flow bots), kept 8 days // daily closes for the portfolio bots, shared by everyone
+  `CREATE INDEX IF NOT EXISTS mtfill_ua ON mtfill (uid, acct, ts)`,
+  // Claude connection (MCP): personal token (hash only) and the Trade page's reported view / snapshot / pending commands
+  `CREATE TABLE IF NOT EXISTS apitok (uid text PRIMARY KEY, hash text NOT NULL, created bigint, last bigint, trade boolean NOT NULL DEFAULT true)`,
+  `CREATE INDEX IF NOT EXISTS apitok_hash ON apitok (hash)`,
+  `CREATE TABLE IF NOT EXISTS mtview (uid text PRIMARY KEY, ts bigint, data text, snap text, snapts bigint, reqsnap bigint NOT NULL DEFAULT 0, cmds text)`, // BTC-USD order flow, one row a minute (order-flow bots), kept 8 days // daily closes for the portfolio bots, shared by everyone
   `CREATE TABLE IF NOT EXISTS btctrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, slug text NOT NULL, tf text, side text, price double precision, qty double precision, fee double precision, fair double precision, edge double precision, s0 double precision, s double precision, secs double precision, mode text, status text NOT NULL DEFAULT 'open', pnl double precision, wend bigint)`,
 ];
 // One time: the site used to have a single owner (bot row 'me', global follows/log, keys + password in settings).

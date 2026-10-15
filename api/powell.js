@@ -37,7 +37,7 @@ async function ictApi(uid, op, body) {
     default: throw err(400, 'unknown op');
   }
 }
-module.exports = handler(async (req, body, q) => {
+const main = handler(async (req, body, q) => {
   const u = await A.need(req), uid = u.id, op = q.op || body.op;
   if (op && op.startsWith('mt-')) { try { return await MT.api(uid, op.slice(3), body, q); } catch (e) { throw err(e.status || 502, e.message); } } // Manual Trading + the Opposite Bot
   if (op && op.startsWith('lab-')) { try { return await LAB.api(uid, op.slice(4), body, q, u); } catch (e) { throw err(e.status || 502, e.message); } } // Strategy Lab bots
@@ -69,3 +69,4 @@ module.exports = handler(async (req, body, q) => {
     default: throw err(400, 'unknown op');
   }
 });
+module.exports = (req, res) => (req.query && req.query.op === 'mcp' ? require('./_lib/mcp').http(req, res) : main(req, res)); // /mcp (rewritten here: the app is at its 12-function limit)

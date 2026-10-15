@@ -2,9 +2,9 @@
 // and a paper order ticket for stocks, ETFs, futures and crypto. Plus the Opposite Bot: it takes the reverse of every fill you get.
 let TR = null; // set on first visit (LS lives in app.js, loaded after this file)
 const trInit = () => TR || (TR = { sym: LS.get('mt:sym', 'SPY'), tf: LS.get('mt:tf', '5m'), type: LS.get('mt:type3', 'candle'), cs: LS.get('mt:cs', 'gr'), prm: LS.get('mt:prm', {}), ind: LS.get('mt:ind', ['ema9', 'ema21', 'vwap', 'vol']), side: 'buy', kind: 'market', tool: null, pend: null });
-let trChart = null, trMain = null, trS = {}, trData = null, trState = null, trT1 = null, trT2 = null, trLines = [], trDraw = [];
+let trChart = null, trMain = null, trS = {}, trData = null, trState = null, trT1 = null, trT2 = null, trT3 = null, trLines = [], trDraw = [], trWant = false, trNeedSnap = false;
 const trSheet = n => { if (n) document.body.dataset.trs = n; else delete document.body.dataset.trs; if (n == 'sym') setTimeout(() => $('#trq')?.focus(), 250); };
-const trStop = () => { trTickStop(); trSheet(null); $('#trpick')?.remove(); clearInterval(trT1); clearInterval(trT2); trT1 = trT2 = null; if (trChart) { try { trChart.remove(); } catch (e) {} trChart = null; } trS = {}; trData = null; trDraw = []; trLines = []; trOut = {}; trLastPx = null; trMain = null; trState = null; removeEventListener('themechange', trTheme); };
+const trStop = () => { trTickStop(); trSheet(null); $('#trpick')?.remove(); clearInterval(trT1); clearInterval(trT2); clearInterval(trT3); trT1 = trT2 = trT3 = null; trWant = false; if (trChart) { try { trChart.remove(); } catch (e) {} trChart = null; } trS = {}; trData = null; trDraw = []; trLines = []; trOut = {}; trLastPx = null; trMain = null; trState = null; removeEventListener('themechange', trTheme); };
 const mtapi = async (op, body, qs = '') => { const r = await fetch('/api/powell' + (body ? '' : `?op=mt-${op}${qs}`), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'mt-' + op, ...body }) } : {});
   const j = await r.json().catch(() => ({ error: 'Bad response' })); if (!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), { status: r.status }); return j; };
 const TFS = [['1m', '1m'], ['5m', '5m'], ['15m', '15m'], ['30m', '30m'], ['1h', '1H'], ['4h', '4H'], ['1d', '1D'], ['1w', '1W'], ['1mo', '1M']];
@@ -52,6 +52,7 @@ async function tradePage() {
   trT1 = setInterval(() => { if (!$('#trc')) return trStop(); trLoad(false); }, 15e3); trTick();
   trT2 = setInterval(() => { if (!$('#trc')) return trStop(); trStateLoad(); }, 4e3);
   addEventListener('themechange', trTheme);
+  mtapi('mcpinfo').then(r => { trWant = !!r.has; if (trWant) { trSync(); trT3 = setInterval(trSync, 3000); } }).catch(() => {}); // Claude connection: report the view, apply Claude's commands
 }
 function trLib() { return window.LightweightCharts ? Promise.resolve() : new Promise((ok, no) => { const s = document.createElement('script'); s.src = '/vendor/lwc.js'; s.onload = ok; s.onerror = () => no(new Error('chart library failed to load')); document.head.append(s); }); }
 function trOpts() { const dark = document.documentElement.dataset.theme == 'dark', fg = trCss('--mut'), grid = trCss('--grid'), ac = trCss('--accent');
@@ -243,3 +244,22 @@ function trLive(px) {
   if (Date.now() - trPaintAt > 5000) { trPaintAt = Date.now(); trPaint(false); } else trLegend(); // indicators follow every 5 s
   if (TR.kind == 'market') trEst();
 }
+
+/* ---------- Claude connection: report what the page shows, send a snapshot when Claude asks, apply Claude's chart commands ---------- */
+function trShot() { try { const c = trChart.takeScreenshot(), W = Math.min(c.width, 1000), k = W / c.width, H = Math.round(c.height * k) + 40, t = document.createElement('canvas'); t.width = W; t.height = H; const g = t.getContext('2d');
+    g.fillStyle = document.documentElement.dataset.theme == 'dark' ? '#111113' : '#ffffff'; g.fillRect(0, 0, W, H); g.fillStyle = document.documentElement.dataset.theme == 'dark' ? '#f2f2f3' : '#121214'; g.font = '600 18px sans-serif';
+    g.fillText(`${trData.sym}  ${TFS.find(x => x[0] == TR.tf)?.[1]}  ${trN(trLastPx ?? trData.B[trData.B.length - 1].c)}   ${TR.ind.filter(k => IND[k]).map(trIndName).join(' · ')}`.slice(0, 120), 12, 26); g.drawImage(c, 0, 40, W, H - 40); return t.toDataURL('image/jpeg', .8); } catch (e) { return null; } }
+async function trSync() {
+  if (!trWant || !trData || !$('#trc') || document.hidden) return; const B = trData.B, snap = trNeedSnap ? trShot() : null;
+  try { const r = await mtapi('view', { view: { sym: trData.sym, tf: TR.tf, type: TR.type, cs: TR.cs, ind: TR.ind, prm: TR.prm, draw: LS.get('mt:draw:' + trData.sym, []), price: trLastPx ?? B[B.length - 1]?.c, bars: B.length, theme: document.documentElement.dataset.theme }, snap });
+    trNeedSnap = !!r.snap; if (!r.want) { trWant = false; clearInterval(trT3); } if (r.cmds?.length) trApply(r.cmds); } catch (e) {} }
+function trUiSync() { $$('#trtf button').forEach(b => b.classList.toggle('on', b.dataset.v == TR.tf)); if ($('#trtype')) $('#trtype').value = TR.type; if ($('#trcs')) $('#trcs').value = TR.cs; $('#trindn') && ($('#trindn').textContent = TR.ind.filter(k => IND[k]).length); }
+function trApply(cmds) {
+  let repaint = false, reload = false, sym = null; const save = () => { LS.set('mt:ind', TR.ind); LS.set('mt:prm', TR.prm); }, dk = s => 'mt:draw:' + (s || TR.sym);
+  for (const c of cmds) {
+    if (c.k == 'set') { if (c.type && TYPES.some(x => x[0] == c.type)) { TR.type = c.type; LS.set('mt:type3', c.type); repaint = true; } if (c.cs && ['gr', 'bw', 'mono'].includes(c.cs)) { TR.cs = c.cs; LS.set('mt:cs', c.cs); repaint = true; } if (c.tf && TFS.some(x => x[0] == c.tf)) { TR.tf = c.tf; LS.set('mt:tf', c.tf); reload = true; } if (c.sym) sym = c.sym; }
+    if (c.k == 'ind') { if (c.clear) TR.ind = []; for (const k of c.remove || []) TR.ind = TR.ind.filter(x => x != k); for (const a of c.add || []) if (IND[a.key]) { if (!TR.ind.includes(a.key)) TR.ind.push(a.key); if (a.params) TR.prm[a.key] = { ...(TR.prm[a.key] || {}), ...a.params }; } save(); repaint = true; }
+    if (c.k == 'hline' && c.p > 0) { const d = LS.get(dk(c.sym), []); d.push({ k: 'h', p: c.p }); LS.set(dk(c.sym), d); repaint = true; }
+    if (c.k == 'trend' && c.t2 > c.t1) { const d = LS.get(dk(c.sym), []); d.push({ k: 't', t1: c.t1 + TZ(), p1: c.p1, t2: c.t2 + TZ(), p2: c.p2 }); LS.set(dk(c.sym), d); repaint = true; }
+    if (c.k == 'clear') { LS.set(dk(c.sym), []); repaint = true; } }
+  trUiSync(); if (sym) { trSet(sym); toast('Claude changed your chart'); return; } if (reload) { trLoad(true); toast('Claude changed your chart'); } else if (repaint) { trPaint(true); toast('Claude changed your chart'); } }
