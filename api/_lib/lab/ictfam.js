@@ -50,7 +50,7 @@ const fvg = fut({ id: 'fvg', name: 'FVG Bot', icon: 'star',
   blurb: 'Trades fair value gaps: a strong candle that leaves a three-candle gap and breaks structure, then a limit order at the middle of the gap for the pullback.',
   how: ['Only in the New York killzone (9:30 to 12:00 ET).', 'Signal: a displacement candle (body at least the set share of ATR) that closes beyond the high (low) of the five candles before it AND leaves a gap between candle 1 and candle 3.',
     'Entry: limit at the gap\'s middle (consequent encroachment), valid 12 candles; cancelled if a candle closes through the gap or price reaches the target first.', 'Stop: one tick past the gap\'s first candle. Target: reward-to-risk multiple. Flat by 15:55.', 'Optional: buy only in the discount half of the last three sessions\' range, sell only in the premium half.'],
-  defaults: { rr: 2, disp: .7, pd: 'on' }, params: [{ k: 'rr', label: 'Reward to risk', min: 1, max: 4, step: .5, unit: '× reward to risk' }, { k: 'disp', label: 'Displacement', min: .3, max: 1.5, step: .1, unit: '× ATR candle body' }], choices: { pd: ['on', 'off'] },
+  defaults: { rr: 3, disp: 1, pd: 'off' }, honest: 'Robustness check (60 sessions, NQ and ES, each half separately, every setting combination): the best settings (3R target, 1× ATR displacement, no premium/discount filter) are roughly break-even, not a proven edge.', params: [{ k: 'rr', label: 'Reward to risk', min: 1, max: 4, step: .5, unit: '× reward to risk' }, { k: 'disp', label: 'Displacement', min: .3, max: 1.5, step: .1, unit: '× ATR candle body' }], choices: { pd: ['on', 'off'] },
   idle: 'Waiting for a displacement candle that leaves a gap and breaks structure in the killzone.',
   setup({ b, ses, k, S, atr }, cfg) {
     const eq = cfg.pd === 'on' ? ICT.equilibrium(b, ses, k) : NaN, zones = [];
@@ -72,7 +72,7 @@ const fib = fut({ id: 'fib', name: 'Fibonacci OTE', icon: 'spark',
   blurb: 'Waits for an impulse leg that breaks structure, then buys (sells) the pullback into the optimal trade entry zone: 70.5% of the leg, between the 62% and 79% retracements.',
   how: ['Impulse leg: from a 5-minute swing low to a swing high (or the reverse) at least the set multiple of ATR, whose end takes out the highest high of the 24 candles before it started.', 'Entry: limit at the 70.5% retracement of the leg, valid 24 candles, entries 9:30 to 12:00 ET. Cancelled if price closes beyond the 88.6% level.',
     'Stop: one tick past the start of the leg (100%). Target: the leg\'s end plus an extension (the -0.27 / -0.62 levels).', 'Flat by 15:55.'],
-  defaults: { leg: 3, ext: .62 }, params: [{ k: 'leg', label: 'Leg size', min: 2, max: 8, step: .5, unit: '× ATR minimum leg' }, { k: 'ext', label: 'Target extension', min: 0, max: 1.27, step: .05, unit: 'extension beyond the leg' }],
+  defaults: { leg: 3, ext: 1 }, honest: 'Robustness check (60 sessions, NQ and ES, each half separately): with a 1.0 extension target it made money in all four slices (40 trades, +15.5R). That is the best result of the ICT bots, but 40 trades is still a small sample.', params: [{ k: 'leg', label: 'Leg size', min: 2, max: 8, step: .5, unit: '× ATR minimum leg' }, { k: 'ext', label: 'Target extension', min: 0, max: 1.27, step: .05, unit: 'extension beyond the leg' }],
   idle: 'Waiting for an impulse leg that breaks structure, then for the pullback into 62% to 79%.',
   setup({ b, S, atr }, cfg) {
     const levels = [];
@@ -97,7 +97,7 @@ const stdv = fut({ id: 'stdv', name: 'STDV Bot', icon: 'wave',
   how: ['Opening range: the six 5-minute candles 9:30 to 9:55.', 'Manipulation: after 10:00 a candle trades beyond the range high (low). The leg runs from the lowest low (highest high) of the six candles before it to the extreme.',
     'Trigger: within 18 candles, a candle closes back inside the range AND below (above) the open of the last up (down) candle: a change in state of delivery. Entry at the next open.',
     'Stop: one tick past the manipulation extreme. Target: the leg projected beyond its start by the set number of standard deviations (-1, -2, -2.5 ...).', 'Entries 10:00 to 12:00 ET, flat by 15:55.'],
-  defaults: { sd: 2, max: 1 }, params: [{ k: 'sd', label: 'Projection', min: 1, max: 4, step: .5, unit: 'standard deviations' }],
+  defaults: { sd: 2, max: 1 }, honest: 'Robustness check (60 sessions, NQ and ES, each half separately, every setting combination): no setting made money. It lost in most slices, so treat it as a study of the idea, not a money-maker.', params: [{ k: 'sd', label: 'Projection', min: 1, max: 4, step: .5, unit: 'standard deviations' }],
   idle: 'Waiting for a run beyond the opening range that fails back inside.',
   setup({ b, S }, cfg) {
     if (S.last - S.first < 7) return null; const orH = maxH(b, S.first, S.first + 5), orL = minL(b, S.first, S.first + 5), levels = [{ y: orH, name: 'OR high', color: 'rgba(150,150,230,.9)', t0: b[S.first].t }, { y: orL, name: 'OR low', color: 'rgba(150,150,230,.9)', t0: b[S.first].t }]; let sw = null;
@@ -119,7 +119,7 @@ const qt = fut({ id: 'qt', name: 'Quarterly Theory', icon: 'book',
   blurb: 'ICT Quarterly Theory on the daily cycle: Asia (18:00-00:00) accumulates, London (00:00-06:00) manipulates away from the true day open, New York (06:00-12:00) distributes the other way through it.',
   how: ['True day open: the open of the 00:00 ET candle.', 'Bias: if the London quarter ran further above the true open than below it, by at least the set share of price, the day is expected to distribute DOWN (and the reverse).',
     'Trigger, 9:30 to 11:00 ET: a candle that trades through the true open and closes back on the bias side of it (a rejection). Entry at the next open.', 'Stop: one tick past the extreme of the last six candles. Target: reward-to-risk multiple. One trade a day, flat by 15:55.'],
-  defaults: { rr: 2, thr: .15, max: 1 }, params: [{ k: 'rr', label: 'Reward to risk', min: 1, max: 4, step: .5, unit: '× reward to risk' }, { k: 'thr', label: 'London run', min: .05, max: .6, step: .05, unit: '% of price minimum' }],
+  defaults: { rr: 2, thr: .15, max: 1 }, honest: 'Robustness check (60 sessions, NQ and ES, each half separately, every setting combination): no setting made money. It lost in most slices, so treat it as a study of the idea, not a money-maker.', params: [{ k: 'rr', label: 'Reward to risk', min: 1, max: 4, step: .5, unit: '× reward to risk' }, { k: 'thr', label: 'London run', min: .05, max: .6, step: .05, unit: '% of price minimum' }],
   setup(ctx, cfg) {
     const { b, S } = ctx; let j0 = -1; for (let i = S.first; i >= 0 && b[i].date === S.date; i--) if (b[i].m === 0) { j0 = i; break; }
     if (j0 < 0) { ctx.note = 'No midnight candle for this date (no true open).'; return null; }
@@ -140,7 +140,7 @@ const liq = fut({ id: 'liq', name: 'Liquidity Raid', icon: 'scales',
   blurb: 'Equal highs and equal lows are where stops pile up. When price raids one and immediately fails back (a turtle soup), the bot trades the reversal.',
   how: ['Pools: two 5-minute swing highs (lows) within the set tolerance of each other in the last six hours, never traded through since the second one formed.', 'Trigger, 9:30 to 12:00 ET: a candle trades through the pool by at least one tick and CLOSES back on the other side. Entry at the next open.',
     'A candle that closes beyond the pool instead spends it (a real breakout, no trade).', 'Stop: one tick past the raid candle\'s extreme. Target: reward-to-risk multiple. Flat by 15:55.'],
-  defaults: { rr: 2, tol: .03 }, params: [{ k: 'rr', label: 'Reward to risk', min: 1, max: 4, step: .5, unit: '× reward to risk' }, { k: 'tol', label: 'Equal within', min: .01, max: .1, step: .01, unit: '% of price' }],
+  defaults: { rr: 2, tol: .03 }, honest: 'Robustness check (60 sessions, NQ and ES, each half separately, every setting combination): no setting made money. It lost in most slices, so treat it as a study of the idea, not a money-maker.', params: [{ k: 'rr', label: 'Reward to risk', min: 1, max: 4, step: .5, unit: '× reward to risk' }, { k: 'tol', label: 'Equal within', min: .01, max: .1, step: .01, unit: '% of price' }],
   idle: 'Watching equal highs and lows for a raid that fails.',
   setup({ b, S }, cfg) {
     const pools = [], levels = [], seen = new Set();
@@ -166,7 +166,7 @@ const amt = fut({ id: 'amt', name: 'AMT Value Area', icon: 'flask',
   how: ['Profile: the previous session (9:30 to 16:00), each 5-minute candle\'s volume spread evenly across its range in price bins of about 0.04%. Point of control = the busiest bin; value area = the 70% of volume around it.',
     'Open outside value: today\'s 9:30 open above the value-area high (or below the low).', 'Acceptance: two 5-minute closes in a row back inside value between 9:30 and 12:00. Entry at the next open.',
     'Target: the far side of value. Stop: one tick past today\'s extreme so far. Skipped if the target is less than one risk away. One trade a day, flat by 15:55.'],
-  defaults: { max: 1 }, params: [],
+  defaults: { max: 1 }, honest: 'Robustness check (60 sessions, NQ and ES, each half separately, every setting combination): no setting made money. It lost in most slices, so treat it as a study of the idea, not a money-maker.', params: [],
   setup(ctx, cfg) {
     const { b, ses, k, S } = ctx; if (k < 1) { ctx.note = 'Needs the previous session.'; return null; } const pv = ses[k - 1], bars = b.slice(pv.first, pv.last + 1).filter(x => x.m >= 570 && x.m < 960), vol = bars.reduce((a, x) => a + x.v, 0);
     if (bars.length < 40 || !(vol > 0)) { ctx.note = 'The previous session has no volume data.'; return null; }

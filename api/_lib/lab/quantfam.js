@@ -102,9 +102,9 @@ const DONE = new Map();
 
 /* ---------- 1. Quant RSI-2 (short-term mean reversion in an uptrend) ---------- */
 const quant = port({ id: 'quant', name: 'Quant RSI-2', icon: 'flask', every: 'day', syms: ['SPY', 'QQQ', 'IWM'], everyTxt: 'Checked every day at the close.',
-  blurb: 'A classic, published quant rule: in a long-term uptrend, buy the index after a sharp 2-day dip (RSI-2 very low) and sell as soon as it bounces above its 5-day average.',
-  how: ['Uptrend filter: the close is above its 200-day average.', 'Buy: the 2-day RSI closes below the entry level (default 10).', 'Sell: the close is back above the 5-day average, or after 10 trading days.', 'In cash otherwise. Trades the next day.'],
-  defaults: { sym: 'SPY', lvl: 10 }, params: [{ k: 'lvl', label: 'RSI-2 entry level', min: 2, max: 30, step: 1, unit: 'buy when RSI-2 is below', int: true }], choices: { sym: ['SPY', 'QQQ', 'IWM'] }, choiceLabels: { sym: 'Market' },
+  honest: 'Robustness check (8 years, each half separately): it made money in both halves with a lower drawdown than holding SPY, but it is in cash most of the time, so it earned far less than simply holding SPY in this bull market.', blurb: 'A classic, published quant rule: in a long-term uptrend, buy the index after a sharp 2-day dip (RSI-2 very low) and sell as soon as it bounces above its 5-day average.',
+  how: ['Uptrend filter: the close is above its 200-day average.', 'Buy: the 2-day RSI closes below the entry level (default 20, the most robust in an 8-year check).', 'Sell: the close is back above the 5-day average, or after 10 trading days.', 'In cash otherwise. Trades the next day.'],
+  defaults: { sym: 'SPY', lvl: 20 }, params: [{ k: 'lvl', label: 'RSI-2 entry level', min: 2, max: 30, step: 1, unit: 'buy when RSI-2 is below', int: true }], choices: { sym: ['SPY', 'QQQ', 'IWM'] }, choiceLabels: { sym: 'Market' },
   weights(D, i, cfg, st) { const a = D.px[cfg.sym]; if (!a?.[i]) return null; const up = a[i] > sma(a, i, 200), r2 = rsi(a, i, 2);
     if (st.in) { st.days = (st.days || 0) + 1; if (a[i] > sma(a, i, 5) || st.days >= 10) { st.in = false; return { w: {}, why: st.days >= 10 ? 'time limit' : 'bounced above the 5-day average' }; } return null; }
     if (up && r2 != null && r2 < cfg.lvl) { st.in = true; st.days = 0; return { w: { [cfg.sym]: 1 }, why: `RSI-2 ${r2.toFixed(1)} in an uptrend` }; } return null; },
@@ -115,7 +115,7 @@ const BIG = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'BRK-B', 'JPM', 'V
 const top = port({ id: 'top', name: 'Top Picks', icon: 'trophy', syms: BIG,
   blurb: 'Each month buys the large-cap stocks with the strongest steady trend: 12-month momentum (skipping the last month) divided by volatility, only stocks above their 200-day average.',
   how: ['Universe: 40 of the largest US stocks.', 'Score: return from 12 months ago to 1 month ago, divided by the last 3 months\' volatility.', 'Only stocks above their 200-day average qualify. Buy the top N, equal weight.', 'Market filter (optional): when SPY is below its 200-day average, hold half in cash.', 'Rebalanced on the first trading day of each month.'],
-  defaults: { n: 8, mkt: 'on' }, params: [{ k: 'n', label: 'Stocks held', min: 3, max: 15, step: 1, unit: 'stocks', int: true }], choices: { mkt: ['on', 'off'] }, choiceLabels: { mkt: 'Market filter (half cash when SPY is in a downtrend)' },
+  defaults: { n: 8, mkt: 'off' }, params: [{ k: 'n', label: 'Stocks held', min: 3, max: 15, step: 1, unit: 'stocks', int: true }], choices: { mkt: ['on', 'off'] }, choiceLabels: { mkt: 'Market filter (half cash when SPY is in a downtrend)' },
   honest: 'Survivorship bias: the 40 stocks are today\'s giants, picked with hindsight, so the backtest looks better than real life would have. Treat the result as an upper bound.',
   weights(D, i, cfg) { const sc = []; for (const s of BIG) { const a = D.px[s]; if (!a?.[i] || !a[i - 252]) continue; const m = ret(a, i - 21, 231), v = vol(a, i, 63); if (m == null || !v || a[i] < sma(a, i, 200)) continue; sc.push([s, m / v]); }
     sc.sort((x, y) => y[1] - x[1]); const pick = sc.slice(0, cfg.n), half = cfg.mkt === 'on' && D.px.SPY[i] < sma(D.px.SPY, i, 200); if (!pick.length) return { w: {}, why: 'nothing qualifies' };
@@ -124,9 +124,9 @@ const top = port({ id: 'top', name: 'Top Picks', icon: 'trophy', syms: BIG,
 /* ---------- 3. Proven Trend (time-series momentum across asset classes) ---------- */
 const ASSETS = ['SPY', 'EFA', 'EEM', 'IEF', 'TLT', 'GLD', 'DBC', 'VNQ'];
 const proven = port({ id: 'proven', name: 'Proven Trend', icon: 'star', syms: [...ASSETS, 'SHY'],
-  blurb: 'Trend following across stocks, bonds, gold, commodities and real estate: the most-studied "it keeps working" rule in finance research (time-series momentum, Faber 2007, Moskowitz et al. 2012).',
-  how: ['Eight asset-class ETFs: US, foreign and emerging stocks, 7-10 and 20+ year Treasuries, gold, commodities, real estate.', 'Each gets an equal slot. A slot is invested only while its ETF is above its moving average (default 10 months ≈ 210 days); otherwise that slot sits in short-term Treasuries (SHY).', 'Optional: only the 4 strongest by 6-month return (momentum mode).', 'Checked on the first trading day of each month.'],
-  defaults: { ma: 210, mode: 'trend' }, params: [{ k: 'ma', label: 'Moving average', min: 100, max: 250, step: 10, unit: 'trading days', int: true }], choices: { mode: ['trend', 'momentum'] }, choiceLabels: { mode: 'Mode' },
+  honest: 'Robustness check (8 years, each half separately, 6 settings): every setting made money in both halves with smaller drops than SPY; it trails buy-and-hold SPY in a bull market by design.', blurb: 'Trend following across stocks, bonds, gold, commodities and real estate: the most-studied "it keeps working" rule in finance research (time-series momentum, Faber 2007, Moskowitz et al. 2012).',
+  how: ['Eight asset-class ETFs: US, foreign and emerging stocks, 7-10 and 20+ year Treasuries, gold, commodities, real estate.', 'Each gets an equal slot. A slot is invested only while its ETF is above its moving average (default 10 months ≈ 210 days); otherwise that slot sits in short-term Treasuries (SHY).', 'Momentum mode (default, the most robust in an 8-year check): only the 4 strongest by 6-month return get slots.', 'Checked on the first trading day of each month.'],
+  defaults: { ma: 210, mode: 'momentum' }, params: [{ k: 'ma', label: 'Moving average', min: 100, max: 250, step: 10, unit: 'trading days', int: true }], choices: { mode: ['trend', 'momentum'] }, choiceLabels: { mode: 'Mode' },
   weights(D, i, cfg) { let list = ASSETS.filter(s => D.px[s]?.[i]); if (cfg.mode === 'momentum') list = list.map(s => [s, ret(D.px[s], i, 126) ?? -9]).sort((a, b) => b[1] - a[1]).slice(0, 4).map(x => x[0]);
     const w = {}, x = 1 / list.length; let off = 0; for (const s of list) { if (D.px[s][i] > sma(D.px[s], i, cfg.ma)) w[s] = x; else off += x; } if (off) w.SHY = off; return { w, why: `${list.length - Math.round(off / x)} of ${list.length} assets in an uptrend` }; } });
 
@@ -136,7 +136,7 @@ const pairs = port({ id: 'pairs', name: 'Stat-Arb Pairs', icon: 'scales', every:
   blurb: 'Market-neutral statistical arbitrage: pairs of look-alike companies drift apart and come back. When the price ratio is stretched, short the rich one and buy the cheap one.',
   how: ['Eight classic pairs (KO/PEP, V/MA, XOM/CVX, HD/LOW, JPM/BAC, WMT/COST, GOOGL/META, UPS/FDX).', 'Spread: the log price ratio. Z-score over the last 60 days.', 'Open when |z| is above the entry (default 2): short the expensive leg, buy the cheap one, equal dollars.', 'Close when |z| falls below 0.5, or rises above 4 (stop), or after 20 days.', 'Each pair gets 1/8 of the account per leg.'],
   defaults: { z: 2, lb: 60 }, params: [{ k: 'z', label: 'Entry z-score', min: 1.5, max: 3, step: .25, unit: 'standard deviations' }, { k: 'lb', label: 'Lookback', min: 20, max: 120, step: 10, unit: 'days', int: true }],
-  honest: 'Pairs that worked in the past can stop working for good (a business changes). Profits per trade are small, so costs matter.',
+  honest: 'Robustness check (8 years, each half separately, 12 setting combinations): no setting made money after costs in both halves. These pairs have drifted apart for good too often. Kept as a study of the idea.',
   weights(D, i, cfg, st) { st.p ||= {}; const w = {}, notes = []; let changed = !st.init; st.init = true; const x = 1 / PAIRS.length;
     for (const [a, b] of PAIRS) { const A = D.px[a], B = D.px[b]; if (!A?.[i] || !B?.[i] || i < cfg.lb) continue; const sp = []; for (let k = i - cfg.lb + 1; k <= i; k++) if (A[k] && B[k]) sp.push(Math.log(A[k] / B[k])); if (sp.length < cfg.lb * .9) continue;
       const m = sp.reduce((p, q) => p + q, 0) / sp.length, sd = Math.sqrt(sp.reduce((p, q) => p + (q - m) ** 2, 0) / (sp.length - 1)), z = sd ? (sp[sp.length - 1] - m) / sd : 0, key = a + '/' + b, cur = st.p[key];
@@ -148,7 +148,7 @@ const pairs = port({ id: 'pairs', name: 'Stat-Arb Pairs', icon: 'scales', every:
 
 /* ---------- 5. Macro Regime ---------- */
 const macro = port({ id: 'macro', name: 'Macro Regime', icon: 'coin', every: 'week', syms: ['SPY', 'TLT', 'GLD', 'SHY', '^VIX'], everyTxt: 'Checked on the first trading day of each week.',
-  blurb: 'Reads the economy\'s risk signals (credit spreads, the yield curve, volatility and the stock trend) and moves between stocks, bonds, gold and cash.',
+  honest: 'Robustness check (8 years, each half separately): positive in both halves with smaller drops than SPY, but well behind buy-and-hold SPY in a strong bull market. Its job is to dodge the big crashes.', blurb: 'Reads the economy\'s risk signals (credit spreads, the yield curve, volatility and the stock trend) and moves between stocks, bonds, gold and cash.',
   how: ['Four signals, one point each when they say "risk on": SPY above its 200-day average; high-yield credit spreads (FRED BAMLH0A0HYM2) below their 6-month average; VIX below 22; the 10y-2y yield curve (FRED T10Y2Y) rising over 3 months or above 0.5.',
     '4 points: 100% SPY. 3: 70% SPY, 15% TLT, 15% GLD. 2: 40% SPY, 30% TLT, 30% GLD. 0-1: 50% SHY, 25% TLT, 25% GLD.', 'FRED values are used only from the day after their date. Checked weekly.'],
   dataNote: 'FRED (St. Louis Fed) credit spreads and yield curve, Yahoo Finance daily ETF closes and VIX. Weights trade the next day; 0.05% a side.',
