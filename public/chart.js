@@ -168,14 +168,16 @@
           pend = { id: Date.now().toString(36), k: tool, t1: a.t, p1: a.p, t2: a.t, p2: a.p }; mv = { create: true, x: p.x, y: p.y }; schedule(); return; }
         const h = hit(p.x, p.y); if (h) { sel = h; const a = ptAt(p.x, p.y); mv = { d: h, a, o: { t1: h.t1, p1: h.p1, t2: h.t2, p2: h.p2 } }; schedule(); return; } if (sel) { sel = null; schedule(); } }
       if (pts.size === 2) { const [A, B] = [...pts.values()]; pinch = { d: Math.hypot(A.x - B.x, A.y - B.y), r: { ...range }, cx: (A.x + B.x) / 2 }; drag = null; return; }
-      drag = { x: p.x, y: p.y, r: { ...range }, axis: p.x > PW(), t: performance.now(), lx: p.x, lt: performance.now(), sc: p.x > PW() ? { lo: scales.right.lo, hi: scales.right.hi } : null }; vel = 0; });
+      drag = { x: p.x, y: p.y, r: { ...range }, axis: p.x > PW(), t: performance.now(), lx: p.x, lt: performance.now(), sc: p.x > PW() ? { lo: scales.right.lo, hi: scales.right.hi } : null, pv: { lo: tf(scales.right, scales.right.lo), hi: tf(scales.right, scales.right.hi) }, vy: false }; vel = 0; });
     cv.addEventListener('pointermove', e => { const p = local(e); if (pts.has(e.pointerId)) pts.set(e.pointerId, p);
       if (pend && !mv?.done) { const a = ptAt(p.x, p.y); pend.t2 = a.t; pend.p2 = a.p; hover(p.x, p.y); return; }
       if (mv?.d && pts.has(e.pointerId)) { const a = ptAt(p.x, p.y), dt = a.t - mv.a.t, dp = a.p - mv.a.p, o = mv.o; mv.d.t1 = o.t1 + dt; mv.d.p1 = o.p1 + dp; if (o.t2 != null) { mv.d.t2 = o.t2 + dt; mv.d.p2 = o.p2 + dp; } mv.moved = true; schedule(); return; }
       if (pinch && pts.size === 2) { const [A, B] = [...pts.values()], d = Math.hypot(A.x - B.x, A.y - B.y), k = pinch.d / Math.max(10, d), span = (pinch.r.to - pinch.r.from) * k, at = pinch.r.from + pinch.cx / PW() * (pinch.r.to - pinch.r.from); setRange({ from: at - (pinch.cx / PW()) * span, to: at + (1 - pinch.cx / PW()) * span }); moved = true; return; }
       if (drag) { const dx = p.x - drag.x, dy = p.y - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) moved = true; if (!moved) return;
         if (drag.axis) { const R = scales.right, mid = (drag.sc.lo + drag.sc.hi) / 2, k = Math.exp(dy / 150), half = (drag.sc.hi - drag.sc.lo) / 2 * k; R.auto = false; R.min = mid - half; R.max = mid + half; schedule(); return; }
-        const now = performance.now(); vel = (p.x - drag.lx) / Math.max(1, now - drag.lt); drag.lx = p.x; drag.lt = now; const sh = dx / bs(); setRange({ from: drag.r.from - sh, to: drag.r.to - sh }); if (e.pointerType !== 'mouse') { cross = null; } return; }
+        const now = performance.now(); vel = (p.x - drag.lx) / Math.max(1, now - drag.lt); drag.lx = p.x; drag.lt = now; const sh = dx / bs(); setRange({ from: drag.r.from - sh, to: drag.r.to - sh });
+          // vertical pan like TradingView: dragging up or down moves the price scale too (auto-scale switches off; double-click the price axis or press Auto to reset)
+          if (drag.vy || Math.abs(dy) > 8) { const R = scales.right, hh = PH() * (1 - R.m.top - R.m.bottom), d = dy / Math.max(1, hh) * (drag.pv.hi - drag.pv.lo); drag.vy = true; R.auto = false; R.min = itf(R, drag.pv.lo + d); R.max = itf(R, drag.pv.hi + d); schedule(); } if (e.pointerType !== 'mouse') { cross = null; } return; }
       if (e.pointerType === 'mouse') hover(p.x, p.y); });
     const up = e => { const p = local(e); pts.delete(e.pointerId); if (pinch) { if (pts.size < 2) pinch = null; return; }
       if (mv) { const m = mv; mv = null; drag = null; if (m.create && pend && Math.hypot(p.x - m.x, p.y - m.y) > 8) { draws.push(pend); sel = pend; pend = null; tool = null; emitDraw(); schedule(); } else if (m.d && m.moved) emitDraw(); return; }
