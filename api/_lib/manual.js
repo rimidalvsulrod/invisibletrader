@@ -107,8 +107,18 @@ async function endDay(uid) { // cancel everything, flatten you and the Opposite 
     await fill(uid, a, p.sym, d === 1 ? 'buy' : 'sell', Math.abs(q), px, 'end of trading day', false); out.push(`${a}:${p.sym}`); }
   return { ok: true, closed: out };
 }
-async function closePos(uid, sym) { sym = norm(sym); const p = await db.one("SELECT * FROM mtpos WHERE uid=$1 AND acct='me' AND sym=$2", [uid, sym]); if (!p) throw err(400, 'no position'); const q = Number(p.qty), d = q > 0 ? -1 : 1;
-  await db.q("UPDATE mtord SET status='cancelled' WHERE uid=$1 AND sym=$2 AND status='open' AND grp IS NOT NULL", [uid, sym]); await fill(uid, 'me', sym, d === 1 ? 'buy' : 'sell', Math.abs(q), slip(sym, await quote(sym), d), 'closed by you'); return { ok: true }; }
+async function closePos(uid, sym, part) { sym = norm(sym); const p = await db.one("SELECT * FROM mtpos WHERE uid=$1 AND acct='me' AND sym=$2", [uid, sym]); if (!p) throw err(400, 'no position'); const q = Number(p.qty), d = q > 0 ? -1 : 1, pq = Number(part), partial = pq > 0 && pq < Math.abs(q) - 1e-9;
+  if (!partial) await db.q("UPDATE mtord SET status='cancelled' WHERE uid=$1 AND sym=$2 AND status='open' AND grp IS NOT NULL", [uid, sym]);
+  await fill(uid, 'me', sym, d === 1 ? 'buy' : 'sell', partial ? pq : Math.abs(q), slip(sym, await quote(sym), d), partial ? 'partly closed by you' : 'closed by you'); return { ok: true }; }
+async function reversePos(uid, sym) { sym = norm(sym); const p = await db.one("SELECT * FROM mtpos WHERE uid=$1 AND acct='me' AND sym=$2", [uid, sym]); if (!p) throw err(400, 'no position'); const q = Number(p.qty), d = q > 0 ? -1 : 1;
+  await db.q("UPDATE mtord SET status='cancelled' WHERE uid=$1 AND sym=$2 AND status='open' AND grp IS NOT NULL", [uid, sym]); await fill(uid, 'me', sym, d === 1 ? 'buy' : 'sell', Math.abs(q) * 2, slip(sym, await quote(sym), d), 'reversed by you'); return { ok: true }; }
+async function exitPos(uid, b) { const sym = norm(b.sym), kind = b.kind === 'tp' ? 'tp' : 'sl', px = Number(b.px); const p = await db.one("SELECT * FROM mtpos WHERE uid=$1 AND acct='me' AND sym=$2", [uid, sym]); if (!p) throw err(400, 'no position');
+  const q = Number(p.qty), long = q > 0, last = await quote(sym); if (!(px > 0)) throw err(400, 'Enter a price');
+  if (kind === 'tp' ? (long ? px <= last : px >= last) : (long ? px >= last : px <= last)) throw err(400, `The ${kind === 'tp' ? 'take-profit' : 'stop-loss'} must be ${(kind === 'tp') === long ? 'above' : 'below'} the price`);
+  const open = await db.one("SELECT grp FROM mtord WHERE uid=$1 AND sym=$2 AND status='open' AND grp IS NOT NULL LIMIT 1", [uid, sym]), g = open ? open.grp : ID(), k = kind === 'tp' ? 'limit' : 'stop';
+  await db.q("UPDATE mtord SET status='cancelled' WHERE uid=$1 AND sym=$2 AND status='open' AND grp=$3 AND kind=$4", [uid, sym, g, k]);
+  if (b.remove) return { ok: true };
+  await db.q("INSERT INTO mtord (id, uid, ts, sym, side, qty, kind, px, status, grp) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'open',$9)", [ID(), uid, Date.now(), sym, long ? 'sell' : 'buy', Math.abs(q), k, px, g]); return { ok: true }; }
 async function stats(uid, a) { const r = await db.one("SELECT count(*)::int AS n, coalesce(sum(pnl-fee),0) AS net, sum(CASE WHEN pnl>0 THEN 1 ELSE 0 END)::int AS w, sum(CASE WHEN pnl<>0 THEN 1 ELSE 0 END)::int AS c FROM mtfill WHERE uid=$1 AND acct=$2", [uid, a]); return { fills: r.n, net: Number(r.net), won: r.w || 0, closed: r.c || 0 }; }
 async function state(uid) {
   await check(uid).catch(() => {}); const [me, opp] = [await equity(uid, 'me'), await equity(uid, 'opp')];
@@ -138,7 +148,9 @@ async function api(uid, op, b, q) {
     case 'state': return state(uid);
     case 'order': await acct(uid, 'me'); return place(uid, b);
     case 'cancel': await db.q("UPDATE mtord SET status='cancelled' WHERE uid=$1 AND id=$2 AND status='open'", [uid, String(b.id)]); return { ok: true };
-    case 'close': return closePos(uid, b.sym);
+    case 'close': return closePos(uid, b.sym, b.qty);
+    case 'reverse': return reversePos(uid, b.sym);
+    case 'exit': return exitPos(uid, b);
     case 'endday': return endDay(uid);
     case 'opp': await acct(uid, 'opp'); await db.q("UPDATE mtacct SET enabled=$2 WHERE uid=$1 AND acct='opp'", [uid, !!b.on]); return { ok: true };
     case 'balance': { // paper balance manager: set a new starting balance (fresh account) or deposit / withdraw

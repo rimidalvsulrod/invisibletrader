@@ -71,7 +71,7 @@
       g.save(); g.beginPath(); g.rect(0, 0, pw, ph); g.clip(); const a = Math.floor(range.from) - 1, z = Math.ceil(range.to) + 1;
       for (const s of series) if (s.on) drawSeries(s, a, z);
       for (const s of series) if (s.on && s.markers.length) drawMarkers(s, a, z);
-      drawDrawings();
+      drawDrawings(); drawPos();
       // price lines
       for (const s of series) { if (!s.on) continue; const sc = scaleOf(s.scale); for (const pl of s.lines) { const y = Math.round(yOf(sc, pl.price)) + .5; if (y < 0 || y > ph) continue; g.strokeStyle = pl.color; g.lineWidth = pl.lineWidth || 1; g.setLineDash(DASH[pl.lineStyle ?? 2]); g.beginPath(); g.moveTo(0, y); g.lineTo(pw, y); g.stroke(); g.setLineDash([]);
         if (pl.title) { g.font = font; const tw = g.measureText(pl.title).width + 10; g.fillStyle = pl.color; g.globalAlpha = .9; rr(pw - tw - 4, y - 9, tw, 18, 3); g.fill(); g.globalAlpha = 1; g.fillStyle = '#fff'; g.textAlign = 'right'; g.fillText(pl.title, pw - 9, y); g.textAlign = 'left'; } }
@@ -133,6 +133,9 @@
         else if (d.k == 'fib') { const L = Math.min(x1, x2), Rr = Math.max(x1, x2, L + 40); FIB.forEach((f, j) => { const p = d.p2 + (d.p1 - d.p2) * f, y = yOf(R, p); g.globalAlpha = .9; g.strokeStyle = ['#787b86', '#f23645', '#ff9800', '#4caf50', '#089981', '#00bcd4', '#787b86', '#2962ff'][j]; g.beginPath(); g.moveTo(L, y); g.lineTo(Rr, y); g.stroke(); g.fillStyle = g.strokeStyle; g.fillText(`${f} (${fmt(p)})`, L + 4, y - 7); g.globalAlpha = 1; });
           g.strokeStyle = c; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); g.setLineDash([]); }
         else if (d.k == 'long' || d.k == 'short') posDraw(d, x1, y1, x2, y2, R);
+        else if (d.k == 'exec') { const b = d.side == 'buy', col = b ? '#2962ff' : '#f23645', s = 6, yy = y1 + (b ? 3 : -3); g.fillStyle = col; g.beginPath(); // execution arrow at the fill price, like TradingView
+          if (b) { g.moveTo(x1, yy); g.lineTo(x1 - s, yy + s * 1.5); g.lineTo(x1 + s, yy + s * 1.5); } else { g.moveTo(x1, yy); g.lineTo(x1 - s, yy - s * 1.5); g.lineTo(x1 + s, yy - s * 1.5); } g.closePath(); g.fill();
+          if (d.text) { g.font = `${opt.layout.fontSize - 1}px ${opt.layout.fontFamily}`; g.textAlign = 'center'; g.fillText(d.text, x1, b ? yy + s * 1.5 + 12 : yy - s * 1.5 - 5); g.textAlign = 'left'; } continue; }
         if (on) for (const [hx, hy] of d.k == 'hline' ? [[pw / 2, y1]] : d.k == 'vline' ? [[x1, ph / 2]] : [[x1, y1], [x2, y2]]) { g.fillStyle = '#fff'; g.strokeStyle = c; g.lineWidth = 1.5; g.beginPath(); g.arc(hx, hy, 4.5, 0, 7); g.fill(); g.stroke(); } }
     }
     const slOf = d => d.sl != null ? d.sl : d.p1 - (d.p2 - d.p1);
@@ -146,6 +149,25 @@
       const tTop = y2 < ys ? y2 : ys, tBot = y2 < ys ? ys : y2;
       if (!d.done || d === sel) tag(`Target: ${fmt(d.p2)} (${pct(d.p2)}%)`, y2 + (y2 < y1 ? -12 : 12), up + '.95)'); if (!d.done || d === sel) tag(`Stop: ${fmt(slOf(d))} (${pct(slOf(d))}%)`, ys + (ys < y1 ? -12 : 12), dn + '.95)');
       if (d === sel || d === pend || (d.cur != null && !d.done)) tag(`${d.cur != null ? (d.done ? 'Closed' : 'Open') + ' P&L: ' + (d.pnl != null ? (d.pnl >= 0 ? '' : '-') + '$' + Math.abs(d.pnl).toFixed(2) : '') + ', ' : ''}${d.qty ? 'Qty: ' + d.qty + ', ' : ''}Risk/Reward Ratio: ${rr.toFixed(2)}`, y1 + (lg ? 12 : -12), d.cur != null ? ((lg ? d.cur >= d.p1 : d.cur <= d.p1) ? up + '.95)' : dn + '.95)') : 'rgba(80,90,110,.95)'); void tTop; void tBot; }
+    // an open position, TradingView style: dotted entry line, a green / red zone up to the last price, an entry arrow and the tag on the right
+    let pos = null, posHit = [], posCur = false; const cbPos = [];
+    const posAt = (x, y) => { for (const h of posHit) if (x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h) return h; return null; };
+    function drawPos() { posHit = []; if (!pos || !times.length) return; const R = mainScale(), pw = PW(), ph = PH(), y = yOf(R, pos.price), yl = yOf(R, pos.last), lg = pos.side === 'long', good = pos.pnl >= 0, w = bs();
+      const x0 = xOfT(pos.time), x1 = xOfT(times[times.length - 1]);
+      g.fillStyle = good ? 'rgba(8,153,129,.17)' : 'rgba(242,54,69,.17)'; g.fillRect(x0 - w / 2, Math.min(y, yl), Math.max(3, x1 - x0 + w), Math.max(1, Math.abs(yl - y)));
+      g.strokeStyle = 'rgba(190,195,210,.6)'; g.lineWidth = 1; g.setLineDash([1, 3]); g.beginPath(); g.moveTo(0, Math.round(y) + .5); g.lineTo(pw, Math.round(y) + .5); g.stroke(); g.setLineDash([]);
+      const ay = lg ? y + 9 : y - 9, dir = lg ? -1 : 1; g.strokeStyle = g.fillStyle = lg ? '#2962ff' : '#f23645'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x0, ay + dir * -8); g.lineTo(x0, ay + dir * 6); g.moveTo(x0 - 4, ay + dir * 2); g.lineTo(x0, ay + dir * 6); g.lineTo(x0 + 4, ay + dir * 2); g.stroke(); // arrow under (long) or over (short) the entry bar
+      const H = 18, gap = 3, fnt = `600 11px ${opt.layout.fontFamily}`; g.font = fnt; const num = v => Math.abs(v) >= 1000 ? v.toLocaleString('en-US', { maximumFractionDigits: 2 }) : String(+v.toFixed(Math.abs(v) < 1 ? 4 : 2)),
+        qtxt = num(Math.abs(pos.qty)), ptxt = `${pos.pnl < 0 ? '\u2212' : ''}${Math.abs(pos.pnl).toFixed(2)} USD`,
+        items = [['rev', 22], ['tp', 26], ['sl', 26], ['qty', g.measureText(qtxt).width + 14], ['pnl', g.measureText(ptxt).width + 14], ['x', 20]]; const total = items.reduce((s, i) => s + i[1] + gap, -gap);
+      let x = pw - 12 - total; const top = Math.max(2, Math.min(ph - H - 2, y - H / 2)), rr = (px, py, ww, hh, r) => { g.beginPath(); g.roundRect ? g.roundRect(px, py, ww, hh, r) : g.rect(px, py, ww, hh); };
+      for (const [k, ww] of items) { posHit.push({ k, x, y: top, w: ww, h: H }); g.setLineDash([]); g.lineWidth = 1; const cx = x + ww / 2, cy = top + H / 2;
+        if (k == 'qty') { rr(x, top, ww, H, 3); g.fillStyle = '#2962ff'; g.fill(); g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(qtxt, cx, cy + .5); }
+        else if (k == 'pnl') { rr(x, top, ww, H, 3); g.fillStyle = '#131722'; g.fill(); g.strokeStyle = '#2962ff'; g.stroke(); g.fillStyle = good ? '#26a69a' : '#ef5350'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ptxt, cx, cy + .5); }
+        else if (k == 'tp' || k == 'sl') { const on = pos[k], c = k == 'tp' ? '#26a69a' : '#ff9800'; rr(x, top, ww, H, 3); g.fillStyle = on ? (k == 'tp' ? 'rgba(38,166,154,.28)' : 'rgba(255,152,0,.28)') : '#131722'; g.fill(); g.strokeStyle = c; g.setLineDash(on ? [] : [3, 2]); g.stroke(); g.setLineDash([]); g.fillStyle = c; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(k.toUpperCase(), cx, cy + .5); }
+        else { rr(x, top, ww, H, 3); g.fillStyle = '#131722'; g.fill(); g.strokeStyle = '#2962ff'; g.stroke(); g.strokeStyle = g.fillStyle = '#2962ff'; g.lineWidth = 1.4; g.beginPath();
+          if (k == 'rev') { g.moveTo(cx - 3, cy + 4); g.lineTo(cx - 3, cy - 4); g.moveTo(cx - 5.5, cy - 1.5); g.lineTo(cx - 3, cy - 4); g.lineTo(cx - .5, cy - 1.5); g.moveTo(cx + 3, cy - 4); g.lineTo(cx + 3, cy + 4); g.moveTo(cx + .5, cy + 1.5); g.lineTo(cx + 3, cy + 4); g.lineTo(cx + 5.5, cy + 1.5); } else { g.moveTo(cx - 3.5, cy - 3.5); g.lineTo(cx + 3.5, cy + 3.5); g.moveTo(cx + 3.5, cy - 3.5); g.lineTo(cx - 3.5, cy + 3.5); } g.stroke(); }
+        x += ww + gap; } g.textAlign = 'left'; g.textBaseline = 'alphabetic'; }
     function hit(px, py) { const R = mainScale(); for (let k = draws.length - 1; k >= 0; k--) { const d = draws[k], { x1, y1, x2, y2 } = geom(d);
         if (d.k == 'hline' && Math.abs(py - y1) < 6) return d; if (d.k == 'vline' && Math.abs(px - x1) < 6) return d;
         if (d.k == 'trend' || d.k == 'ray') { let ex = x2, ey = y2; if (d.k == 'ray' && x2 !== x1) { ex = x2 > x1 ? PW() : 0; ey = y1 + (y2 - y1) * (ex - x1) / (x2 - x1); } const dx = ex - x1, dy = ey - y1, L2 = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / L2)); if (Math.hypot(px - x1 - u * dx, py - y1 - u * dy) < 6) return d; }
@@ -172,9 +194,9 @@
     const pts = new Map(); let drag = null, pinch = null, vel = 0, inertia = 0, moved = false;
     const local = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
     const evAt = (x, y) => { ensure(); const i = Math.max(0, Math.min(times.length - 1, Math.round(iOf(x)))), sd = new Map(); for (const s of series) { const k = s.ix.indexOf(i); if (k >= 0) sd.set(s.api, s.data[k]); } return { time: times[i], logical: i, point: { x, y }, seriesData: sd }; };
-    const hover = (x, y) => { if (!times.length) return; if (x < 0 || y < 0 || x > PW() || y > PH()) { if (cross) { cross = null; schedule(); for (const f of cbMove) f({ point: undefined, time: undefined, seriesData: new Map() }); } return; } const ev = evAt(x, y); cross = { i: ev.logical, y }; schedule(); for (const f of cbMove) f(ev); };
+    const hover = (x, y) => { if (!times.length) return; if (posAt(x, y)) { cv.style.cursor = 'pointer'; posCur = true; } else if (posCur) { posCur = false; cv.style.cursor = tool ? 'crosshair' : ''; } if (x < 0 || y < 0 || x > PW() || y > PH()) { if (cross) { cross = null; schedule(); for (const f of cbMove) f({ point: undefined, time: undefined, seriesData: new Map() }); } return; } const ev = evAt(x, y); cross = { i: ev.logical, y }; schedule(); for (const f of cbMove) f(ev); };
     let mv = null;
-    cv.addEventListener('pointerdown', e => { cancelAnimationFrame(inertia); inertia = 0; cv.setPointerCapture(e.pointerId); const p = local(e); pts.set(e.pointerId, p); moved = false; ensure(); fit();
+    cv.addEventListener('pointerdown', e => { cancelAnimationFrame(inertia); inertia = 0; cv.setPointerCapture(e.pointerId); const p = local(e); pts.set(e.pointerId, p); moved = false; ensure(); fit(); { const h = posAt(p.x, p.y); if (h && pts.size === 1) { pts.delete(e.pointerId); for (const f of cbPos) f(h.k); mv = null; drag = null; return; } }
       if (p.x <= PW() && p.y <= PH() && pts.size === 1) {
         if (tool) { const a = ptAt(p.x, p.y); if (pend) { pend.t2 = a.t; pend.p2 = a.p; draws.push(pend); sel = pend; pend = null; tool = null; emitDraw(); schedule(); mv = { done: true }; return; }
           if (tool == 'hline' || tool == 'vline') { const d = { id: Date.now().toString(36), k: tool, t1: a.t, p1: a.p }; draws.push(d); sel = d; tool = null; emitDraw(); schedule(); mv = { done: true }; return; }
@@ -230,6 +252,7 @@
       timeScale: () => ({ fitContent: () => { ensure(); const n = times.length; setRange({ from: -0.5, to: n - 0.5 + 2 }); }, setVisibleLogicalRange: r => { ensure(); setRange(r); }, getVisibleLogicalRange: () => range ? { ...range } : null,
         subscribeVisibleLogicalRangeChange: f => cbRange.push(f), applyOptions: x => { merge(opt.timeScale, x); schedule(); } }),
       setTool: k => { tool = k || null; pend = null; cv.style.cursor = tool ? 'crosshair' : ''; schedule(); }, getTool: () => tool,
+      setPosition: p => { pos = p; schedule(); }, subscribePosition: f => cbPos.push(f),
       setDrawings: l => { draws = (l || []).map(d => ({ ...d })); sel = null; pend = null; schedule(); }, subscribeDrawings: f => cbDraw.push(f),
       deleteSelected: () => { if (!sel) return false; draws = draws.filter(d => d !== sel); sel = null; emitDraw(); schedule(); return true; },
       timeToCoordinate: t => { ensure(); return xOfT(t); }, coordinateToTime: x => { ensure(); return tOfX(x); },
