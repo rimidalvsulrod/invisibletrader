@@ -713,3 +713,17 @@ input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
  .tbl td,.tbl th{padding:13px 14px}
 }
 @media(max-width:380px){.card.pad{padding:16px}h1{font-size:27px}.dkpis b{font-size:21px}}
+
+/* ---------- bottom tab bar: flat, anchored to the very bottom, sized by the device's own safe area (home indicator) ---------- */
+@media(max-width:760px){
+ #tabbar,:root[data-theme] #tabbar{left:0;right:0;bottom:0;height:calc(54px + env(safe-area-inset-bottom));padding:0 6px env(safe-area-inset-bottom);border-radius:0;border:0!important;border-top:1px solid var(--line)!important;box-shadow:none!important;background:var(--panel)!important}
+ #tabbar a{margin:0;border-radius:12px;gap:2px;font-size:10.5px;font-weight:500;color:var(--mut2)}
+ #tabbar a svg{width:23px;height:23px}
+ #tabbar a.on,:root[data-theme] #tabbar a.on{background:none;color:var(--accent)}
+ #tabbar a.on svg{color:var(--accent)}
+ .wrap{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+ .trmbar{bottom:calc(54px + env(safe-area-inset-bottom))}
+ .trchartcard{bottom:calc(104px + env(safe-area-inset-bottom))}
+ body[data-trs=tk] .trside,body[data-trs=acct] .trside,body[data-trs=sym] .trhead,body[data-trs=tf] .trbar{padding-bottom:calc(20px + env(safe-area-inset-bottom))}
+ aside{max-height:calc(100dvh - 54px - env(safe-area-inset-bottom))}
+}

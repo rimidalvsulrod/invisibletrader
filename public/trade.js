@@ -8,7 +8,7 @@ const trStop = () => { trTickStop(); trSheet(null); $('#trpick')?.remove(); clea
 const mtapi = async (op, body, qs = '') => { const r = await fetch('/api/powell' + (body ? '' : `?op=mt-${op}${qs}`), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'mt-' + op, ...body }) } : {});
   const j = await r.json().catch(() => ({ error: 'Bad response' })); if (!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), { status: r.status }); return j; };
 const TFS = [['1m', '1m'], ['5m', '5m'], ['15m', '15m'], ['30m', '30m'], ['1h', '1H'], ['4h', '4H'], ['1d', '1D'], ['1w', '1W'], ['1mo', '1M']];
-const TYPES = [['candle', 'Candles'], ['smooth', 'Smooth'], ['hollow', 'Hollow candles'], ['ha', 'Heikin Ashi'], ['bar', 'Bars'], ['line', 'Line'], ['base', 'Baseline']];
+const TYPES = [['candle', 'Rounded candles'], ['sharp', 'Sharp candles'], ['smooth', 'Smooth'], ['hollow', 'Hollow candles'], ['ha', 'Heikin Ashi'], ['bar', 'Bars'], ['line', 'Line'], ['base', 'Baseline']];
 const WATCH = ['SPY', 'QQQ', 'AAPL', 'NVDA', 'TSLA', 'MSFT', 'NQ=F', 'ES=F', 'GC=F', 'CL=F', 'BTC-USD', 'ETH-USD', 'SOL-USD'];
 const IND = INDS; // public/indicators.js
 const trN = (x, d) => x == null || !isFinite(x) ? '-' : Number(x).toLocaleString('en-US', { minimumFractionDigits: d ?? (Math.abs(x) >= 1000 ? 2 : Math.abs(x) >= 1 ? 2 : 4), maximumFractionDigits: d ?? (Math.abs(x) >= 1000 ? 2 : Math.abs(x) >= 1 ? 2 : 6) });
@@ -92,6 +92,18 @@ async function trLoad(fresh) {
   $('#trname').textContent = `${d.name} · ${d.ex}`; $('#trpx').textContent = trN(last?.c); const ch = d.prev ? (last.c / d.prev - 1) * 100 : null; $('#trchg').innerHTML = ch == null ? '' : `<span class="${ch >= 0 ? 'up' : 'down'}">${ch >= 0 ? '+' : ''}${trN(last.c - d.prev)} (${ch >= 0 ? '+' : ''}${ch.toFixed(2)}%)</span>`; $('#trdel').hidden = !d.delayed; const short = d.sym.replace('-USD', '').replace('=F', ''), pxs = trN(last?.c); $('#trmsym').textContent = short; $('#trmex').textContent = d.delayed ? 'delayed' : ''; $('#trmpx').textContent = pxs; $('#trmchg').innerHTML = $('#trchg').innerHTML; $('#trqsp').textContent = pxs; $('#trqbp').textContent = pxs; $('#trmsy').textContent = short; $('#trmtf').textContent = TFS.find(x => x[0] == TR.tf)?.[1] || TR.tf;
   trPaint(!sameSet); trTicketPrice();
 }
+/* rounded, friendlier candles: a custom series that draws pill-shaped bodies and round-capped wicks */
+const RC = (() => { let D = null, O = null; const rr = (c, x, y, w, h, r) => { r = Math.max(0, Math.min(r, w / 2, h / 2)); c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); };
+  return { priceValueBuilder: p => [p.high, p.low, p.close], isWhitespace: d => d.close === undefined,
+    renderer: () => ({ draw: (target, conv) => { if (!D) return; target.useBitmapCoordinateSpace(({ context: c, horizontalPixelRatio: hr, verticalPixelRatio: vr }) => {
+      const bw = Math.max(1, Math.min(22, Math.floor(D.barSpacing * .78))) * hr, wk = Math.max(1, Math.round(1.6 * hr)), from = D.visibleRange?.from ?? 0, to = D.visibleRange?.to ?? D.bars.length - 1;
+      for (let i = from; i <= to; i++) { const b = D.bars[i]; if (!b) continue; const d = b.originalData, up = d.close >= d.open, x = Math.round(b.x * hr), yh = conv(d.high), yl = conv(d.low), yo = conv(d.open), yc = conv(d.close); if ([yh, yl, yo, yc].some(v => v == null)) continue;
+        const fill = up ? O.upColor : O.downColor, line = up ? O.borderUpColor : O.borderDownColor, wick = up ? O.wickUpColor : O.wickDownColor, top = Math.round(Math.min(yo, yc) * vr), bot = Math.round(Math.max(yo, yc) * vr), h = Math.max(bw > 4 ? bw * .55 : 2, bot - top), by = bw > 4 && bot - top < h ? top - (h - (bot - top)) / 2 : top;
+        c.strokeStyle = wick; c.lineWidth = wk; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, Math.round(yh * vr)); c.lineTo(x, Math.round(yl * vr)); c.stroke();
+        if (bw < 4) { c.fillStyle = line || fill; c.fillRect(Math.round(x - bw / 2), by, Math.max(2, bw), h); continue; }
+        rr(c, x - bw / 2, by, bw, h, Math.min(bw * .42, 7 * hr)); c.fillStyle = fill; c.fill(); if (line && line !== fill) { c.strokeStyle = line; c.lineWidth = Math.max(1, Math.round(1.4 * hr)); c.stroke(); } } }); } }),
+    update: (data, opts) => { D = data; O = opts; },
+    defaultOptions: () => ({ upColor: '#26a69a', downColor: '#ef5350', borderUpColor: '#26a69a', borderDownColor: '#ef5350', wickUpColor: '#26a69a', wickDownColor: '#ef5350' }) }; })();
 function trBars() { const B = trData.B; if (TR.type != 'ha') return B; const o = []; B.forEach((b, i) => { const c = (b.o + b.h + b.l + b.c) / 4, op = i ? (o[i - 1].o + o[i - 1].c) / 2 : (b.o + b.c) / 2; o.push({ t: b.t, o: op, c, h: Math.max(b.h, op, c), l: Math.min(b.l, op, c), v: b.v }); }); return o; }
 function trPaint(rebuild) {
   if (!trChart || !trData) return; const B = trBars(), dark = document.documentElement.dataset.theme == 'dark', bw = TR.cs == 'bw', mono = TR.cs == 'mono', up = mono ? (dark ? '#ffffff' : '#ffffff') : bw ? '#1f5bff' : trCss('--up'), dn = mono ? (dark ? '#000000' : '#121214') : bw ? (dark ? '#d4d4d8' : '#a1a1aa') : trCss('--down'), edge = mono ? (dark ? '#d4d4d8' : '#121214') : null, ac = trCss('--accent'), acr = trCss('--accent-rgb'), C = B.map(b => b.c), T = B.map(b => b.t), pal = indPalette();
@@ -104,6 +116,7 @@ function trPaint(rebuild) {
       : k == 'line' ? trChart.addLineSeries({ ...base, color: ac, lineWidth: 2, crosshairMarkerRadius: 5, crosshairMarkerBorderColor: trCss('--panel'), crosshairMarkerBackgroundColor: ac })
       : k == 'base' ? trChart.addBaselineSeries({ ...base, baseValue: { type: 'price', price: trData.prev || C[0] }, topLineColor: up, topFillColor1: up + '40', topFillColor2: up + '05', bottomLineColor: dn, bottomFillColor1: dn + '05', bottomFillColor2: dn + '40', lineWidth: 2 })
       : k == 'bar' ? trChart.addBarSeries({ ...base, upColor: mono ? (dark ? '#ffffff' : '#121214') : up, downColor: mono ? (dark ? '#8e8e93' : '#8a8a94') : dn, thinBars: false })
+      : k != 'sharp' && trChart.addCustomSeries ? trChart.addCustomSeries(RC, { ...base, upColor: k == 'hollow' ? 'rgba(0,0,0,0)' : up, downColor: dn, borderUpColor: edge || up, borderDownColor: edge || dn, wickUpColor: edge || up, wickDownColor: edge || dn })
       : trChart.addCandlestickSeries({ ...base, upColor: k == 'hollow' ? 'rgba(0,0,0,0)' : up, downColor: dn, borderUpColor: edge || up, borderDownColor: edge || dn, wickUpColor: edge || up + 'cc', wickDownColor: edge || dn + 'cc' }); }
   trS.main.setData(/smooth|line|base/.test(TR.type) ? B.map(b => ({ time: b.t, value: b.c })) : B.map(b => ({ time: b.t, open: b.o, high: b.h, low: b.l, close: b.c })));
   trMain = trS.main;
@@ -122,7 +135,7 @@ function trPaint(rebuild) {
   for (const d of trDraw) try { trChart.removeSeries(d); } catch (e) {} trDraw = []; for (const pl of trLines) try { trS.main.removePriceLine(pl); } catch (e) {} trLines = [];
   for (const d of LS.get('mt:draw:' + TR.sym, [])) { if (d.k == 'h') trLines.push(trS.main.createPriceLine({ price: d.p, color: ac, lineWidth: 1, lineStyle: 0, axisLabelVisible: true, title: '' }));
     if (d.k == 't' && d.t2 > d.t1) { const s = trChart.addLineSeries({ color: ac, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }); s.setData([{ time: d.t1, value: d.p1 }, { time: d.t2, value: d.p2 }]); trDraw.push(s); } }
-  trOrderLines(); if (rebuild) { const n = B.length; if (n > 150) trChart.timeScale().setVisibleLogicalRange({ from: n - 130, to: n + 6 }); else trChart.timeScale().fitContent(); } trLegend(); if ($('#trindn')) $('#trindn').textContent = act.length;
+  trOrderLines(); if (rebuild) { const n = B.length; const vis = matchMedia('(max-width:760px)').matches ? 52 : 90; if (n > vis + 20) trChart.timeScale().setVisibleLogicalRange({ from: n - vis, to: n + 5 }); else trChart.timeScale().fitContent(); } trLegend(); if ($('#trindn')) $('#trindn').textContent = act.length;
 }
 let trOut = {};
 const trPrm = k => { const P = {}; for (const [n, , d] of IND[k].p) P[n] = TR.prm[k]?.[n] ?? d; return P; };
