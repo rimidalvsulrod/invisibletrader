@@ -41,7 +41,7 @@ function runBars(b, i0, i1, o, gen) {
 }
 
 /* ---------- data: 5-minute candles with volume (free Yahoo Finance, all hours), America/New_York ---------- */
-const UA = { 'user-agent': 'Mozilla/5.0 (compatible; MimicLab/1.0)', accept: 'application/json' }, YSYM = { NQ: 'NQ=F', ES: 'ES=F', SPY: 'SPY' }, BC = new Map();
+const UA = { 'user-agent': 'Mozilla/5.0 (compatible; MimicLab/1.0)', accept: 'application/json' }, YSYM = { NQ: 'NQ=F', ES: 'ES=F', SPY: 'SPY', VIX: '^VIX' }, BC = new Map();
 async function bars5(sym, ttl = 10e3, range = '60d') {
   const ys = YSYM[sym]; if (!ys) throw Object.assign(new Error('unknown symbol ' + sym), { status: 400 }); const key = sym + range, hit = BC.get(key); if (hit && Date.now() - hit.at < ttl) return hit.v;
   const j = await Y.get(`/v8/finance/chart/${encodeURIComponent(ys)}?range=${range}&interval=5m&includePrePost=true`, 45e3);

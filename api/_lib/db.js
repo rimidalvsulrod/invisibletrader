@@ -62,7 +62,9 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS labbot (uid text NOT NULL, strat text NOT NULL, enabled boolean NOT NULL DEFAULT false, cfg text, paper double precision NOT NULL DEFAULT 25000, since bigint, updated bigint, PRIMARY KEY (uid, strat))`,
   `CREATE TABLE IF NOT EXISTS labtrades (id text PRIMARY KEY, uid text NOT NULL, strat text NOT NULL, key text NOT NULL, ts bigint NOT NULL, day text, sym text, dir text, qty double precision, entry double precision, stop double precision, tp double precision, status text NOT NULL DEFAULT 'open', exitp double precision, pnl double precision, reason text, why text, exitts bigint, UNIQUE (uid, strat, key))`,
   `CREATE INDEX IF NOT EXISTS labtrades_us ON labtrades (uid, strat, ts)`,
-  `CREATE TABLE IF NOT EXISTS labpx (sym text PRIMARY KEY, at bigint, data text)`, // daily closes for the portfolio bots, shared by everyone
+  `CREATE TABLE IF NOT EXISTS labpx (sym text PRIMARY KEY, at bigint, data text)`,
+  `CREATE TABLE IF NOT EXISTS labopt (ts bigint PRIMARY KEY, day text, data text)`, // SPY options chain snapshots every 5 minutes (options bots)
+  `CREATE INDEX IF NOT EXISTS labopt_day ON labopt (day)`, // daily closes for the portfolio bots, shared by everyone
   `CREATE TABLE IF NOT EXISTS btctrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, slug text NOT NULL, tf text, side text, price double precision, qty double precision, fee double precision, fair double precision, edge double precision, s0 double precision, s double precision, secs double precision, mode text, status text NOT NULL DEFAULT 'open', pnl double precision, wend bigint)`,
 ];
 // One time: the site used to have a single owner (bot row 'me', global follows/log, keys + password in settings).
