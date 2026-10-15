@@ -18,7 +18,7 @@ async function once(path, withSession) {
   const r = await fetch(url, { headers, signal: AbortSignal.timeout(25e3) }); return r;
 }
 // path: '/v8/finance/chart/SPY?range=5d&interval=5m'. ttl: how old a cached copy may be.
-async function get(path, ttl = 30e3) {
+async function get(path, ttl = 30e3, fast = false) { // fast: small live-price requests skip the spaced queue (they must not wait behind big candle downloads)
   const hit = C.get(path); if (hit && Date.now() - hit.at < ttl) return hit.v;
   if (hit && Date.now() < cool) return hit.v; // cooling down after a refusal: the last good copy
   if (INF.has(path)) return INF.get(path);
@@ -26,7 +26,7 @@ async function get(path, ttl = 30e3) {
     let lastErr = null;
     for (let a = 0; a < 4; a++) {
       if (Date.now() < cool && a === 0 && !hit) await sleep(Math.min(5e3, cool - Date.now()));
-      let r; try { r = await spaced(() => once(path, a >= 1 || !!sess)); } catch (e) { lastErr = e; await sleep(400 * (a + 1)); continue; }
+      let r; try { r = fast && a === 0 ? await once(path, !!sess) : await spaced(() => once(path, a >= 1 || !!sess)); } catch (e) { lastErr = e; await sleep(400 * (a + 1)); continue; }
       if (r.ok) { const v = await r.json(); C.set(path, { at: Date.now(), v }); if (C.size > 300) C.delete(C.keys().next().value); strikes = 0; return v; }
       lastErr = new Error(`Yahoo Finance: ${r.status}`); if (r.status === 404) break;
       if (r.status === 429 || r.status >= 500 || r.status === 401) { host++; if (r.status !== 429) sess = null; strikes++; cool = Date.now() + Math.min(5 * 6e4, 5e3 * 2 ** Math.min(strikes, 6)); await sleep(800 * (a + 1)); continue; }

@@ -43,7 +43,7 @@ function dayPrev(out, m, tf) { // yesterday's close, for the day change (chartPr
 async function quote(sym) { // live price
   sym = norm(sym); const h = QC.get(sym); if (h && Date.now() - h.at < 900) return h.px; let px = null;
   if (isCrypto(sym)) try { const r = await fetch(`https://api.exchange.coinbase.com/products/${sym}/ticker`, { headers: { 'user-agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8e3) }); if (r.ok) px = +(await r.json()).price || null; } catch (e) {}
-  if (px == null) { const j = await Y.get(`/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=1m&includePrePost=true`, 900), r = j?.chart?.result?.[0], m = r?.meta || {}; px = m.regularMarketPrice ?? null; // the newest trade, pre- and after-hours included
+  if (px == null) { const j = await Y.get(`/v8/finance/chart/${encodeURIComponent(sym)}?range=1d&interval=1m&includePrePost=true`, 900, true), r = j?.chart?.result?.[0], m = r?.meta || {}; px = m.regularMarketPrice ?? null; // the newest trade, pre- and after-hours included
     const T = r?.timestamp || [], C = r?.indicators?.quote?.[0]?.close || []; for (let i = T.length - 1; i >= 0; i--) if (C[i] != null) { if (T[i] > (m.regularMarketTime || 0)) px = C[i]; break; } }
   if (!(px > 0)) throw err(502, 'no live price for ' + sym); QC.set(sym, { at: Date.now(), px }); return px;
 }
@@ -123,7 +123,7 @@ async function api(uid, op, b, q) {
     case 'mcptrade': return require('./mcp').setTrade(uid, b.on);
     case 'view': return require('./mcp').view(uid, b); // the Trade page reports its view; the reply carries Claude's commands
     case 'quotes': { const L = [...new Set(String(q.syms || b.syms || '').split(',').map(norm).filter(Boolean))].slice(0, 20); if (!L.length) return { quotes: [] }; // the watchlist
-      const j = await Y.get(`/v7/finance/spark?symbols=${encodeURIComponent(L.join(','))}&range=1d&interval=5m`, 4e3); const R = j?.spark?.result || [];
+      const j = await Y.get(`/v7/finance/spark?symbols=${encodeURIComponent(L.join(','))}&range=1d&interval=5m`, 4e3, true); const R = j?.spark?.result || [];
       return { quotes: L.map(s => { const m = R.find(x => x.symbol === s)?.response?.[0]?.meta || {}; return { sym: s, px: m.regularMarketPrice ?? null, prev: m.chartPreviousClose ?? m.previousClose ?? null }; }) }; }
     case 'botlist': return { bots: require('./botsig').list() };
     case 'botsig': return require('./botsig').sig(uid, String(q.k || b.k || ''), norm(q.sym || b.sym));

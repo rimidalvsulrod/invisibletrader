@@ -919,3 +919,37 @@ body.term .toast{border-radius:6px}
 :root,:root[data-theme]{--sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue","Segoe UI Variable Text","Segoe UI",system-ui,Roboto,sans-serif}
 body{font-family:var(--sans);letter-spacing:-.005em}
 h1,.dbig,.trbig,.dbal{letter-spacing:-.025em}h1{font-weight:700}
+/* terminal wallpaper: charts and panels turn see-through */
+#twall{position:fixed;inset:0;z-index:19;pointer-events:none}#twall img,#twall video{width:100%;height:100%;object-fit:cover}
+body.term.twall .trwrap{background:transparent!important;box-shadow:none}
+body.term.twall .trchart,body.term.twall .trmini{background:color-mix(in srgb,var(--panel) 55%,transparent)!important}
+body.term.twall .trpanes{background:transparent}
+body.term.twall .trtop,body.term.twall .trlt,body.term.twall .trrange,body.term.twall .trside,body.term.twall .trtabs,body.term.twall .trtabbar{background:color-mix(in srgb,var(--panel) 78%,transparent)!important;-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%)}
+body.term #trwallb{display:grid}
+/* ---------- animations: Off / Subtle (default) / Rich ---------- */
+[data-anim=off] *,[data-anim=off] *:before,[data-anim=off] *:after{animation:none!important;transition:none!important}
+[data-anim=rich]{--spring:cubic-bezier(.22,1,.36,1);--bounce:cubic-bezier(.34,1.56,.64,1)}
+[data-anim=rich] #app>*{animation:richIn .7s var(--spring) both}
+[data-anim=rich] #app>*:nth-child(2){animation-delay:.05s}[data-anim=rich] #app>*:nth-child(3){animation-delay:.1s}[data-anim=rich] #app>*:nth-child(4){animation-delay:.15s}[data-anim=rich] #app>*:nth-child(5){animation-delay:.2s}[data-anim=rich] #app>*:nth-child(n+6){animation-delay:.25s}
+@keyframes richIn{from{opacity:0;transform:translateY(22px) scale(.985);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+[data-anim=rich] .dgrid>*,[data-anim=rich] .grid>*{animation:richIn .65s var(--spring) both}
+[data-anim=rich] .dgrid>*:nth-child(2),[data-anim=rich] .grid>*:nth-child(2){animation-delay:.04s}[data-anim=rich] .dgrid>*:nth-child(3),[data-anim=rich] .grid>*:nth-child(3){animation-delay:.08s}[data-anim=rich] .dgrid>*:nth-child(4),[data-anim=rich] .grid>*:nth-child(4){animation-delay:.12s}[data-anim=rich] .dgrid>*:nth-child(5){animation-delay:.16s}[data-anim=rich] .dgrid>*:nth-child(6){animation-delay:.2s}[data-anim=rich] .dgrid>*:nth-child(n+7){animation-delay:.24s}
+[data-anim=rich] .card,[data-anim=rich] .btn,[data-anim=rich] .chip,[data-anim=rich] .seg button,[data-anim=rich] .nv,[data-anim=rich] #tabbar a{transition:transform .45s var(--spring),box-shadow .45s var(--spring),background-color .25s,color .25s,opacity .25s}
+[data-anim=rich] a.card:hover,[data-anim=rich] .dcard:hover{transform:translateY(-4px) scale(1.01);box-shadow:0 18px 40px rgba(0,0,0,.12),0 0 0 1px rgba(var(--accent-rgb),.12)}
+[data-anim=rich] .btn:active,[data-anim=rich] .chip:active,[data-anim=rich] .seg button:active,[data-anim=rich] .trqb:active{transform:scale(.94);transition-duration:.08s}
+[data-anim=rich] .nv:hover{transform:translateX(3px)}
+[data-anim=rich] #tabbar a.on svg{animation:tabPop .5s var(--bounce)}@keyframes tabPop{0%{transform:scale(.7)}100%{transform:scale(1)}}
+[data-anim=rich] .seg button.on,[data-anim=rich] .chip.on{animation:chipOn .4s var(--bounce)}@keyframes chipOn{0%{transform:scale(.9)}100%{transform:scale(1)}}
+[data-anim=rich] .dhero{background-size:200% 200%!important;animation:richIn .7s var(--spring) both,heroShift 12s ease-in-out infinite alternate}
+@keyframes heroShift{0%{filter:hue-rotate(0deg)}100%{filter:hue-rotate(-12deg) saturate(1.1)}}
+[data-anim=rich] .toast{animation:toastIn .5s var(--bounce) both}@keyframes toastIn{from{opacity:0;transform:translateY(16px) scale(.9)}}
+[data-anim=rich] .trtab{transition:background-color .25s,box-shadow .35s}[data-anim=rich] .trtab.on{animation:chipOn .35s var(--spring)}
+[data-anim=rich] .trwlr{transition:background-color .3s}[data-anim=rich] .trpbox,[data-anim=rich] .obbox{animation:richIn .5s var(--spring) both}
+[data-anim=rich] .tkup{animation:tickUp .8s ease-out}[data-anim=rich] .tkdn{animation:tickDn .8s ease-out}
+@keyframes tickUp{0%{color:var(--up);text-shadow:0 0 14px var(--up)}}@keyframes tickDn{0%{color:var(--down);text-shadow:0 0 14px var(--down)}}
+@media(prefers-reduced-motion:reduce){[data-anim=rich] *{animation:none!important}}
+body.term.twall[data-tt] .trchart,body.term.twall[data-tt] .trmini{background:color-mix(in srgb,var(--panel) 50%,transparent)!important}
+body.term.twall[data-tt] .trwrap,body.term.twall[data-tt] .trpanes{background:transparent!important}
+body.term.twall[data-tt] .trtop,body.term.twall[data-tt] .trlt,body.term.twall[data-tt] .trrange,body.term.twall[data-tt] .trside,body.term.twall[data-tt] .trtabs,body.term.twall[data-tt] .trtabbar{background:color-mix(in srgb,var(--panel) 72%,transparent)!important}
+@media(min-width:761px){body.term .trbar .seg button{padding:0 5px;font-size:12px}body.term .trsel{max-width:96px}body.term .trtools .btn.sm{padding:0 7px}}
+@media(min-width:761px) and (max-width:1500px){body.term .trname{display:none}body.term #trindb{font-size:0;gap:0}body.term #trindb svg{width:16px}body.term #trindb .pill{font-size:11px;margin-left:4px}}
