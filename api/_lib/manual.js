@@ -37,6 +37,7 @@ async function cbCandles(sym, tf) { // up to 900 bars from Coinbase Exchange (30
   CB.set(k, { at: Date.now(), v }); if (CB.size > 40) CB.delete(CB.keys().next().value); return v; }
 const QC = new Map();
 function dayPrev(out, m, tf) { // yesterday's close, for the day change (chartPreviousClose is the close before the whole range, not yesterday)
+  const off0 = m.gmtoffset || 0; if (out.length && m.regularMarketTime && m.regularMarketPrice && Math.floor((out[out.length - 1][0] + off0) / 86400) > Math.floor((m.regularMarketTime + off0) / 86400)) return m.regularMarketPrice; // pre-market: change vs yesterday's close
   if (m.previousClose) return m.previousClose; if (!out.length) return m.chartPreviousClose ?? null; if (!/m$|h$/.test(tf)) return out.length > 1 ? out[out.length - 2][4] : m.chartPreviousClose ?? null;
   const off = m.gmtoffset || 0, day = t => Math.floor((t + off) / 86400), d = day(out[out.length - 1][0]); for (let i = out.length - 1; i >= 0; i--) if (day(out[i][0]) < d) return out[i][4]; return m.chartPreviousClose ?? null; }
 async function quote(sym) { // live price
@@ -124,6 +125,8 @@ async function api(uid, op, b, q) {
     case 'quotes': { const L = [...new Set(String(q.syms || b.syms || '').split(',').map(norm).filter(Boolean))].slice(0, 20); if (!L.length) return { quotes: [] }; // the watchlist
       const j = await Y.get(`/v7/finance/spark?symbols=${encodeURIComponent(L.join(','))}&range=1d&interval=5m`, 4e3); const R = j?.spark?.result || [];
       return { quotes: L.map(s => { const m = R.find(x => x.symbol === s)?.response?.[0]?.meta || {}; return { sym: s, px: m.regularMarketPrice ?? null, prev: m.chartPreviousClose ?? m.previousClose ?? null }; }) }; }
+    case 'botlist': return { bots: require('./botsig').list() };
+    case 'botsig': return require('./botsig').sig(uid, String(q.k || b.k || ''), norm(q.sym || b.sym));
     case 'quote': return { sym: norm(q.sym || b.sym), px: await quote(q.sym || b.sym), t: Date.now() }; // the 1-second ticker
     case 'trades': { const s = norm(q.sym || b.sym); if (!isCrypto(s)) return { trades: [] }; // the latest trades, to seed 1-second charts
       const r = await fetch(`https://api.exchange.coinbase.com/products/${s}/trades?limit=1000`, { headers: { 'user-agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8e3) }); if (!r.ok) throw err(502, 'Coinbase ' + r.status);

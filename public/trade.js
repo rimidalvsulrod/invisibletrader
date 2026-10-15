@@ -4,7 +4,7 @@ let TR = null; // set on first visit (LS lives in app.js, loaded after this file
 const trInit = () => TR || (TR = { sym: LS.get('mt:sym', 'SPY'), tf: LS.get('mt:tf', '5m'), type: LS.get('mt:type3', 'candle').replace('sharp', 'candle'), cs: LS.get('mt:cs', 'gr'), prm: LS.get('mt:prm', {}), ind: LS.get('mt:ind2', ['bb', 'vp', 'vol']), side: 'buy', kind: 'market', tool: null, pend: null });
 let trChart = null, trMain = null, trS = {}, trData = null, trState = null, trT1 = null, trT2 = null, trT3 = null, trLines = [], trDraw = [], trWant = false, trNeedSnap = false;
 const trSheet = n => { if (n) document.body.dataset.trs = n; else delete document.body.dataset.trs; if (n == 'sym') setTimeout(() => $('#trq')?.focus(), 250); };
-const trStop = () => { trTickStop(); trSheet(null); $('#trpick')?.remove(); clearInterval(trT1); clearInterval(trT2); clearInterval(trT3); trT1 = trT2 = trT3 = null; trWant = false; if (trChart) { try { trChart.remove(); } catch (e) {} trChart = null; } trS = {}; trData = null; trDraw = []; trLines = []; trOut = {}; trLastPx = null; trMain = null; trState = null; removeEventListener('themechange', trTheme); trMiniKill(); clearInterval(trWLT); clearInterval(trClk); trWLT = trClk = null; trRO?.disconnect(); trRO = null; document.body.classList.remove('term'); };
+const trStop = () => { trTickStop(); trSheet(null); $('#trpick')?.remove(); clearInterval(trT1); clearInterval(trT2); clearInterval(trT3); trT1 = trT2 = trT3 = null; trWant = false; if (trChart) { try { trChart.remove(); } catch (e) {} trChart = null; } trS = {}; trData = null; trDraw = []; trBotS = []; trBotPL = []; trLines = []; trOut = {}; trLastPx = null; trMain = null; trState = null; removeEventListener('themechange', trTheme); trMiniKill(); clearInterval(trWLT); clearInterval(trClk); trWLT = trClk = null; trRO?.disconnect(); trRO = null; document.body.classList.remove('term'); };
 const mtapi = async (op, body, qs = '') => { const r = await fetch('/api/powell' + (body ? '' : `?op=mt-${op}${qs}`), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'mt-' + op, ...body }) } : {});
   const j = await r.json().catch(() => ({ error: 'Bad response' })); if (!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), { status: r.status }); return j; };
 const TFS = [['1s', '1s'], ['5s', '5s'], ['15s', '15s'], ['1m', '1m'], ['5m', '5m'], ['15m', '15m'], ['30m', '30m'], ['1h', '1H'], ['4h', '4H'], ['1d', '1D'], ['1w', '1W'], ['1mo', '1M']];
@@ -57,7 +57,7 @@ async function tradePage() {
    <div class=trscrim id=trscrim></div><div class=trmbar><button class=trmsy id=trmS aria-label="Change symbol"><b id=trmsy></b></button><button class=trmtfb id=trmT aria-label="Change timeframe"><span id=trmtf></span></button><span class=trmsp></span><button id=trmD aria-label="Drawing tools"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><path d="M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20z"/><path d="M13.5 6.5l3 3"/></svg></button><button id=trmI aria-label="Timeframe and indicators"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx=16 cy=7 r=2 /><circle cx=10 cy=17 r=2 /></svg></button><button id=trmA aria-label="Account and positions"><svg width=22 height=22 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=1.7 stroke-linecap=round stroke-linejoin=round><rect x=3 y=6 width=18 height=13 rx=3 /><path d="M16 12.5h2M3 9h18"/></svg></button></div>`;
   if (trPhone()) { $('.trwrap').prepend($('.trbar')); $('.trwrap').prepend($('.trhead')); $('.trside').append($('.trtabs')); } /* sheets must sit outside the chart card (its stacking context put them under the dimming layer) */ // phones: positions live in the account sheet
   else document.body.classList.add('term');
-  await trLib(); trBuild(); trWire(); trTicket(); trTermStart(); await trLoad(true); trStateLoad();
+  await trBotReg(); await trLib(); trBuild(); trWire(); trTicket(); trTermStart(); await trLoad(true); trStateLoad();
   trT1 = setInterval(() => { if (!$('#trc')) return trStop(); trLoad(false); }, 15e3); trTick();
   trT2 = setInterval(() => { if (!$('#trc')) return trStop(); trStateLoad(); }, 4e3);
   addEventListener('themechange', trTheme);
@@ -144,7 +144,7 @@ function trPaint(rebuild) {
   trS.main.setData(/smooth|line|base/.test(TR.type) ? B.map(b => ({ time: b.t, value: b.c })) : B.map(b => ({ time: b.t, open: b.o, high: b.h, low: b.l, close: b.c })));
   trMain = trS.main;
   // indicators: overlays on the price, oscillators in panes stacked from the bottom
-  const act = TR.ind.filter(k => IND[k] && k != 'vp'), panes = act.filter(k => IND[k].pane), PH = panes.length > 2 ? .15 : .18, mainBottom = panes.length * PH, hasVol = act.includes('vol');
+  const act = TR.ind.filter(k => IND[k] && k != 'vp' && !IND[k].bot), panes = act.filter(k => IND[k].pane), PH = panes.length > 2 ? .15 : .18, mainBottom = panes.length * PH, hasVol = act.includes('vol');
   trS.main.priceScale().applyOptions({ scaleMargins: { top: .1, bottom: Math.min(.72, mainBottom + (hasVol ? .13 : .06)) } }); trOut = {};
   for (const k of act) { const D = IND[k], P = trPrm(k), outs = D.run(B, C, P, { tf: TR.tf }), pi = panes.indexOf(k), scale = D.vol ? 'vol' : pi >= 0 ? 'p_' + k : 'right', top = pi >= 0 ? 1 - PH * (pi + 1) + .03 : D.vol ? 1 - mainBottom - .12 : null, bottom = pi >= 0 ? PH * pi + .015 : D.vol ? mainBottom + .005 : null; trOut[k] = outs;
     const firstLine = outs.find(x => !x.hist);
@@ -158,13 +158,13 @@ function trPaint(rebuild) {
   for (const d of trDraw) try { trChart.removeSeries(d); } catch (e) {} trDraw = []; for (const pl of trLines) try { trS.main.removePriceLine(pl); } catch (e) {} trLines = [];
   for (const d of LS.get('mt:draw:' + TR.sym, [])) { if (d.k == 'h') trLines.push(trS.main.createPriceLine({ price: d.p, color: ac, lineWidth: 1, lineStyle: 0, axisLabelVisible: true, title: '' }));
     if (d.k == 't' && d.t2 > d.t1) { const s = trChart.addLineSeries({ color: ac, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }); s.setData([{ time: d.t1, value: d.p1 }, { time: d.t2, value: d.p2 }]); trDraw.push(s); } }
-  trOrderLines(); if (rebuild) trView(); trVP(); trLegend(); if ($('#trindn')) $('#trindn').textContent = act.length;
+  trOrderLines(); if (rebuild) trView(); trVP(); trBots(rebuild); trLegend(); if ($('#trindn')) $('#trindn').textContent = act.length;
 }
 let trOut = {};
 const trPrm = k => { const P = {}; for (const [n, , d] of IND[k].p) P[n] = TR.prm[k]?.[n] ?? d; return P; };
 const trIndName = k => { const D = IND[k], P = trPrm(k); if (!D.p.length) return D.n; if (/ \d+$/.test(D.n)) return D.n.replace(/\d+$/, P.n); return `${D.n} ${D.p.map(([n]) => P[n]).join(', ')}`; };
 const DOT = { sma20: 1, sma50: 6, sma200: 7, ema9: 2, ema21: 4, wma: 6, hma: 4, dema: 7, tema: 6, vwma: 3, lsma: 5, ribbon: 1, vwap: 6, bb: 8, kc: 5, dc: 4, env: 7, st: 'up', psar: 6, ichi: 1, piv: 8, vol: 8, rsi: 4, srsi: 1, macd: 1, stoch: 2, cci: 6, willr: 7, roc: 3, ao: 'up', trix: 5, adx: 1, aroon: 'up', obv: 7, mfi: 3, cmf: 'up', atr: 5, stdev: 8, bbw: 6 };
-const trDot = k => { const c = DOT[k]; return c === 'up' ? trCss('--up') : indPalette()[c ?? 8]; };
+const trDot = k => { if (IND[k]?.bot) return IND[k].col; const c = DOT[k]; return c === 'up' ? trCss('--up') : indPalette()[c ?? 8]; };
 function trBubble(p) { // the pill price bubble that follows the crosshair (like the reference shots)
   const el = $('#trbub'); if (!el || !trS.main) return; if (!p || !p.point || p.time == null) { el.hidden = true; return; } const d = p.seriesData?.get(trS.main), v = d ? (d.value ?? d.close) : null; if (v == null) { el.hidden = true; return; }
   const y = trS.main.priceToCoordinate(v); if (y == null) { el.hidden = true; return; } el.textContent = trN(v); el.hidden = false; const w = el.offsetWidth, W = $('#trc').clientWidth - 70;
@@ -177,7 +177,7 @@ function trPick(q = '', grp = 'All') {
     <input class=inp id=trpq placeholder="Search ${Object.keys(IND).length} indicators" value="${esc(q)}" autocomplete=off>
     <div class="seg chips trpg">${['All', ...INDGROUPS].map(g => `<button data-g="${g}" class="${g == grp ? 'on' : ''}">${g}</button>`).join('')}</div>
     ${on.length && !q && grp == 'All' ? `<div class=trph>On the chart · ${on.length}</div><div class=trpon>${on.map(k => `<div class=trpo><div class=trpoh><span class=trpdot style="background:${trDot(k)}"></span><b>${esc(trIndName(k))}</b><button class=trprm data-k=${k} aria-label="Remove">${ic('x', 12)}</button></div>${IND[k].p.length ? `<div class=trpp>${IND[k].p.map(([n, l, d, mn, mx, st]) => `<label><span>${l}</span><input class=inp type=number inputmode=decimal data-k=${k} data-n=${n} min=${mn} max=${mx} step=${st} value=${trPrm(k)[n]}></label>`).join('')}</div>` : ''}</div>`).join('')}</div>` : ''}
-    <div class=trph>${grp == 'All' && !q ? 'All indicators' : items.length + ' found'}</div><div class=trplist>${items.map(([k, d]) => `<button class="trpi ${TR.ind.includes(k) ? 'on' : ''}" data-k=${k}><span class=trpdot style="background:${trDot(k)}"></span><span class=trpt><b>${esc(d.n)}</b><span>${esc(d.d)}</span></span><span class=trpg2>${d.pane ? 'own pane' : d.vol ? 'bottom' : 'on price'}</span><span class="trsw sm ${TR.ind.includes(k) ? 'on' : ''}"><i></i></span></button>`).join('') || '<div class=empty style="padding:20px">Nothing matches.</div>'}</div></div>`;
+    <div class=trph>${grp == 'All' && !q ? 'All indicators' : items.length + ' found'}</div><div class=trplist>${items.map(([k, d]) => `<button class="trpi ${TR.ind.includes(k) ? 'on' : ''}" data-k=${k}><span class=trpdot style="background:${trDot(k)}"></span><span class=trpt><b>${esc(d.n)}</b><span>${esc(d.d)}</span></span><span class=trpg2>${d.bot ? 'bot signals' : d.pane ? 'own pane' : d.vol ? 'bottom' : 'on price'}</span><span class="trsw sm ${TR.ind.includes(k) ? 'on' : ''}"><i></i></span></button>`).join('') || '<div class=empty style="padding:20px">Nothing matches.</div>'}</div></div>`;
   const close = () => { el.classList.add('out'); setTimeout(() => el.remove(), 200); }, save = () => { LS.set('mt:ind2', TR.ind); LS.set('mt:prm', TR.prm); trPaint(true); };
   el.querySelector('.trpbg').onclick = close; $('#trpclose').onclick = close;
   const qi = $('#trpq'); qi.oninput = () => { const pos = qi.selectionStart; trPick(qi.value, grp); const n = $('#trpq'); n.focus(); n.setSelectionRange(pos, pos); };
@@ -194,7 +194,7 @@ function trOrderLines() { // your position and resting orders, drawn on the char
 function trLegend(p) {
   const el = $('#trleg'); if (!el || !trData) return; const B = trBars(); let i = B.length - 1; if (p && p.time != null) { const k = B.findIndex(b => b.t === p.time); if (k >= 0) i = k; } const b = B[i]; if (!b) return;
   const chg = i ? (b.c / B[i - 1].c - 1) * 100 : 0, vals = [];
-  for (const k of TR.ind) { if (!IND[k]) continue; const o = (trOut[k] || []).find(x => !x.hist) || trOut[k]?.[0], v = o?.v?.[i]; vals.push(`<span style="color:${trDot(k)}">${esc(trIndName(k))}${v != null && isFinite(v) ? ' <b>' + trN(v) + '</b>' : ''}</span>`); }
+  for (const k of TR.ind) { if (!IND[k]) continue; if (IND[k].bot) { const r = trBotR[k + '|' + trData.sym]?.r; vals.push(`<span style="color:${trDot(k)}">${esc(IND[k].n)}${r ? ': <b>' + esc(String(r.status || '').slice(0, 90)) + '</b>' : ' …'}</span>`); continue; } const o = (trOut[k] || []).find(x => !x.hist) || trOut[k]?.[0], v = o?.v?.[i]; vals.push(`<span style="color:${trDot(k)}">${esc(trIndName(k))}${v != null && isFinite(v) ? ' <b>' + trN(v) + '</b>' : ''}</span>`); }
   const uc = b.c >= b.o ? 'up' : 'down'; el.innerHTML = `<div><b class=trln>${esc(trPhone() ? trData.sym : trData.name || trData.sym)}</b> · ${TFS.find(x => x[0] == TR.tf)?.[1]} · ${esc(trData.ex || '')} <span class=trohlc>O<b class=${uc}>${trN(b.o)}</b>H<b class=${uc}>${trN(b.h)}</b>L<b class=${uc}>${trN(b.l)}</b>C<b class=${uc}>${trN(b.c)}</b><b class=${chg >= 0 ? 'up' : 'down'}>${chg >= 0 ? '+' : ''}${trN(b.c - (i ? B[i - 1].c : b.o))} (${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%)</b></span></div><div class=trlv>${vals.join('')}${vals.length > 4 ? `<span class=trmore>+${vals.length - 4} more</span>` : ''}</div>${TR.tool ? `<div class=trhint>${TR.tool == 'h' ? 'Click the chart to place a line' : TR.pend ? 'Click the second point' : 'Click the first point of the trend line'}</div>` : ''}`; trLtUi(); }
 function trClick(p) {
   if (!p || !p.point || !trS.main) return; const price = trS.main.coordinateToPrice(p.point.y); if (price == null) return;
@@ -337,3 +337,28 @@ function trVP() { // volume profile over the visible bars, drawn on a canvas lai
   for (let k = 0; k < n; k++) { const y1 = trS.main.priceToCoordinate(lo + k * st), y2 = trS.main.priceToCoordinate(lo + (k + 1) * st); if (y1 == null || y2 == null) continue; const h = Math.max(1, Math.abs(y1 - y2) - 1), y = Math.min(y1, y2), wu = U[k] / mx * maxW, wd = D[k] / mx * maxW;
     g.fillStyle = k == poc ? 'rgba(41,98,255,.75)' : 'rgba(41,98,255,.38)'; g.fillRect(W - wu - wd, y, wu, h); g.fillStyle = k == poc ? 'rgba(255,152,0,.8)' : 'rgba(255,152,0,.42)'; g.fillRect(W - wd, y, wd, h); }
   const yp = trS.main.priceToCoordinate(lo + (poc + .5) * st); if (yp != null) { g.strokeStyle = 'rgba(255,82,82,.9)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, yp); g.lineTo(W, yp); g.stroke(); } }
+
+/* ---------- every bot as an indicator: its own rules drawn on the chart (entries, exits, armed orders, levels) ---------- */
+let trBotR = {}, trBotS = [], trBotPL = [], trBotOK = false;
+const BOTCOL = ['#ff9800', '#00bcd4', '#e040fb', '#ffeb3b', '#ff5252', '#69f0ae', '#448aff', '#ff6e40'];
+async function trBotReg() { if (trBotOK) return; try { const r = await mtapi('botlist'); r.bots.forEach((b, i) => { IND[b.k] = { n: b.name, g: 'Bots', d: (b.d ? b.d + ' ' : '') + (b.syms ? `Works on ${b.syms.join(', ')}.` : 'Works on any symbol.'), p: [], bot: 1, syms: b.syms, col: BOTCOL[i % BOTCOL.length], run: () => [] }; });
+  if (!INDGROUPS.includes('Bots')) INDGROUPS.push('Bots'); trBotOK = true; } catch (e) {} }
+async function trBots(rebuild) {
+  const ks = TR.ind.filter(k => IND[k]?.bot), sym = trData?.sym; if (!trS.main || !sym) return;
+  await Promise.all(ks.map(async k => { const id = k + '|' + sym, c = trBotR[id]; if (c && (Date.now() - c.at < 3e4 || c.busy)) return; trBotR[id] = { ...(c || {}), busy: true, at: Date.now() };
+    try { trBotR[id] = { r: await mtapi('botsig', null, `&k=${k}&sym=${encodeURIComponent(sym)}`), at: Date.now() }; } catch (e) { trBotR[id] = { r: { status: e.message, marks: [], levels: [], lines: [] }, at: Date.now() }; } }));
+  if (!trS.main || trData?.sym !== sym) return; trBotDraw(ks, sym); trLegend(); }
+function trBotDraw(ks, sym) {
+  for (const x of trBotS) try { trChart.removeSeries(x); } catch (e) {} trBotS = []; for (const pl of trBotPL) try { trS.main.removePriceLine(pl); } catch (e) {} trBotPL = [];
+  const B = trData.B, n = B.length, sec = TFSEC[TR.tf] || 86400 * (TR.tf == '1w' ? 7 : TR.tf == '1mo' ? 31 : 1);
+  const snap = t => { const ts = Math.floor(t / 1000) + TZ(); if (!n || ts < B[0].t || ts > B[n - 1].t + sec) return null; let lo = 0, hi = n - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (B[m].t <= ts) lo = m; else hi = m - 1; } return B[lo].t; };
+  const mk = [], cc = c => c && /^var\(/.test(c) ? trCss(c.slice(4, -1)) || null : c;
+  for (const k of ks) { const r = trBotR[k + '|' + sym]?.r; if (!r) continue; const col = IND[k].col, ab = IND[k].n.replace(/ (Bot|Strategy|Levels|Trader)$/, '');
+    for (const m of r.marks || []) { const t = snap(m.t); if (t == null) continue; const up = m.dir === 1 || m.dir === 'long';
+      mk.push(m.type == 'entry' ? { time: t, position: up ? 'belowBar' : 'aboveBar', shape: up ? 'arrowUp' : 'arrowDown', color: up ? '#089981' : '#f23645', text: `${ab} ${up ? 'Buy' : 'Sell'}` }
+        : m.type == 'exit' ? { time: t, position: up ? 'aboveBar' : 'belowBar', shape: 'circle', color: col, text: 'Exit' } : { time: t, position: up ? 'belowBar' : 'aboveBar', shape: 'square', color: col, size: .6 }); }
+    for (const l of r.levels || []) if (l.p > 0) trBotPL.push(trS.main.createPriceLine({ price: l.p, color: cc(l.color) || col, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: `${ab}: ${l.name}` }));
+    for (const z of r.zones || []) for (const p of [z.y0, z.y1]) if (p > 0) trBotPL.push(trS.main.createPriceLine({ price: p, color: col + '99', lineWidth: 1, lineStyle: 1, axisLabelVisible: false, title: z.name }));
+    for (const L of r.lines || []) { const pts = new Map(); for (const [t0, v, d] of L.pts) { const t = snap(t0); if (t != null && v != null && isFinite(v)) pts.set(t, { time: t, value: v, ...(L.color2 ? { color: d > 0 ? '#089981' : '#f23645' } : {}) }); }
+      if (pts.size < 2) continue; const sr = trChart.addLineSeries({ color: cc(L.color) || col, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }); sr.setData([...pts.values()].sort((a, b) => a.time - b.time)); trBotS.push(sr); } }
+  const seen = new Set(); trS.main.setMarkers(mk.sort((a, b) => a.time - b.time).filter(m => { const key = m.time + m.text; if (seen.has(key)) return false; seen.add(key); return true; })); }

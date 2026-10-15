@@ -916,3 +916,4 @@ aside,:root[data-theme] aside{background:var(--panel)!important;border-right:1px
 @media(min-width:761px){.trrange [data-sc]{color:var(--mut)}.trrange [data-sc].on{color:var(--accent)}}
 @media(max-width:760px){.trohlc{display:none}}
 @media(min-width:761px){.trsel{width:auto!important;flex:none;max-width:120px}.trlegend>div:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 20px)}.trlegend{right:80px}body.term .trwrap{--trdh:170px}}
+@media(max-width:760px){#trshot,#trfs,#trthm{display:none!important}}
