@@ -4,7 +4,7 @@ let TR = null; // set on first visit (LS lives in app.js, loaded after this file
 const trInit = () => TR || (TR = { sym: LS.get('mt:sym', 'SPY'), tf: LS.get('mt:tf', '5m'), type: LS.get('mt:type3', 'candle'), cs: LS.get('mt:cs', 'gr'), prm: LS.get('mt:prm', {}), ind: LS.get('mt:ind', ['ema9', 'ema21', 'vwap', 'vol']), side: 'buy', kind: 'market', tool: null, pend: null });
 let trChart = null, trMain = null, trS = {}, trData = null, trState = null, trT1 = null, trT2 = null, trLines = [], trDraw = [];
 const trSheet = n => { if (n) document.body.dataset.trs = n; else delete document.body.dataset.trs; if (n == 'sym') setTimeout(() => $('#trq')?.focus(), 250); };
-const trStop = () => { trTickStop(); trSheet(null); $('#trpick')?.remove(); clearInterval(trT1); clearInterval(trT2); trT1 = trT2 = null; if (trChart) { trChart.remove(); trChart = null; } removeEventListener('themechange', trTheme); };
+const trStop = () => { trTickStop(); trSheet(null); $('#trpick')?.remove(); clearInterval(trT1); clearInterval(trT2); trT1 = trT2 = null; if (trChart) { try { trChart.remove(); } catch (e) {} trChart = null; } trS = {}; trData = null; trDraw = []; trLines = []; trOut = {}; trLastPx = null; trMain = null; trState = null; removeEventListener('themechange', trTheme); };
 const mtapi = async (op, body, qs = '') => { const r = await fetch('/api/powell' + (body ? '' : `?op=mt-${op}${qs}`), body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'mt-' + op, ...body }) } : {});
   const j = await r.json().catch(() => ({ error: 'Bad response' })); if (!r.ok) throw Object.assign(new Error(j.error || 'Request failed'), { status: r.status }); return j; };
 const TFS = [['1m', '1m'], ['5m', '5m'], ['15m', '15m'], ['30m', '30m'], ['1h', '1H'], ['4h', '4H'], ['1d', '1D'], ['1w', '1W'], ['1mo', '1M']];
@@ -59,7 +59,7 @@ function trOpts() { const dark = document.documentElement.dataset.theme == 'dark
     rightPriceScale: { borderVisible: false, scaleMargins: { top: .12, bottom: .08 } }, timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 8, barSpacing: 7 },
     crosshair: { mode: 0, vertLine: { color: ac, width: 1, style: 2, labelBackgroundColor: dark ? '#1c1c1e' : '#121214' }, horzLine: { visible: false, labelVisible: true, labelBackgroundColor: dark ? '#1c1c1e' : '#121214' } },
     handleScale: { axisPressedMouseMove: true }, localization: { priceFormatter: p => trN(p) } }; }
-function trTheme() { if (trChart) { trChart.applyOptions(trOpts()); trPaint(); } }
+function trTheme() { if (trChart) { trChart.applyOptions(trOpts()); trPaint(true); } }
 function trBuild() {
   const el = $('#trc'); trChart = LightweightCharts.createChart(el, { ...trOpts(), autoSize: true });
   trChart.subscribeCrosshairMove(p => { trLegend(p); trBubble(p); }); trChart.subscribeClick(p => trClick(p));
@@ -95,7 +95,7 @@ async function trLoad(fresh) {
 function trBars() { const B = trData.B; if (TR.type != 'ha') return B; const o = []; B.forEach((b, i) => { const c = (b.o + b.h + b.l + b.c) / 4, op = i ? (o[i - 1].o + o[i - 1].c) / 2 : (b.o + b.c) / 2; o.push({ t: b.t, o: op, c, h: Math.max(b.h, op, c), l: Math.min(b.l, op, c), v: b.v }); }); return o; }
 function trPaint(rebuild) {
   if (!trChart || !trData) return; const B = trBars(), dark = document.documentElement.dataset.theme == 'dark', bw = TR.cs == 'bw', mono = TR.cs == 'mono', up = mono ? (dark ? '#ffffff' : '#ffffff') : bw ? '#1f5bff' : trCss('--up'), dn = mono ? (dark ? '#000000' : '#121214') : bw ? (dark ? '#d4d4d8' : '#a1a1aa') : trCss('--down'), edge = mono ? (dark ? '#d4d4d8' : '#121214') : null, ac = trCss('--accent'), acr = trCss('--accent-rgb'), C = B.map(b => b.c), T = B.map(b => b.t), pal = indPalette();
-  if (rebuild) { for (const s of Object.values(trS)) trChart.removeSeries(s); trS = {}; trLines = []; }
+  if (rebuild) { for (const s of Object.values(trS)) try { trChart.removeSeries(s); } catch (e) {} trS = {}; trLines = []; }
   const col = c => c === 'up' ? up : c === 'down' ? dn : typeof c === 'number' ? pal[c] : c || pal[8];
   const ser = a => a.map((v, i) => v == null || !isFinite(v) ? { time: T[i] } : { time: T[i], value: v });
   // the price
