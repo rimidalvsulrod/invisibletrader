@@ -124,7 +124,37 @@ async function state(uid, id) {
   return { id, meta: meta(s), cfg, enabled: row.enabled, account: acct, trades, view, viewError, now: Date.now() };
 }
 const meta = s => ({ id: s.id, name: s.name, group: s.group, kind: s.kind, blurb: s.blurb, how: s.how, data: s.dataNote, params: params(s), syms: s.syms || null, choices: s.choices || null, choiceLabels: s.choiceLabels || null, bt: s.bt || null, honest: s.honest || null });
-async function api(uid, op, body, q) {
+/* ---------- the all-bots dashboard ---------- */
+const OLD = [ // [route, name, group, bot table, trades table, has its own paper balance]
+  ['btc', 'BTC Up or Down', 'Crypto', 'btcbot', 'btctrades', 1], ['meme', 'Meme Radar', 'Crypto', 'membot', 'memetrades', 1], ['edge', 'Edge Lab', 'Prediction markets', 'edgebot', 'edgetrades', 1],
+  ['news', 'Newsflash', 'Stocks', 'nbot', 'ntrades'], ['swing', 'Swing Trader', 'Stocks', 'sbot', 'swingtrades'], ['powell', 'Powell Strategy', 'Futures', 'pbot', 'powelltrades'],
+  ['supertrend', 'Supertrend Bot', 'Futures', 'stbot', 'sttrades'], ['gex', 'GEX Levels', 'Options', 'gexbot', 'gextrades'], ['sweep', 'Sweep Bot', 'ICT', 'ictbot', 'icttrades']];
+const CLOSED = "pnl IS NOT NULL AND status NOT IN ('open','skip','cancelled','note')";
+async function tstats(table, uid, extra = '', args = []) {
+  const r = await db.one(`SELECT count(*)::int AS n, coalesce(sum(pnl),0) AS pnl, sum(CASE WHEN pnl>0 THEN 1 ELSE 0 END)::int AS w FROM ${table} WHERE uid=$1 ${extra} AND ${CLOSED}`, [uid, ...args]);
+  const o = await db.one(`SELECT count(*)::int AS n FROM ${table} WHERE uid=$1 ${extra} AND status='open'`, [uid, ...args]);
+  const last = (await db.q(`SELECT pnl FROM ${table} WHERE uid=$1 ${extra} AND ${CLOSED} ORDER BY ts DESC LIMIT 40`, [uid, ...args])).map(x => Number(x.pnl)).reverse();
+  return { n: r.n, pnl: Number(r.pnl), won: r.w || 0, open: o.n, curve: last.reduce((a, x) => (a.push((a[a.length - 1] || 0) + x), a), []) };
+}
+async function dash(uid) {
+  const bots = [];
+  for (const [route, name, group, bt, tt, own] of OLD) { try {
+    const row = await db.one(`SELECT * FROM ${bt} WHERE uid=$1`, [uid]).catch(() => null), st = await tstats(tt, uid), start = own && row ? Number(row.paperstart) : null;
+    bots.push({ route, name, group, enabled: !!row?.enabled, start, balance: start != null ? start + st.pnl : null, ...st }); } catch (e) {} }
+  const rows = new Map((await db.q('SELECT * FROM labbot WHERE uid=$1', [uid])).map(r => [r.strat, r]));
+  for (const s of Object.values(REG)) { const r = rows.get(s.id), st = await tstats('labtrades', uid, 'AND strat=$2', [s.id]), start = r ? Number(r.paper) : START;
+    bots.push({ route: 'lab/' + s.id, name: s.name, group: s.group, enabled: !!r?.enabled, start, balance: start + st.pnl, ...st }); }
+  return { bots, now: Date.now() };
+}
+async function prefs(uid, body, user, op) {
+  if (op === 'prefs') { if (body.answers) { await S.set('prefs:' + uid, JSON.stringify({ ...body.answers, t: Date.now() })); return { ok: true }; } return { answers: J(await S.get('prefs:' + uid), null) }; }
+  if (!user?.admin) throw Object.assign(new Error('admins only'), { status: 403 }); // what everyone answered, counted
+  const all = (await db.q("SELECT v FROM settings WHERE k LIKE 'prefs:%'")).map(r => J(r.v, {})), count = {};
+  for (const a of all) for (const [k, v] of Object.entries(a)) if (k !== 't') for (const x of [].concat(v)) { count[k] ||= {}; count[k][x] = (count[k][x] || 0) + 1; }
+  return { n: all.length, count };
+}
+async function api(uid, op, body, q, user) {
+  if (op === 'dash') return dash(uid); if (op === 'prefs' || op === 'prefsum') return prefs(uid, body, user, op);
   const id = String(q.id || body.id || ''), s = strat(id);
   switch (op) {
     case 'state': return state(uid, id);

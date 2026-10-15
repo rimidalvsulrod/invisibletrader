@@ -39,7 +39,7 @@ async function ictApi(uid, op, body) {
 }
 module.exports = handler(async (req, body, q) => {
   const u = await A.need(req), uid = u.id, op = q.op || body.op;
-  if (op && op.startsWith('lab-')) { try { return await LAB.api(uid, op.slice(4), body, q); } catch (e) { throw err(e.status || 502, e.message); } } // Strategy Lab bots
+  if (op && op.startsWith('lab-')) { try { return await LAB.api(uid, op.slice(4), body, q, u); } catch (e) { throw err(e.status || 502, e.message); } } // Strategy Lab bots
   if (op && op.startsWith('st-')) return stApi(uid, op.slice(3), body);
   if (op && op.startsWith('ict-')) return ictApi(uid, op.slice(4), body);
   if (op === 'data') {

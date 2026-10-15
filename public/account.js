@@ -5,7 +5,7 @@ const authApi = async (op, data) => {
 };
 // signed in: refresh everything that belongs to the account
 async function signedIn(user) {
-  OWNER = true; USER = user; NOTES = null; await loadFollows(); renderSide();
+  OWNER = true; USER = user; NOTES = null; await loadFollows(); renderSide(); setTimeout(() => typeof obCheck == 'function' && obCheck(), 700); // first time: the sign-up questions
   fetch('/api/bot?op=state').then(r => r.ok ? r.json() : null).then(s => { if (s) { BOTON = s.enabled; TOPBAL = s.account?.total ?? s.account?.cash ?? null; renderSide(); } }).catch(() => {});
 }
 function forget() { OWNER = false; USER = null; TOPBAL = null; BOTON = false; NOTES = null; setFol([]); renderSide(); } // nothing of the last account stays on screen
