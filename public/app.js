@@ -111,7 +111,7 @@ function area(el,vals,o={}){
 }
 
 /* ---------- shell ---------- */
-const NAV=[['',[['','home','Home'],['trade','wave','Trading terminal'],['backtests','flask','Backtest'],['bots','bot','Bots'],['indicators','spark','Indicators']]]];
+const NAV=[['',[['','home','Home'],['trade','wave','Trading terminal'],['backtests','flask','Backtest'],['bots','bot','Bots'],['indicators','spark','Indicators'],['replay','arrow','Terminal replay'],['brokers','scales','Brokers']]]];
 const NAVSEC=p=>p=='trade'?'trade':/^(backtests|build|backtest)$/.test(p)?'backtests':/^(bots|dash|lab|bot|btc|meme|edge|news|swing|powell|supertrend|gex|sweep)$/.test(p)?'bots':p=='indicators'?'indicators':p==''?'':p; // which of the four sections a page belongs to
 let BOTON=false,TOPBAL=null;
 function renderSide(){const p=location.hash.slice(2).split('/')[0];const nf=Object.keys(fol).length;
@@ -361,7 +361,7 @@ function settingsPage(){
 /* ---------- router ---------- */
 function route(){clearInterval(feedT);typeof botStopPoll=='function'&&botStopPoll();typeof btcStop=='function'&&btcStop();typeof memeStop=='function'&&memeStop();typeof edgeStop=='function'&&edgeStop();typeof newsStop=='function'&&newsStop();typeof swStop=='function'&&swStop();typeof pwStop=='function'&&pwStop();typeof stStop=='function'&&stStop();typeof gxStop=='function'&&gxStop();typeof icStop=='function'&&icStop();typeof labStop=='function'&&labStop();typeof dashStop=='function'&&dashStop();typeof trStop=='function'&&trStop();document.body.classList.remove('wide');$('#side').classList.remove('open');renderSide();
   const[p,a]=location.hash.slice(2).split('/');window.scrollTo(0,0);
-  const R={'':homePage,overview,backtests:backtestHub,bots:botsHub,indicators:indicatorsPage,leaderboard,feed,terminal:feed,backtest,profits:backtest,bot:botPage,journal,analyze,ai:analyze,help,account:accountPage,login:accountPage,settings:settingsPage,btc:btcPage,meme:memePage,edge:edgePage,news:newsPage,swing:swingPage,powell:powellPage,supertrend:supertrendPage,gex:gexPage,sweep:sweepPage,dash:dashPage,trade:tradePage,build:()=>buildPage(a),lab:()=>labPage(LABIDS.includes(a)?a:'fvg'),search:openPal,trader:()=>trader(a)};(R[p]||homePage)()}
+  const R={'':homePage,brokers:brokersPage,replay:()=>{window.__replay=true;location.replace('#/trade')},overview,backtests:backtestHub,bots:botsHub,indicators:indicatorsPage,leaderboard,feed,terminal:feed,backtest,profits:backtest,bot:botPage,journal,analyze,ai:analyze,help,account:accountPage,login:accountPage,settings:settingsPage,btc:btcPage,meme:memePage,edge:edgePage,news:newsPage,swing:swingPage,powell:powellPage,supertrend:supertrendPage,gex:gexPage,sweep:sweepPage,dash:dashPage,trade:tradePage,build:()=>buildPage(a),lab:()=>labPage(LABIDS.includes(a)?a:'fvg'),search:openPal,trader:()=>trader(a)};(R[p]||homePage)()}
 ['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
 let lastTouchEnd=0;document.addEventListener('touchend',e=>{const n=Date.now();if(n-lastTouchEnd<300&&!e.target.closest('input,textarea'))e.preventDefault();lastTouchEnd=n},{passive:false});
 if(navigator.standalone||matchMedia('(display-mode: standalone)').matches)document.documentElement.classList.add('standalone');

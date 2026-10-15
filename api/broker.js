@@ -12,6 +12,7 @@ module.exports = handler(async (req, body, q) => {
   const row = await db.one('SELECT alpaca, broker, webull FROM users WHERE id=$1', [uid]), w = J(row?.webull, null), broker = row?.broker === 'webull' ? 'webull' : 'alpaca';
   const creds = async () => { if (!w?.appKey) throw err(400, 'Save your Webull App Key and Secret first'); return { appKey: w.appKey, secret: await S.dec(w.secret), token: w.token ? await S.dec(w.token) : null, accountId: w.accountId || null, capUsd: w.capUsd ?? 1000,
     data: await AL.getAlpacaCreds(uid).catch(() => null), lastPrice: async sym => { const a = await AL.getAlpacaCreds(uid); if (!a) throw err(400, 'Connect Alpaca (free) for market data'); return AL.last(a, sym); } }; };
+  if (op && op.startsWith('b-')) return brokerOps(u, op.slice(2), body);
   switch (op) {
     case 'state': return { broker, emailCodes: await mail.configured(),
       alpaca: await AL.getAlpacaCreds(uid).then(c => c ? { connected: true, key: c.key.slice(0, 6) + '…', paper: c.paper } : { connected: false }).catch(() => ({ connected: false })),
@@ -59,3 +60,29 @@ module.exports = handler(async (req, body, q) => {
     default: throw err(400, 'unknown op');
   }
 });
+
+/* ---------- every broker with a public API (api/_lib/brokers.js) ---------- */
+async function brokerOps(u, op, body) {
+  const BR = require('./_lib/brokers'), uid = u.id, crypto = require('crypto');
+  const row = async id => { const r = await db.one('SELECT * FROM ubroker WHERE uid=$1 AND id=$2', [uid, String(id || '')]); if (!r) throw err(404, 'Connection not found'); const a = BR.B[r.broker]; if (!a) throw err(400, 'Unknown broker'); return { r, a, c: JSON.parse(await S.dec(r.creds)) }; };
+  const isPaper = env => env !== 'live';
+  switch (op) {
+    case 'list': return { brokers: Object.entries(BR.B).map(([id, a]) => ({ id, name: a.name, group: a.group, envs: a.envs, help: a.help, fields: a.fields.map(([k, l, s]) => ({ k, l, secret: !!s, multi: s === 2 })) })), nope: BR.NOPE,
+      connected: (await db.q('SELECT id, broker, env, label, live, cap, created FROM ubroker WHERE uid=$1 ORDER BY created', [uid])).map(r => ({ ...r, created: Number(r.created), cap: Number(r.cap), name: BR.B[r.broker]?.name || r.broker, paper: isPaper(r.env) })) };
+    case 'connect': { const a = BR.B[body.broker]; if (!a) throw err(400, 'Unknown broker'); const env = a.envs.includes(body.env) ? body.env : a.envs[0], c = {};
+      for (const [k, l] of a.fields) { const v = String(body.creds?.[k] ?? '').trim(); if (!v && !/optional/i.test(l)) throw err(400, `Enter your ${l}`); if (v) c[k] = v; }
+      let acct; try { acct = await a.account(c, env); } catch (e) { throw err(400, `Could not connect: ${e.message}`); } // only saved when the broker accepts the keys
+      const n = (await db.one('SELECT count(*)::int AS n FROM ubroker WHERE uid=$1', [uid])).n; if (n >= 20) throw err(400, 'Up to 20 connections');
+      const id = crypto.randomBytes(6).toString('hex'); await db.q('INSERT INTO ubroker (id, uid, broker, env, creds, label, live, cap, created) VALUES ($1,$2,$3,$4,$5,$6,false,1000,$7)', [id, uid, body.broker, env, await S.enc(JSON.stringify(c)), String(body.label || '').slice(0, 30) || null, Date.now()]);
+      A.notify(u.email, `${a.name} connected to Mimic`, `Your ${a.name} (${env}) account was connected. Live orders stay locked until you unlock them.`); return { ok: true, id, account: acct }; }
+    case 'account': { const { r, a, c } = await row(body.id); return { account: await a.account(c, r.env) }; }
+    case 'del': await db.q('DELETE FROM ubroker WHERE uid=$1 AND id=$2', [uid, String(body.id)]); return { ok: true };
+    case 'unlock': { const { r } = await row(body.id); await A.confirm(u, body, 'keys'); await db.q('UPDATE ubroker SET live=true, cap=$3 WHERE uid=$1 AND id=$2', [uid, r.id, clamp(body.cap, 10, 1e6, 1000)]); A.notify(u.email, 'Live orders unlocked', `Orders from the Mimic terminal can now be sent to your ${r.broker} account (up to $${clamp(body.cap, 10, 1e6, 1000)} each).`); return { ok: true }; }
+    case 'lock': await db.q('UPDATE ubroker SET live=false WHERE uid=$1 AND id=$2', [uid, String(body.id)]); return { ok: true };
+    case 'order': { const { r, a, c } = await row(body.id), o = { sym: String(body.sym || '').toUpperCase(), side: body.side === 'sell' ? 'sell' : 'buy', kind: ['market', 'limit', 'stop'].includes(body.kind) ? body.kind : 'market', qty: Number(body.qty), px: Number(body.px) || null };
+      if (!(o.qty > 0)) throw err(400, 'Enter a quantity'); if (o.kind != 'market' && !(o.px > 0)) throw err(400, 'Enter a price');
+      if (!isPaper(r.env)) { if (!r.live) throw err(403, 'Live orders are locked for this account. Unlock them on the Brokers page first.'); const ref = o.px || Number(body.ref) || 0, val = ref * o.qty * (Number(body.mult) || 1); if (!(ref > 0)) throw err(400, 'No price to check the order size against'); if (val > Number(r.cap)) throw err(400, `This order is about $${Math.round(val)}, above your $${Number(r.cap)} limit for live orders`); }
+      if (!a.order) throw err(400, 'This broker does not take orders from here'); const res = await a.order(c, r.env, o); return { ok: true, ...res, broker: a.name, env: r.env }; }
+    default: throw err(400, 'unknown op');
+  }
+}

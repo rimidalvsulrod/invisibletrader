@@ -3,13 +3,15 @@ const HOME4 = [
   ['trade', 'wave', 'Trading terminal', 'Charts like TradingView: four layouts, drawing tools, every indicator, paper orders.', 'var(--h1c,#1546ff)'],
   ['backtests', 'flask', 'Backtest', 'Build a strategy from indicator rules and test it on real candles, or test any bot.', '#0a0a0c'],
   ['bots', 'bot', 'Bots', 'Every bot on one screen: balance, profit or loss, on or off. Build your own.', '#e5484d'],
+  ['replay', 'arrow', 'Terminal replay', 'Go back to any day, play the market at your speed and trade it as if it were live.', '#8b5cf6'],
+  ['brokers', 'scales', 'Brokers', 'Connect Alpaca, Schwab, Tradier, tastytrade, Coinbase, Kraken, OANDA and more.', '#12a150'],
   ['indicators', 'spark', 'Indicators', 'The full library, bot signals as indicators, Auto pick, and your own imports.', '#f08a24']];
 const greet = () => { const h = new Date().getHours(); return h < 5 ? ['Good', 'night'] : h < 12 ? ['Good', 'morning'] : h < 18 ? ['Good', 'afternoon'] : ['Good', 'evening']; };
 async function homePage() {
   const [a, b] = greet();
   app.innerHTML = `<div class="home"><div class=homeh><h1 class=hgreet>${a}<br><span>${b}</span></h1></div>
    <div class=home4>${HOME4.map(([k, i, t, d, c], n) => `<a class="h4 h4-${n}" href="#/${k}" style="--hc:${c}"><span class=h4i>${ic(i, 26)}</span><b>${t}</b><span class=h4d>${d}</span><span class=h4s id=h4s-${k}></span><span class=h4go>${ic('chev', 16)}</span></a>`).join('')}</div>
-   <div class=homex><a href="#/overview">Polymarket copy trading</a><a href="#/leaderboard">Leaderboard</a><a href="#/feed">Whale feed</a><a href="#/settings">Settings</a><a href="#/help">Help</a></div></div>`;
+   <div class=homex><a href="#/brokers">Brokers</a><a href="#/overview">Polymarket copy trading</a><a href="#/leaderboard">Leaderboard</a><a href="#/feed">Whale feed</a><a href="#/settings">Settings</a><a href="#/help">Help</a></div></div>`;
   if (OWNER) try { const d = await dapi('dash'), on = d.bots.filter(x => x.enabled), bal = on.reduce((s, x) => s + (x.balance || 0), 0), pnl = on.reduce((s, x) => s + ((x.balance ?? 0) - (x.start ?? x.balance ?? 0)), 0);
     if ($('#h4s-bots')) $('#h4s-bots').innerHTML = `<b class=num>${on.length}</b> running · <span class="num ${pnl >= 0 ? 'up' : 'down'}">${pnl >= 0 ? '+' : ''}${usd(pnl, 0)}</span>`;
     const me = d.bots.find(x => x.route == 'trade'); if (me && $('#h4s-trade')) $('#h4s-trade').innerHTML = `Paper account <b class=num>${usd(me.balance, 0)}</b>`; } catch (e) {}

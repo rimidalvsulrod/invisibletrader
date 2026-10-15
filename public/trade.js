@@ -59,7 +59,7 @@ async function tradePage() {
   if (trPhone()) { $('.trwrap').prepend($('.trbar')); $('.trwrap').prepend($('.trhead')); $('.trside').append($('.trtabs')); } /* sheets must sit outside the chart card (its stacking context put them under the dimming layer) */ // phones: positions live in the account sheet
   else { document.body.classList.add('term'); document.body.dataset.tt = trTT(); const tk = $('#trtk'); tk.className = 'trwin'; document.body.append(tk); }
   trCustomReg(); await trBotReg(); await trLib(); trBuild(); trWire(); trTicket(); trTermStart(); await trLoad(true); trStateLoad();
-  trT1 = setInterval(() => { if (!$('#trc')) return trStop(); trLoad(false); }, 15e3); trTick();
+  trT1 = setInterval(() => { if (!$('#trc')) return trStop(); trLoad(false); }, 15e3); trTick(); if (window.__replay) { window.__replay = false; setTimeout(rpPickStart, 300); }
   trT2 = setInterval(() => { if (!$('#trc')) return trStop(); trStateLoad(); }, 4e3);
   addEventListener('themechange', trTheme);
   mtapi('mcpinfo').then(r => { trWant = !!r.has; if (trWant) { trSync(); trT3 = setInterval(trSync, 3000); } }).catch(() => {}); // Claude connection: report the view, apply Claude's commands
@@ -229,6 +229,7 @@ function trTicket() { // the order window: TradingView-style (floating on deskto
   const el = $('#trtk'); if (!el) return; const qk = 'mt:qty:' + (trCrypto() ? 'c' : trFut() ? 'f' : 's'), q = LS.get(qk, trCrypto() ? .01 : 1), unit = trCrypto() ? 'coins' : trFut() ? 'contracts' : 'shares', px = trData ? trData.B[trData.B.length - 1].c : null, buy = TR.side == 'buy';
   const sw = (id, on) => `<button class="trsw sm2 ${on ? 'on' : ''}" id=${id} role=switch aria-checked=${on}><i></i></button>`, tpOn = LS.get('mt:tpon', false), slOn = LS.get('mt:slon', false);
   el.innerHTML = `<div class=twh id=twh><b>${esc(TR.sym)}</b><span class=twn>${esc(trData?.name || '')}</span><button class=twx id=twx aria-label="Close">${ic('x', 15)}</button></div>
+   <div class=twrow2><span class=twl>Account</span><select class=twacct id=twacct>${trAcctOpts()}</select></div>
    <div class=twsides><button class="tws sell ${buy ? '' : 'on'}" data-v=sell><span>Sell</span><b class=num id=twsp>${trN(px)}</b></button><i class=twspr title="Paper fills include a small simulated slippage">${trN(trTickSz(), trTickSz() < 1 ? 2 : 0)}</i><button class="tws buy ${buy ? 'on' : ''}" data-v=buy><span>Buy</span><b class=num id=twbp>${trN(px)}</b></button></div>
    <div class=twkinds id=trkind>${[['market', 'Market'], ['limit', 'Limit'], ['stop', 'Stop']].map(([k, l]) => `<button data-v=${k} class="${TR.kind == k ? 'on' : ''}">${l}</button>`).join('')}<i style="--k:${['market', 'limit', 'stop'].indexOf(TR.kind)}"></i></div>
    <div class=twrow ${TR.kind == 'market' ? 'hidden' : ''}><span class=twl>${TR.kind == 'limit' ? 'Limit' : 'Stop'} price <i>or click the chart</i></span><div class=twin><input id=trpxin type=number step=any inputmode=decimal></div></div>
@@ -246,7 +247,9 @@ function trTicket() { // the order window: TradingView-style (floating on deskto
   for (const id of ['twtpon', 'twslon']) $('#' + id).onclick = e => { const on = !e.currentTarget.classList.contains('on'); e.currentTarget.classList.toggle('on', on); LS.set(id == 'twtpon' ? 'mt:tpon' : 'mt:slon', on); setEx(id, on); };
   if (tpOn) setEx('twtpon', true); if (slOn) setEx('twslon', true);
   $('#twx').onclick = () => trOrderWin(false);
-  $('#trgo').onclick = async () => { const go = $('#trgo'), qty = +$('#trqty').value; LS.set(qk, qty); if (TR.rp) { rpOrder({ side: TR.side, kind: TR.kind, qty, px: +($('#trpxin')?.value || 0), sl: +$('#trsl').value || null, tp: +$('#trtp').value || null }); trOrderWin(false); return; } go.disabled = true;
+  $('#twacct').onchange = e => { if (e.target.value == '__add') { location.hash = '#/brokers'; return; } LS.set('mt:route', e.target.value); trTicket(); };
+  $('#trgo').onclick = async () => { const go = $('#trgo'), qty = +$('#trqty').value; LS.set(qk, qty); if (TR.rp) { rpOrder({ side: TR.side, kind: TR.kind, qty, px: +($('#trpxin')?.value || 0), sl: +$('#trsl').value || null, tp: +$('#trtp').value || null }); trOrderWin(false); return; }
+    const rt = trRoute(); if (rt) { trBrokerOrder(rt, qty); return; } go.disabled = true;
     try { const r = await mtapi('order', { sym: TR.sym, side: TR.side, kind: TR.kind, qty, px: +($('#trpxin')?.value || 0), sl: +$('#trsl').value || null, tp: +$('#trtp').value || null }); toast(r.filled ? `${TR.side == 'buy' ? 'Bought' : 'Sold'} ${qty} ${esc(TR.sym)} at ${trN(r.filled)}` : `${TR.kind} order placed`); trSheet(null); trStateLoad(); }
     catch (e) { toast(esc(e.message)); } finally { go.disabled = false; } };
   trTicketPrice(); }
@@ -385,7 +388,7 @@ function trMiniLeg(m, p) { const el = m.el.querySelector('.trmleg'); if (!m.B ||
   el.innerHTML = `<b>${esc(m.d?.name || trMiniSym(m))}</b> · ${TFS.find(x => x[0] == m.tf)?.[1] || m.tf} · ${esc(m.d?.ex || '')} <span class=trmo>O<b class=${uc}>${trN(b.o)}</b> H<b class=${uc}>${trN(b.h)}</b> L<b class=${uc}>${trN(b.l)}</b> C<b class=${uc}>${trN(b.c)}</b></span> ${ch == null ? '' : `<span class="${ch >= 0 ? 'up' : 'down'}">${ch >= 0 ? '+' : ''}${ch.toFixed(2)}%</span>`}${m.ind.length ? `<div class=trmind>${m.ind.filter(k => IND[k]).map(k => `<span style="color:${trDot(k)}">${esc(trIndName(k))}</span>`).join('')}</div>` : ''}`; }
 function trMiniSwap(m) { if (!trData || trLink()) return; const ms = m.sym, mt = m.tf; m.sym = trData.sym; m.tf = SECT[TR.tf] ? '1m' : TR.tf; m.B = null; trMiniSave();
   trMiniLoad(m); TR.tf = mt; TR.rng = null; LS.set('mt:tf', mt); trUiSync(); trSet(ms); }
-function trTermStart() { if (trPhone()) return; trTabsUi(); trWall(); trSideSet(trSideP()); trWLUi(); trWLLoad(); trWLT = setInterval(trWLLoad, 5e3); trPanes(); trLtUi();
+function trTermStart() { trBrkLoad(); if (trPhone()) return; trTabsUi(); trWall(); trSideSet(trSideP()); trWLUi(); trWLLoad(); trWLT = setInterval(trWLLoad, 5e3); trPanes(); trLtUi();
   const ck = () => { const el = $('#trclock'); if (!el) return; const d = new Date(); el.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) + ' ' + (Intl.DateTimeFormat().resolvedOptions().timeZone || '').split('/').pop().replace('_', ' '); }; ck(); trClk = setInterval(ck, 1000); }
 
 function trVP() { // volume profile over the visible bars, drawn on a canvas laid over the chart
@@ -570,3 +573,13 @@ function rpUi() { const R = RP; if (!R) return; const m = R.acct.me, o = R.acct.
   $('#rpclock').textContent = d.toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: R.bs < 3600 ? '2-digit' : undefined });
   $('#rpst').innerHTML = `Equity <b class=num>${trM(eq)}</b> <span class="num ${eq >= m.start ? 'up' : 'down'}">${eq >= m.start ? '+' : ''}${trM(eq - m.start)}</span>${m.qty ? ` · ${m.qty > 0 ? 'Long' : 'Short'} ${trN(Math.abs(m.qty), Number.isInteger(m.qty) ? 0 : undefined)} <span class="num ${up >= 0 ? 'up' : 'down'}">${trM(up)}</span>` : ''} · ${m.n} trade${m.n == 1 ? '' : 's'}${m.n ? ', ' + Math.round(m.won / m.n * 100) + '% won' : ''}${R.opp ? ` · Opposite <span class="num ${op >= o.start ? 'up' : 'down'}">${op >= o.start ? '+' : ''}${trM(op - o.start)}</span>` : ''}`;
   $('#rpclose').hidden = !m.qty; }
+
+/* ---------- routing orders to a connected broker (Brokers page) ---------- */
+let trBrk = null;
+async function trBrkLoad() { try { trBrk = (await brkApi('b-list', {})).connected; } catch (e) { trBrk = []; } }
+const trRoute = () => { const id = LS.get('mt:route', ''); return TR.rp ? null : (trBrk || []).find(b => b.id == id) || null; };
+const trAcctOpts = () => { const r = trRoute(); return `<option value="">Mimic paper ($100k practice)</option>${(trBrk || []).map(b => `<option value="${b.id}" ${r?.id == b.id ? 'selected' : ''}>${esc(b.label || b.name)} · ${b.paper ? esc(b.env) : 'LIVE'}</option>`).join('')}<option value="__add">+ Connect a broker…</option>`; };
+async function trBrokerOrder(b, qty) { const px = +($('#trpxin')?.value || 0), last = trData?.B[trData.B.length - 1]?.c;
+  if (!b.paper && !confirm(`Send a REAL-MONEY order to ${b.label || b.name}?\n\n${TR.side.toUpperCase()} ${qty} ${TR.sym} · ${TR.kind}${TR.kind != 'market' ? ' at ' + px : ''}`)) return;
+  const go = $('#trgo'); go.disabled = true; try { const r = await brkApi('b-order', { id: b.id, sym: TR.sym, side: TR.side, kind: TR.kind, qty, px, ref: px || last, mult: trData?.spec?.mult || 1 }); toast(`${r.broker} (${r.paper === false ? 'live' : r.env}): order ${esc(String(r.status || 'sent'))}`); trOrderWin(false); }
+  catch (e) { toast(esc(e.message)); } finally { go.disabled = false; } }
