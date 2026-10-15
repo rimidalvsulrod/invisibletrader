@@ -1,6 +1,6 @@
 // Powell Strategy: chart data for the tab (free Yahoo Finance 5-minute futures candles) and controls for the Powell bot.
 const { handler, err } = require('./_lib/util');
-const db = require('./_lib/db'), ICT = require('./_lib/ictbot'), ST = require('./_lib/supertrend'), P = require('./_lib/powell'), AL = require('./_lib/alpaca'), A = require('./_lib/accounts');
+const db = require('./_lib/db'), ICT = require('./_lib/ictbot'), ST = require('./_lib/supertrend'), P = require('./_lib/powell'), AL = require('./_lib/alpaca'), A = require('./_lib/accounts'), LAB = require('./_lib/lab');
 const clamp = (v, lo, hi, d) => Number.isFinite(Number(v)) ? Math.min(hi, Math.max(lo, Number(v))) : d;
 // Supertrend bot (same tab family, so no extra server function): ops st-data, st-state, st-cfg, st-start, st-stop
 async function stApi(uid, op, body) {
@@ -39,6 +39,7 @@ async function ictApi(uid, op, body) {
 }
 module.exports = handler(async (req, body, q) => {
   const u = await A.need(req), uid = u.id, op = q.op || body.op;
+  if (op && op.startsWith('lab-')) { try { return await LAB.api(uid, op.slice(4), body, q); } catch (e) { throw err(e.status || 502, e.message); } } // Strategy Lab bots
   if (op && op.startsWith('st-')) return stApi(uid, op.slice(3), body);
   if (op && op.startsWith('ict-')) return ictApi(uid, op.slice(4), body);
   if (op === 'data') {

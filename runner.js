@@ -4,7 +4,7 @@
 // and keeps US-account reconciliation current. Safe alongside other runners: the engine's database lock and
 // seen-trade memory make sure each trade is handled once.
 process.env.MIMIC_RUNNER = '1'; // lets the BTC bot hold a live WebSocket price feed open
-const E = require('./api/_lib/engine'), db = require('./api/_lib/db'), M = require('./api/_lib/match-us'), B = require('./api/_lib/btc'), N = require('./api/_lib/news'), MM = require('./api/_lib/meme'), EL = require('./api/_lib/edge'), SW = require('./api/_lib/swing'), PW = require('./api/_lib/powell'), AL = require('./api/_lib/alpaca'), ST = require('./api/_lib/supertrend'), GX = require('./api/_lib/gex'), ICT = require('./api/_lib/ictbot');
+const LAB = require('./api/_lib/lab'), E = require('./api/_lib/engine'), db = require('./api/_lib/db'), M = require('./api/_lib/match-us'), B = require('./api/_lib/btc'), N = require('./api/_lib/news'), MM = require('./api/_lib/meme'), EL = require('./api/_lib/edge'), SW = require('./api/_lib/swing'), PW = require('./api/_lib/powell'), AL = require('./api/_lib/alpaca'), ST = require('./api/_lib/supertrend'), GX = require('./api/_lib/gex'), ICT = require('./api/_lib/ictbot');
 const end = Date.now() + (Number(process.env.RUN_MINUTES) || 130) * 6e4, POLL = 15e3;
 const sleep = ms => new Promise(z => setTimeout(z, ms)), log = (...a) => console.log(new Date().toISOString(), ...a);
 let stop = false; for (const s of ['SIGINT', 'SIGTERM']) process.on(s, () => { stop = true; });
@@ -54,6 +54,7 @@ async function kick() {
 (async () => {
   await refresh(); connect(); B.start(); // BTC bot: live price streams, re-checks on every move
   N.start(); // Newsflash: trades each headline the moment it lands
+  LAB.start(); // Strategy Lab: data collectors (options snapshots, order flow)
   let beat = 0;
   while (!stop && Date.now() < end) {
     await sleep(1000); const now = Date.now();
@@ -66,7 +67,8 @@ async function kick() {
     ICT.tick().catch(e => log('sweep', e.message)); // Sweep Bot (ICT): wakes every 10s, trades an armed order when price pulls back to it
     ST.tick().catch(e => log('supertrend', e.message)); // Supertrend bot: wakes every 10s, acts only when a 15-minute bar has just closed
     PW.tick().catch(e => log('powell', e.message)); // Powell bot: acts 10:06-10:30 ET, checks fills every 15s, flattens at 15:55
-    SW.tick().catch(e => log('swing', e.message)); // Swing Trader: decides once a day, checks stops every 20s
+    SW.tick().catch(e => log('swing', e.message));
+    LAB.tick().catch(e => log('lab', e.message)); // Strategy Lab bots: every 10s, record the rules' trades for every bot that is on // Swing Trader: decides once a day, checks stops every 20s
     MM.tick().catch(e => log('meme', e.message)); // Meme Radar: scans every 30s, manages positions every 8s
     B.tick().catch(e => log('btc', e.message)); // BTC bot heartbeat (price moves trigger extra checks, up to 4 a second)
     if (up && now - lastMsg > 30e3) { log('stream silent for 30s — reconnecting'); ws.close(); }
