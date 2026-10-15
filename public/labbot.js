@@ -3,7 +3,8 @@
 const LABS = [ // [id, icon, name] in the menu, by group
   ['ICT', [['fvg', 'star', 'FVG Bot'], ['fib', 'spark', 'Fibonacci OTE'], ['stdv', 'wave', 'STDV Bot'], ['qt', 'book', 'Quarterly Theory'], ['liq', 'scales', 'Liquidity Raid'], ['amt', 'flask', 'AMT Value Area']]],
   ['Options', [['putwall', 'lock', 'Put Wall'], ['callwall', 'unlock', 'Call Wall'], ['flip', 'arrow', 'Gamma Flip'], ['vex', 'spark', 'VEX Bot'], ['oflow', 'wave', 'Options Flow']]],
-  ['Quant', [['quant', 'flask', 'Quant RSI-2'], ['top', 'trophy', 'Top Picks'], ['proven', 'star', 'Proven Trend'], ['pairs', 'scales', 'Stat-Arb Pairs'], ['macro', 'coin', 'Macro Regime'], ['wallst', 'book', 'Wall Street']]]];
+  ['Quant', [['quant', 'flask', 'Quant RSI-2'], ['top', 'trophy', 'Top Picks'], ['proven', 'star', 'Proven Trend'], ['pairs', 'scales', 'Stat-Arb Pairs'], ['macro', 'coin', 'Macro Regime'], ['wallst', 'book', 'Wall Street']]],
+  ['Order flow', [['lv2', 'search', 'LV2 Imbalance'], ['foot', 'paper', 'Footprint'], ['cvd', 'wave', 'Order Flow CVD'], ['heat', 'sun', 'Heat Map']]]];
 const LABIDS = LABS.flatMap(([, x]) => x.map(y => y[0]));
 let labT = null, labS = null, labId = null;
 const labStop = () => { clearInterval(labT); labT = null; };
@@ -53,7 +54,8 @@ function labChart(v) {
   const el = $('#labch'); if (!el) return; if (!v || !(v.bars || v.line)) { el.innerHTML = ''; $('#lablg').innerHTML = ''; return; }
   const B = v.bars ? v.bars.map(x => ({ t: x[0] / 1000, o: x[1], h: x[2], l: x[3], c: x[4], v: x[5] })) : v.line.map(x => ({ t: x[0] / 1000, o: x[1], h: x[1], l: x[1], c: x[1] })), I = t => bcIdx(B, t / 1000), d = v.draw || {};
   const levels = (d.levels || []).map(l => ({ y: l.y, name: l.name, color: l.color, i0: l.t0 ? I(l.t0) : undefined, i1: l.t1 ? I(l.t1) : undefined, dash: l.dash }));
-  const zones = (d.zones || []).map(z => ({ y0: z.y0, y1: z.y1, color: z.color, i0: z.t0 ? I(z.t0) : undefined, i1: z.t1 ? I(z.t1) : undefined }));
+  const lo = Math.min(...B.map(b => b.l)), hi = Math.max(...B.map(b => b.h)), pad = (hi - lo) * .05;
+  const zones = (d.zones || []).filter(z => Math.max(z.y0, z.y1) >= lo - pad && Math.min(z.y0, z.y1) <= hi + pad).map(z => ({ y0: z.y0, y1: z.y1, color: z.color, i0: z.t0 ? I(z.t0) : undefined, i1: z.t1 ? I(z.t1) : undefined }));
   const vlines = (d.vlines || []).map(x => ({ i: I(x.t), name: x.name, color: x.color }));
   const marks = (v.events || []).filter(e => e.type == 'fill' || e.type == 'exit').map(e => ({ i: I(e.t), y: e.p, kind: e.type == 'fill' ? (e.dir == 1 ? 'up' : 'down') : 'x', color: e.type == 'fill' ? (e.dir == 1 ? 'var(--up)' : 'var(--down)') : 'var(--text)', tip: e.type == 'fill' ? `${e.dir == 1 ? 'Bought' : 'Sold'} ${labN(e.p)}` : `Closed ${labN(e.p)} (${e.why || ''})` }));
   for (const e of (v.events || []).filter(e => e.type == 'arm')) marks.push({ i: I(e.t), y: e.p, color: 'var(--ac)', r: 3, tip: 'Armed: ' + (e.why || '') });

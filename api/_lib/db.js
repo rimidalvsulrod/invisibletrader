@@ -64,7 +64,8 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS labtrades_us ON labtrades (uid, strat, ts)`,
   `CREATE TABLE IF NOT EXISTS labpx (sym text PRIMARY KEY, at bigint, data text)`,
   `CREATE TABLE IF NOT EXISTS labopt (ts bigint PRIMARY KEY, day text, data text)`, // SPY options chain snapshots every 5 minutes (options bots)
-  `CREATE INDEX IF NOT EXISTS labopt_day ON labopt (day)`, // daily closes for the portfolio bots, shared by everyone
+  `CREATE INDEX IF NOT EXISTS labopt_day ON labopt (day)`,
+  `CREATE TABLE IF NOT EXISTS flowmin (t bigint PRIMARY KEY, data text)`, // BTC-USD order flow, one row a minute (order-flow bots), kept 8 days // daily closes for the portfolio bots, shared by everyone
   `CREATE TABLE IF NOT EXISTS btctrades (id text PRIMARY KEY, uid text NOT NULL, ts bigint NOT NULL, slug text NOT NULL, tf text, side text, price double precision, qty double precision, fee double precision, fair double precision, edge double precision, s0 double precision, s double precision, secs double precision, mode text, status text NOT NULL DEFAULT 'open', pnl double precision, wend bigint)`,
 ];
 // One time: the site used to have a single owner (bot row 'me', global follows/log, keys + password in settings).
