@@ -6,25 +6,37 @@ const lpR = (a, b) => a + Math.random() * (b - a), lpPick = a => a[Math.floor(Ma
 const lpShuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const LP_SYMS = [['SPY', 'SPY'], ['QQQ', 'QQQ'], ['NQ=F', 'NQ'], ['ES=F', 'ES'], ['BTC-USD', 'BTC'], ['AAPL', 'AAPL'], ['TSLA', 'TSLA'], ['NVDA', 'NVDA']];
 
+// the "Simulated" marker: always on screen while the larper runs, on its own solid pill. Colours are yours, but unreadable pairs are refused.
+const lpLum = h => { const n = parseInt(String(h).replace('#', ''), 16), f = v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }; return .2126 * f(n >> 16 & 255) + .7152 * f(n >> 8 & 255) + .0722 * f(n & 255); };
+const lpContrast = (a, b) => { const x = lpLum(a), y = lpLum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+const lpMark = () => { const m = LS.get('lp:mark', null); return m && /^#[0-9a-f]{6}$/i.test(m.fg) && /^#[0-9a-f]{6}$/i.test(m.bg) && lpContrast(m.fg, m.bg) >= 4.5 ? m : { fg: '#000000', bg: '#ffd54f' }; };
+const lpMarkApply = () => { const m = lpMark(), s = document.body.style; s.setProperty('--lpm-fg', m.fg); s.setProperty('--lpm-bg', m.bg); };
+const lpNormSym = v => { v = String(v || '').trim().toUpperCase(); if (/^(BTC|ETH|SOL|DOGE|XRP|ADA|AVAX|LTC|LINK)$/.test(v)) return v + '-USD'; if (/^(NQ|ES|YM|RTY|GC|SI|CL|NG)$/.test(v)) return v + '=F'; return v; };
 function larpPage() {
   if (!USER?.admin) { location.replace('#/'); return; }
-  const c = LS.get('lp:cfg', { sym: 'NQ=F', tf: '1m', goal: 'profit', amt: 1500, trades: 5, pace: 30 });
+  const c = LS.get('lp:cfg', { sym: 'NQ=F', tf: '1m', goal: 'profit', amt: 1500, trades: 5, pace: 30 }), mk = lpMark();
   const seg = (id, L, v) => `<div class=seg id=${id}>${L.map(([k, l]) => `<button data-v="${k}" class="${String(v) == String(k) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
   app.innerHTML = `<div class=ph><div><h1>Chart larper</h1><p class=lead>A replay that trades by itself: the mouse moves, sets long and short boxes, clicks Buy and Sell and manages the trades. You pick whether the day ends green or red. Admins only.</p></div></div>
    <div class="card pad" style="max-width:720px;display:grid;gap:18px">
-    <div><b>Market</b><div class=hubchips style="margin-top:8px" id=lpsym>${LP_SYMS.map(([k, l]) => `<button class="chip ${c.sym == k ? 'on' : ''}" data-v="${k}">${l}</button>`).join('')}</div></div>
+    <div><b>Market</b><div class=hubchips style="margin-top:8px" id=lpsym>${LP_SYMS.map(([k, l]) => `<button class="chip ${c.sym == k ? 'on' : ''}" data-v="${k}">${l}</button>`).join('')}</div><div class=row style="gap:8px;margin-top:8px;align-items:center"><input class=inp id=lpsymx placeholder="Or type any symbol (AMD, TSLA, SOL, GC ...)" value="${LP_SYMS.some(s => s[0] == c.sym) ? '' : esc(c.sym)}" style="max-width:300px" spellcheck=false autocomplete=off></div></div>
     <div><b>Today</b><div style="margin-top:8px">${seg('lpgoal', [['profit', 'Profit'], ['loss', 'Lose']], c.goal)}</div></div>
     <div><b>About how much</b><div class=row style="gap:8px;margin-top:8px;align-items:center"><span class=mut>$</span><input class=inp id=lpamt type=number min=50 step=50 value="${c.amt}" style="max-width:160px"></div></div>
     <div><b>Account balance</b><div class=row style="gap:8px;margin-top:8px;align-items:center"><span class=mut>$</span><input class=inp id=lpbal type=number min=100 step=1000 value="${LS.get('mt:rpbal', 100000)}" style="max-width:160px"></div></div>
     <div><b>Trades</b><div style="margin-top:8px">${seg('lptr', [[3, '3'], [5, '5'], [8, '8']], c.trades)}</div></div>
-    <div><b>Candles</b><div style="margin-top:8px">${seg('lptf', [['1m', '1 minute'], ['5m', '5 minutes']], c.tf)}</div></div>
+    <div><b>Candles</b><div style="margin-top:8px">${seg('lptf', [['1m', '1 minute'], ['5m', '5 minutes'], ['15m', '15 minutes']], c.tf)}</div></div>
+    <div><b>Start time</b><div class=row style="gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap"><input class=inp id=lpwhen type=datetime-local value="${esc(c.when || '')}" style="max-width:240px"><button class=btn id=lpwclr type=button>Random morning</button></div><div class=mut style="font-size:12px;margin-top:6px">Leave it empty to pick a random morning session. Yahoo keeps about 7 days of 1 minute candles, 60 days of 5 and 15 minute candles.</div></div>
     <div><b>Speed</b><div class=row style="gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap"><input class=inp id=lppace type=number min=1 max=100000 step=1 value="${c.pace}" style="max-width:130px"><span class=mut>times real time. The mouse moves that much faster too.</span></div><div class=hubchips style="margin-top:8px" id=lppre>${[10, 30, 60, 120, 300, 600, 1000, 3000].map(v => `<button class=chip data-v=${v}>${v}×</button>`).join('')}</div></div>
+    <div><b>Simulated marker</b><div class=row style="gap:10px;margin-top:8px;align-items:center;flex-wrap:wrap"><label class=row style="gap:6px;align-items:center">Text <input type=color id=lpmfg value="${esc(mk.fg)}"></label><label class=row style="gap:6px;align-items:center">Background <input type=color id=lpmbg value="${esc(mk.bg)}"></label><span id=lpmprev class=lptag>Simulated · past market data</span></div><div class=mut style="font-size:12px;margin-top:6px" id=lpmwarn>Always shown in the bottom bar and the history. Pick any colours that stay readable together.</div></div>
     <div class=row style="gap:10px;align-items:center"><button class="btn pri" id=lpgo>Start</button><span class=mut style="font-size:12.5px">Esc stops it · H hides the small control</span></div>
     <div class=mut style="font-size:12.5px">It runs on a past session in the replay paper account; nothing goes to a broker. Results land near the amount, not exactly on it.</div></div>`;
   $('#lppre').querySelectorAll('button').forEach(b => b.onclick = () => { $('#lppace').value = b.dataset.v; });
   app.querySelectorAll('.seg,.hubchips').forEach(g => g.querySelectorAll('button').forEach(b => b.onclick = () => { g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }));
-  $('#lpgo').onclick = () => { const v = id => app.querySelector(`#${id} .on`).dataset.v;
-    const cfg = { sym: v('lpsym'), goal: v('lpgoal'), amt: Math.max(50, +$('#lpamt').value || 1500), trades: +v('lptr'), tf: v('lptf'), pace: Math.max(1, Math.min(1e5, +$('#lppace').value || 30)) }; LS.set('lp:cfg', cfg); LS.set('mt:rpbal', Math.max(100, +$('#lpbal').value || 1e5));
+  $('#lpwclr').onclick = () => { $('#lpwhen').value = ''; };
+  const prev = () => { const fg = $('#lpmfg').value, bg = $('#lpmbg').value, ok = lpContrast(fg, bg) >= 4.5, p = $('#lpmprev'); p.style.setProperty('--lpm-fg', fg); p.style.setProperty('--lpm-bg', bg); $('#lpmwarn').textContent = ok ? 'Always shown in the bottom bar and the history. Pick any colours that stay readable together.' : 'Too hard to read: pick a text colour that contrasts more with the background.'; $('#lpmwarn').style.color = ok ? '' : '#ef5350'; return ok; };
+  $('#lpmfg').oninput = $('#lpmbg').oninput = prev; prev();
+  $('#lpgo').onclick = () => { const v = id => app.querySelector(`#${id} .on`).dataset.v; if (!prev()) return toast('Pick marker colours that are readable together');
+    LS.set('lp:mark', { fg: $('#lpmfg').value, bg: $('#lpmbg').value }); const typed = lpNormSym($('#lpsymx').value);
+    const cfg = { sym: typed || v('lpsym'), when: $('#lpwhen').value || '', goal: v('lpgoal'), amt: Math.max(50, +$('#lpamt').value || 1500), trades: +v('lptr'), tf: v('lptf'), pace: Math.max(1, Math.min(1e5, +$('#lppace').value || 30)) }; LS.set('lp:cfg', cfg); LS.set('mt:rpbal', Math.max(100, +$('#lpbal').value || 1e5));
     trInit(); TR.sym = cfg.sym; TR.tf = cfg.tf; LS.set('mt:sym', cfg.sym); LS.set('mt:tf', cfg.tf); window.__larp = cfg; location.hash = '#/trade'; };
 }
 
@@ -66,7 +78,7 @@ window.lpStop = () => { if (!LP) return; LP.on = false; window.__quiet = false; 
 function lpKey(e) { if (!LP) return; if (e.key == 'Escape') { e.preventDefault(); lpEnd(true); } else if ((e.key == 'h' || e.key == 'H') && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) $('#lphud')?.classList.toggle('hid'); }
 const lpPnl = () => RP ? RP.acct.me.realized + (RP.acct.me.qty ? (RP.px - RP.acct.me.avg) * RP.acct.me.qty * rpMult() : 0) : 0;
 function lpHud(msg) { let el = $('#lphud'); if (!el) { el = document.createElement('div'); el.id = 'lphud'; document.body.append(el); }
-  if (msg != null) LP.msg = msg; const p = lpPnl(), c = LP.c; el.innerHTML = `<i class=${LP.on ? 'on' : ''}></i><b>${c.goal == 'profit' ? 'Profit' : 'Lose'} ${trM(c.amt)}</b><span class=num style="color:${p >= 0 ? 'var(--up)' : 'var(--down)'}">${p >= 0 ? '+' : ''}${trM(p)}</span><span>${LP.k}/${LP.plan.length + LP.extra} trades</span><span class=mut>${esc(LP.msg || '')}</span>${LP.on ? '<button id=lpx>Stop</button>' : '<button id=lpag>Again</button><button id=lpx>Exit</button>'}`;
+  if (msg != null) LP.msg = msg; const p = lpPnl(), c = LP.c; el.innerHTML = `<i class=${LP.on ? 'on' : ''}></i><b>${c.goal == 'profit' ? 'Profit' : 'Lose'} ${trM(c.amt)}</b><span class=num style="color:${p >= 0 ? 'var(--up)' : 'var(--down)'}">${p >= 0 ? '+' : ''}${trM(p)}</span><span>${LP.k}/${LP.plan.length + LP.extra} trades</span><span class=mut>${esc(LP.msg || '')}</span><span class=lptag>Simulated · past market data</span>${LP.on ? '<button id=lpx>Stop</button>' : '<button id=lpag>Again</button><button id=lpx>Exit</button>'}`;
   el.querySelector('#lpx').onclick = () => lpEnd(true); const ag = el.querySelector('#lpag'); if (ag) ag.onclick = () => { const c2 = LP.c; lpEnd(true); setTimeout(() => { window.__larp = c2; larpGo(); }, 900); }; }
 
 // ---- looking ahead: would this trade hit its target or its stop first? (same price path the replay uses) ----
@@ -146,13 +158,15 @@ async function lpIdle(bars, d) { const R = RP; if (!R) return; const end = R.i +
     await lpSleep(lpR(300, 1400)); } while (LP?.on && RP && (bars ? RP.i < end : performance.now() - t0 < 900) && (!d || RP.acct.me.qty)); }
 
 async function larpGo() { const c = window.__larp; window.__larp = null; if (!c || !USER?.admin) return; window.lpStop();
-  LP = { c, sc: Math.max(.3, Math.min(80, c.pace / 30)), on: true, draws: [], plan: lpPlan(c), k: 0, extra: 0, x: 0, y: 0 }; window.__quiet = true; document.body.classList.add('larp', 'lprun'); addEventListener('keydown', lpKey, true);
+  LP = { c, sc: Math.max(.3, Math.min(80, c.pace / 30)), on: true, draws: [], plan: lpPlan(c), k: 0, extra: 0, x: 0, y: 0 }; window.__quiet = true; document.body.classList.add('larp', 'lprun'); lpMarkApply(); addEventListener('keydown', lpKey, true);
   lpCursor(); lpHud('loading');
   if (TR.sym !== c.sym) trSet(c.sym); if (TR.tf !== c.tf) { TR.tf = c.tf; LS.set('mt:tf', c.tf); trUiSync(); trLoad(true); }
   for (let w = 0; w < 100 && !(trData && trData.tf == c.tf && trData.sym == TR.sym && trData.B.length > 200); w++) await lpSleep(150);
   if (!LP?.on || !trData) return; const B = trData.B, n = B.length, et = t => { const d = new Date((t - TZ()) * 1000), p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(d); return +p[0].value * 60 + +p[2].value; };
   const need = c.trades * (c.tf == '1m' ? 30 : 12), cand = []; for (let i = 40; i < n - need; i++) { const m = et(B[i].t); if (m >= 575 && m <= 600) cand.push(i); }
-  const i = cand.length ? lpPick(cand) : Math.floor(lpR(60, Math.max(61, n - need))); rpBegin(B[i].t); if (!RP) return lpEnd(false, 'not enough history'); $('#trrpb')?.classList.remove('on');
+  let i = cand.length ? lpPick(cand) : Math.floor(lpR(60, Math.max(61, n - need)));
+  if (c.when) { const t = Date.parse(c.when) / 1000 + TZ(), k = B.findIndex(b => b.t >= t); if (k >= 40 && k < n - need) i = k; else { toast(`No ${c.tf} candles for that time with enough bars after it: starting on a random morning instead`); } }
+  rpBegin(B[i].t); if (!RP) return lpEnd(false, 'not enough history'); $('#trrpb')?.classList.remove('on');
   const ps = $('#trpanes'); if (ps && +ps.dataset.n > 1 && ps.dataset.focus == null) { await lpTo('#trc .trpbtns [data-a=max]', .1, .1); await lpClick(); trFocus(0); await lpSleep(350); } // one big chart
   trChart.timeScale().setVisibleLogicalRange({ from: trData.B.length - 110, to: trData.B.length + 22 }); RP.speed = c.pace; RP.play = true; RP.last = 0; rpLoop(); lpHud('watching'); await lpIdle(Math.round(lpR(3, 7)));
   while (LP?.on && lpLive()) { const c2 = LP.c, sg = c2.goal == 'profit' ? 1 : -1, real = RP.acct.me.realized;
@@ -160,7 +174,8 @@ async function larpGo() { const c = window.__larp; window.__larp = null; if (!c 
     const ok = await lpTrade(LP.plan[LP.k]); if (ok) LP.k++; lpHud('waiting'); await lpIdle(Math.round(lpR(2, 9))); }
   if (LP?.on) lpEnd(false); }
 function lpEnd(exit, why) { if (!LP) return; LP.on = false; if (RP) { RP.play = false; if (RP.acct.me.qty) rpClose(); } document.body.classList.remove('lprun'); $('#lpcur')?.remove();
-  const p = lpPnl(); lpHud(why || `done: ${p >= 0 ? '+' : ''}${trM(p)}`); if (exit) { const ds = LP.draws; window.lpStop(); void ds; if (RP) rpExit(); } }
+  const p = lpPnl(); lpHud(why || `done: ${p >= 0 ? '+' : ''}${trM(p)}`); if (!exit && RP) { $('#trtab [data-v=fills]')?.click(); trTable(); } // finished: open the order history with the session's trades and profit
+  if (exit) { const ds = LP.draws; window.lpStop(); void ds; if (RP) rpExit(); } }
 
 // a fill: an arrow on the chart and a TradingView-style "order executed" notification
 function lpExec(side, qty, px, kind, pnl) { if (!LP) return; LP.draws.push({ id: 'lx' + Math.random().toString(36).slice(2, 8), k: 'exec', side, t1: RP.live.t, p1: px, text: `${side == 'buy' ? 'Buy' : 'Sell'} ${qty}` }); lpDrawAll();
