@@ -2,7 +2,8 @@
 // long / short position tool, drags the green and red boxes, clicks Buy or Sell and manages the trade, while the replay plays.
 // It looks ahead in the replay data so the day ends up green or red, as chosen, with some losing (or winning) trades mixed in.
 let LP = null;
-const lpR = (a, b) => a + Math.random() * (b - a), lpPick = a => a[Math.floor(Math.random() * a.length)], lpSleep = ms => new Promise(r => setTimeout(r, ms));
+let LPF = 1; // hand speed: 1 = normal, higher = the mouse and its pauses run that many times faster (follows the speed number)
+const lpR = (a, b) => a + Math.random() * (b - a), lpPick = a => a[Math.floor(Math.random() * a.length)], lpSleep = ms => new Promise(r => setTimeout(r, ms / LPF));
 const lpShuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const LP_SYMS = [['SPY', 'SPY'], ['QQQ', 'QQQ'], ['NQ=F', 'NQ'], ['ES=F', 'ES'], ['BTC-USD', 'BTC'], ['AAPL', 'AAPL'], ['TSLA', 'TSLA'], ['NVDA', 'NVDA']];
 
@@ -12,18 +13,21 @@ function larpPage() {
   const seg = (id, L, v) => `<div class=seg id=${id}>${L.map(([k, l]) => `<button data-v="${k}" class="${String(v) == String(k) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
   app.innerHTML = `<div class=ph><div><h1>Chart larper</h1><p class=lead>A replay that trades by itself: the mouse moves, sets long and short boxes, clicks Buy and Sell and manages the trades. You pick whether the day ends green or red. Admins only.</p></div></div>
    <div class="card pad" style="max-width:720px;display:grid;gap:18px">
-    <div><b>Market</b><div class=hubchips style="margin-top:8px" id=lpsym>${LP_SYMS.map(([k, l]) => `<button class="chip ${c.sym == k ? 'on' : ''}" data-v="${k}">${l}</button>`).join('')}</div></div>
+    <div><b>Ticker</b><div class=row style="gap:8px;margin-top:8px;align-items:center"><input class=inp id=lpsymin value="${esc(c.sym)}" placeholder="Any ticker: AAPL, AMD, NQ=F, BTC-USD" autocapitalize=characters spellcheck=false style="max-width:260px"></div><div class=hubchips style="margin-top:8px" id=lpsym>${LP_SYMS.map(([k, l]) => `<button class="chip ${c.sym == k ? 'on' : ''}" data-v="${k}">${l}</button>`).join('')}</div></div>
     <div><b>Today</b><div style="margin-top:8px">${seg('lpgoal', [['profit', 'Profit'], ['loss', 'Lose']], c.goal)}</div></div>
     <div><b>About how much</b><div class=row style="gap:8px;margin-top:8px;align-items:center"><span class=mut>$</span><input class=inp id=lpamt type=number min=50 step=50 value="${c.amt}" style="max-width:160px"></div></div>
     <div><b>Account balance</b><div class=row style="gap:8px;margin-top:8px;align-items:center"><span class=mut>$</span><input class=inp id=lpbal type=number min=100 step=1000 value="${LS.get('mt:rpbal', 100000)}" style="max-width:160px"></div></div>
     <div><b>Trades</b><div style="margin-top:8px">${seg('lptr', [[3, '3'], [5, '5'], [8, '8']], c.trades)}</div></div>
     <div><b>Candles</b><div style="margin-top:8px">${seg('lptf', [['1m', '1 minute'], ['5m', '5 minutes']], c.tf)}</div></div>
-    <div><b>Speed</b><div style="margin-top:8px">${seg('lppace', [[10, 'Slow'], [30, 'Normal'], [60, 'Fast']], c.pace)}</div></div>
+    <div><b>Speed</b><div class=row style="gap:8px;margin-top:8px;align-items:center"><input class=inp id=lppace type=number min=1 max=1000 step=1 value="${c.pace}" style="max-width:120px"><span class=mut>× real time. The market and the mouse both run this fast (30 = normal, 120+ = really fast)</span></div><div class=hubchips style="margin-top:8px" id=lppre>${[10, 30, 60, 120, 300].map(n => `<button class=chip data-v="${n}">${n}×</button>`).join('')}</div></div>
     <div class=row style="gap:10px;align-items:center"><button class="btn pri" id=lpgo>Start</button><span class=mut style="font-size:12.5px">Esc stops it · H hides the small control</span></div>
     <div class=mut style="font-size:12.5px">It runs on a past session in the replay paper account; nothing goes to a broker. Results land near the amount, not exactly on it.</div></div>`;
+  $('#lpsymin').oninput = e => { const v = e.target.value.trim().toUpperCase(); app.querySelectorAll('#lpsym button').forEach(b => b.classList.toggle('on', b.dataset.v == v)); };
+  app.querySelectorAll('#lpsym button').forEach(b => b.addEventListener('click', () => { $('#lpsymin').value = b.dataset.v; }));
+  app.querySelectorAll('#lppre button').forEach(b => b.onclick = () => { $('#lppace').value = b.dataset.v; });
   app.querySelectorAll('.seg,.hubchips').forEach(g => g.querySelectorAll('button').forEach(b => b.onclick = () => { g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }));
   $('#lpgo').onclick = () => { const v = id => app.querySelector(`#${id} .on`).dataset.v;
-    const cfg = { sym: v('lpsym'), goal: v('lpgoal'), amt: Math.max(50, +$('#lpamt').value || 1500), trades: +v('lptr'), tf: v('lptf'), pace: +v('lppace') }; LS.set('lp:cfg', cfg); LS.set('mt:rpbal', Math.max(100, +$('#lpbal').value || 1e5));
+    const cfg = { sym: $('#lpsymin').value.trim().toUpperCase() || 'NQ=F', goal: v('lpgoal'), amt: Math.max(50, +$('#lpamt').value || 1500), trades: +v('lptr'), tf: v('lptf'), pace: Math.max(1, Math.min(1000, +$('#lppace').value || 30)) }; LS.set('lp:cfg', cfg); LS.set('mt:rpbal', Math.max(100, +$('#lpbal').value || 1e5));
     trInit(); TR.sym = cfg.sym; TR.tf = cfg.tf; LS.set('mt:sym', cfg.sym); LS.set('mt:tf', cfg.tf); window.__larp = cfg; location.hash = '#/trade'; };
 }
 
@@ -35,7 +39,7 @@ function lpPut(x, y) { LP.x = x; LP.y = y; const el = lpCursor(); el.style.left 
 // human-like moves, not smooth: a quick ballistic push that stops short or long of the target, one or two small corrections,
 // a wobbly path, whole-pixel steps at uneven intervals with the odd hitch (like a real mouse polled by the browser)
 async function lpSeg(x0, y0, x, y, T, wob, each) { const d = Math.hypot(x - x0, y - y0) || 1, ux = (x - x0) / d, uy = (y - y0) / d, bend = lpR(-.12, .12) * d,
-    f1 = lpR(1.5, 3.5), f2 = lpR(4, 8), ph1 = lpR(0, 6.3), ph2 = lpR(0, 6.3), k = lpR(1.6, 2.6), t0 = performance.now();
+    f1 = lpR(1.5, 3.5), f2 = lpR(4, 8), ph1 = lpR(0, 6.3), ph2 = lpR(0, 6.3), k = lpR(1.6, 2.6), t0 = performance.now(); T /= LPF;
   while (LP?.on) { const t = Math.min(1, (performance.now() - t0) / T), s = 1 - Math.pow(1 - t, k) * (1 - t * .15), // fast start, long slow-down
       off = bend * 4 * s * (1 - s) + wob * (Math.sin(f1 * s * 6.3 + ph1) * .7 + Math.sin(f2 * s * 6.3 + ph2) * .3) * Math.sin(Math.PI * s);
     const px = Math.round(x0 + (x - x0) * s - uy * off + lpR(-.8, .8)), py = Math.round(y0 + (y - y0) * s + ux * off + lpR(-.8, .8)); lpPut(px, py); each?.(px, py);
@@ -59,9 +63,9 @@ const lpDrawAll = () => { if (LP && trChart) trChart.setDrawings(LP.draws); };
 window.lpOnStep = () => { if (!LP?.on || !RP) return; const a = RP.acct.me, m = rpMult();
   for (const d of LP.draws) if (!d.done && d.live) { d.cur = RP.px; d.tc = RP.simT; d.pnl = a.qty ? (RP.px - a.avg) * a.qty * m : d.pnl; }
   const ts = trChart?.timeScale(), r = ts?.getVisibleLogicalRange(), n = trData.B.length; if (r && r.to - n < 14) ts.setVisibleLogicalRange({ from: r.from + (n + 22 - r.to), to: n + 22 }); // room on the right for the boxes
-  const now = performance.now(); if (a.qty && now - (LP.ol || 0) > 350) { LP.ol = now; trOrderLines(); }
+  const now = performance.now(); if (a.qty && now - (LP.ol || 0) > 120) { LP.ol = now; trOrderLines(); }
   lpDrawAll(); lpHud(); };
-window.lpStop = () => { if (!LP) return; LP.on = false; window.__quiet = false; document.body.classList.remove('larp', 'lprun'); $('#lpcur')?.remove(); $('#lphud')?.remove(); $('#lpnotes')?.remove(); removeEventListener('keydown', lpKey, true); LP = null; };
+window.lpStop = () => { LPF = 1; if (!LP) return; LP.on = false; window.__quiet = false; document.body.classList.remove('larp', 'lprun'); $('#lpcur')?.remove(); $('#lphud')?.remove(); $('#lpnotes')?.remove(); removeEventListener('keydown', lpKey, true); LP = null; };
 function lpKey(e) { if (!LP) return; if (e.key == 'Escape') { e.preventDefault(); lpEnd(true); } else if ((e.key == 'h' || e.key == 'H') && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) $('#lphud')?.classList.toggle('hid'); }
 const lpPnl = () => RP ? RP.acct.me.realized + (RP.acct.me.qty ? (RP.px - RP.acct.me.avg) * RP.acct.me.qty * rpMult() : 0) : 0;
 function lpHud(msg) { let el = $('#lphud'); if (!el) { el = document.createElement('div'); el.id = 'lphud'; document.body.append(el); }
@@ -145,11 +149,11 @@ async function lpIdle(bars, d) { const R = RP; if (!R) return; const end = R.i +
     await lpSleep(lpR(300, 1400)); } while (LP?.on && RP && (bars ? RP.i < end : performance.now() - t0 < 900) && (!d || RP.acct.me.qty)); }
 
 async function larpGo() { const c = window.__larp; window.__larp = null; if (!c || !USER?.admin) return; window.lpStop();
-  LP = { c, on: true, draws: [], plan: lpPlan(c), k: 0, extra: 0, x: 0, y: 0 }; window.__quiet = true; document.body.classList.add('larp', 'lprun'); addEventListener('keydown', lpKey, true);
+  LPF = Math.max(.5, Math.min(12, (c.pace || 30) / 30)); LP = { c, on: true, draws: [], plan: lpPlan(c), k: 0, extra: 0, x: 0, y: 0 }; window.__quiet = true; document.body.classList.add('larp', 'lprun'); addEventListener('keydown', lpKey, true);
   lpCursor(); lpHud('loading');
   if (TR.sym !== c.sym) trSet(c.sym); if (TR.tf !== c.tf) { TR.tf = c.tf; LS.set('mt:tf', c.tf); trUiSync(); trLoad(true); }
   for (let w = 0; w < 100 && !(trData && trData.tf == c.tf && trData.sym == TR.sym && trData.B.length > 200); w++) await lpSleep(150);
-  if (!LP?.on || !trData) return; const B = trData.B, n = B.length, et = t => { const d = new Date((t - TZ()) * 1000), p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(d); return +p[0].value * 60 + +p[2].value; };
+  if (!LP?.on) return; if (!trData) return lpEnd(false, 'no data for ' + c.sym); const B = trData.B, n = B.length, et = t => { const d = new Date((t - TZ()) * 1000), p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(d); return +p[0].value * 60 + +p[2].value; };
   const need = c.trades * (c.tf == '1m' ? 30 : 12), cand = []; for (let i = 40; i < n - need; i++) { const m = et(B[i].t); if (m >= 575 && m <= 600) cand.push(i); }
   const i = cand.length ? lpPick(cand) : Math.floor(lpR(60, Math.max(61, n - need))); rpBegin(B[i].t); if (!RP) return lpEnd(false, 'not enough history'); $('#trrpb')?.classList.remove('on');
   const ps = $('#trpanes'); if (ps && +ps.dataset.n > 1 && ps.dataset.focus == null) { await lpTo('#trc .trpbtns [data-a=max]', .1, .1); await lpClick(); trFocus(0); await lpSleep(350); } // one big chart
