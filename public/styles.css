@@ -1069,7 +1069,13 @@ body.larp .trpaper,body.larp .twfoot,body.larp .rppick{display:none!important}bo
 .tblab{display:grid;gap:6px;font-size:12.5px;color:var(--mut)}.tblab .inp{flex:1;min-width:0}
 #lpnotes{position:fixed;right:18px;bottom:46px;z-index:9996;display:grid;gap:8px;width:300px;pointer-events:none}
 .lpnote{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:6px;background:#1e222d;border:1px solid #2a2e39;color:#d1d4dc;font-size:12.5px;box-shadow:0 8px 24px rgba(0,0,0,.45);animation:lpin .25s ease-out;transition:opacity .4s,transform .4s}
-.lpnote.out{opacity:0;transform:translateX(20px)}.lpnote i{font-style:normal;font-size:11px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex:none;color:#fff;background:#2962ff}.lpnote i.sell{background:#f23645}
+/* 2560x1440 and up: a taller dock so the history shows, a little more type, and the larper setup in two columns instead of one narrow strip */
+@media(min-width:2200px) and (min-height:1200px){body.term .trwrap{--trdh:340px;--trsw:400px}body.term .trwlr,body.term .tbl td,body.term .tbl th{font-size:13.5px}body.term .trwlr{height:38px}body.term .trsum,body.term .trrange button,body.term .trdockh .seg button{font-size:13px}body.term .trtop button,body.term .trtop .seg button{font-size:13px}.trlegend{font-size:13px}}
+@media(min-width:1500px){.lpcard{max-width:1240px!important;grid-template-columns:1fr 1fr;column-gap:56px}.lpcard>.row,.lpcard>.mut,.lpcard>div:last-child{grid-column:1/-1}}
+.trwlasof{padding:6px 10px;font-size:11.5px;color:var(--mut);border-bottom:1px solid var(--line)}
+.toast{display:flex;align-items:center;gap:12px}.toast .tclose{border:0;background:none;color:inherit;opacity:.55;font-size:18px;line-height:1;cursor:pointer;padding:0 2px}.toast .tclose:hover{opacity:1}
+.lpnote{pointer-events:auto;position:relative;padding-right:30px}.lpnote .lpnx{position:absolute;top:6px;right:6px;width:20px;height:20px;border:0;border-radius:4px;background:none;color:#9598a1;font-size:16px;line-height:1;cursor:pointer}.lpnote .lpnx:hover{background:#2a2e39;color:#fff}
+.lpnote.out{opacity:0;transform:translateX(20px);transition:opacity .15s,transform .15s}.lpnote i{font-style:normal;font-size:11px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;flex:none;color:#fff;background:#2962ff}.lpnote i.sell{background:#f23645}
 .lpnote b{display:block;color:#fff;font-weight:600;margin-bottom:2px}.lpnote em{font-style:normal}.lpnote em.up{color:#26a69a}.lpnote em.down{color:#ef5350}
 @keyframes lpin{from{opacity:0;transform:translateY(10px)}}
 .trqb.lpflash{filter:brightness(1.35);transform:scale(.96)}

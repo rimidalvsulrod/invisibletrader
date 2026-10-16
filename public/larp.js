@@ -2,7 +2,8 @@
 // long / short position tool, drags the green and red boxes, clicks Buy or Sell and manages the trade, while the replay plays.
 // It looks ahead in the replay data so the day ends up green or red, as chosen, with some losing (or winning) trades mixed in.
 let LP = null;
-const lpR = (a, b) => a + Math.random() * (b - a), lpPick = a => a[Math.floor(Math.random() * a.length)], lpSleep = ms => new Promise(r => setTimeout(r, ms / (LP?.sc || 1))); // the hand's pace scales with the replay speed
+let LPF = 1; // hand speed: 1 = normal, higher = the mouse and its pauses run that many times faster (follows the speed number)
+const lpR = (a, b) => a + Math.random() * (b - a), lpPick = a => a[Math.floor(Math.random() * a.length)], lpSleep = ms => new Promise(r => setTimeout(r, ms / LPF));
 const lpShuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const LP_SYMS = [['SPY', 'SPY'], ['QQQ', 'QQQ'], ['NQ=F', 'NQ'], ['ES=F', 'ES'], ['BTC-USD', 'BTC'], ['AAPL', 'AAPL'], ['TSLA', 'TSLA'], ['NVDA', 'NVDA']];
 
@@ -17,8 +18,8 @@ function larpPage() {
   const c = LS.get('lp:cfg', { sym: 'NQ=F', tf: '1m', goal: 'profit', amt: 1500, trades: 5, pace: 30 }), mk = lpMark();
   const seg = (id, L, v) => `<div class=seg id=${id}>${L.map(([k, l]) => `<button data-v="${k}" class="${String(v) == String(k) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
   app.innerHTML = `<div class=ph><div><h1>Chart larper</h1><p class=lead>A replay that trades by itself: the mouse moves, sets long and short boxes, clicks Buy and Sell and manages the trades. You pick whether the day ends green or red. Admins only.</p></div></div>
-   <div class="card pad" style="max-width:720px;display:grid;gap:18px">
-    <div><b>Market</b><div class=hubchips style="margin-top:8px" id=lpsym>${LP_SYMS.map(([k, l]) => `<button class="chip ${c.sym == k ? 'on' : ''}" data-v="${k}">${l}</button>`).join('')}</div><div class=row style="gap:8px;margin-top:8px;align-items:center"><input class=inp id=lpsymx placeholder="Or type any symbol (AMD, TSLA, SOL, GC ...)" value="${LP_SYMS.some(s => s[0] == c.sym) ? '' : esc(c.sym)}" style="max-width:300px" spellcheck=false autocomplete=off></div></div>
+   <div class="card pad lpcard" style="max-width:720px;display:grid;gap:18px">
+    <div><b>Ticker</b><div class=row style="gap:8px;margin-top:8px;align-items:center"><input class=inp id=lpsymin value="${esc(c.sym)}" placeholder="Any ticker: AAPL, AMD, NQ=F, BTC-USD" autocapitalize=characters spellcheck=false style="max-width:260px"></div><div class=hubchips style="margin-top:8px" id=lpsym>${LP_SYMS.map(([k, l]) => `<button class="chip ${c.sym == k ? 'on' : ''}" data-v="${k}">${l}</button>`).join('')}</div></div>
     <div><b>Today</b><div style="margin-top:8px">${seg('lpgoal', [['profit', 'Profit'], ['loss', 'Lose']], c.goal)}</div></div>
     <div><b>About how much</b><div class=row style="gap:8px;margin-top:8px;align-items:center"><span class=mut>$</span><input class=inp id=lpamt type=number min=50 step=50 value="${c.amt}" style="max-width:160px"></div></div>
     <div><b>Account balance</b><div class=row style="gap:8px;margin-top:8px;align-items:center"><span class=mut>$</span><input class=inp id=lpbal type=number min=100 step=1000 value="${LS.get('mt:rpbal', 100000)}" style="max-width:160px"></div></div>
@@ -29,14 +30,16 @@ function larpPage() {
     <div><b>Simulated marker</b><div class=row style="gap:10px;margin-top:8px;align-items:center;flex-wrap:wrap"><label class=row style="gap:6px;align-items:center">Text <input type=color id=lpmfg value="${esc(mk.fg)}"></label><label class=row style="gap:6px;align-items:center">Background <input type=color id=lpmbg value="${esc(mk.bg)}"></label><span id=lpmprev class=lptag>Simulated · past market data</span></div><div class=mut style="font-size:12px;margin-top:6px" id=lpmwarn>Always shown in the bottom bar and the history. Pick any colours that stay readable together.</div></div>
     <div class=row style="gap:10px;align-items:center"><button class="btn pri" id=lpgo>Start</button><span class=mut style="font-size:12.5px">Esc stops it · H hides the small control</span></div>
     <div class=mut style="font-size:12.5px">It runs on a past session in the replay paper account; nothing goes to a broker. Results land near the amount, not exactly on it.</div></div>`;
+  $('#lpsymin').oninput = e => { const v = e.target.value.trim().toUpperCase(); app.querySelectorAll('#lpsym button').forEach(b => b.classList.toggle('on', b.dataset.v == v)); };
+  app.querySelectorAll('#lpsym button').forEach(b => b.addEventListener('click', () => { $('#lpsymin').value = b.dataset.v; }));
   $('#lppre').querySelectorAll('button').forEach(b => b.onclick = () => { $('#lppace').value = b.dataset.v; });
   app.querySelectorAll('.seg,.hubchips').forEach(g => g.querySelectorAll('button').forEach(b => b.onclick = () => { g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }));
   $('#lpwclr').onclick = () => { $('#lpwhen').value = ''; };
   const prev = () => { const fg = $('#lpmfg').value, bg = $('#lpmbg').value, ok = lpContrast(fg, bg) >= 4.5, p = $('#lpmprev'); p.style.setProperty('--lpm-fg', fg); p.style.setProperty('--lpm-bg', bg); $('#lpmwarn').textContent = ok ? 'Always shown in the bottom bar and the history. Pick any colours that stay readable together.' : 'Too hard to read: pick a text colour that contrasts more with the background.'; $('#lpmwarn').style.color = ok ? '' : '#ef5350'; return ok; };
   $('#lpmfg').oninput = $('#lpmbg').oninput = prev; prev();
   $('#lpgo').onclick = () => { const v = id => app.querySelector(`#${id} .on`).dataset.v; if (!prev()) return toast('Pick marker colours that are readable together');
-    LS.set('lp:mark', { fg: $('#lpmfg').value, bg: $('#lpmbg').value }); const typed = lpNormSym($('#lpsymx').value);
-    const cfg = { sym: typed || v('lpsym'), when: $('#lpwhen').value || '', goal: v('lpgoal'), amt: Math.max(50, +$('#lpamt').value || 1500), trades: +v('lptr'), tf: v('lptf'), pace: Math.max(1, Math.min(1e5, +$('#lppace').value || 30)) }; LS.set('lp:cfg', cfg); LS.set('mt:rpbal', Math.max(100, +$('#lpbal').value || 1e5));
+    LS.set('lp:mark', { fg: $('#lpmfg').value, bg: $('#lpmbg').value }); const typed = lpNormSym($('#lpsymin').value);
+    const cfg = { sym: typed || 'NQ=F', when: $('#lpwhen').value || '', goal: v('lpgoal'), amt: Math.max(50, +$('#lpamt').value || 1500), trades: +v('lptr'), tf: v('lptf'), pace: Math.max(1, Math.min(1e5, +$('#lppace').value || 30)) }; LS.set('lp:cfg', cfg); LS.set('mt:rpbal', Math.max(100, +$('#lpbal').value || 1e5));
     trInit(); TR.sym = cfg.sym; TR.tf = cfg.tf; LS.set('mt:sym', cfg.sym); LS.set('mt:tf', cfg.tf); window.__larp = cfg; location.hash = '#/trade'; };
 }
 
@@ -47,8 +50,8 @@ function lpPut(x, y) { LP.x = x; LP.y = y; const el = lpCursor(); el.style.left 
   const cv = $('#trc canvas'); if (!cv) return; const r = cv.getBoundingClientRect(); if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) cv.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, pointerType: 'mouse', bubbles: true })); }
 // human-like moves, not smooth: a quick ballistic push that stops short or long of the target, one or two small corrections,
 // a wobbly path, whole-pixel steps at uneven intervals with the odd hitch (like a real mouse polled by the browser)
-async function lpSeg(x0, y0, x, y, T, wob, each) { T = T / (LP?.sc || 1); const d = Math.hypot(x - x0, y - y0) || 1, ux = (x - x0) / d, uy = (y - y0) / d, bend = lpR(-.12, .12) * d,
-    f1 = lpR(1.5, 3.5), f2 = lpR(4, 8), ph1 = lpR(0, 6.3), ph2 = lpR(0, 6.3), k = lpR(1.6, 2.6), t0 = performance.now();
+async function lpSeg(x0, y0, x, y, T, wob, each) { const d = Math.hypot(x - x0, y - y0) || 1, ux = (x - x0) / d, uy = (y - y0) / d, bend = lpR(-.12, .12) * d,
+    f1 = lpR(1.5, 3.5), f2 = lpR(4, 8), ph1 = lpR(0, 6.3), ph2 = lpR(0, 6.3), k = lpR(1.6, 2.6), t0 = performance.now(); T /= LPF;
   while (LP?.on) { const t = Math.min(1, (performance.now() - t0) / T), s = 1 - Math.pow(1 - t, k) * (1 - t * .15), // fast start, long slow-down
       off = bend * 4 * s * (1 - s) + wob * (Math.sin(f1 * s * 6.3 + ph1) * .7 + Math.sin(f2 * s * 6.3 + ph2) * .3) * Math.sin(Math.PI * s);
     const px = Math.round(x0 + (x - x0) * s - uy * off + lpR(-.8, .8)), py = Math.round(y0 + (y - y0) * s + ux * off + lpR(-.8, .8)); lpPut(px, py); each?.(px, py);
@@ -72,9 +75,9 @@ const lpDrawAll = () => { if (LP && trChart) trChart.setDrawings(LP.draws); };
 window.lpOnStep = () => { if (!LP?.on || !RP) return; const a = RP.acct.me, m = rpMult();
   for (const d of LP.draws) if (!d.done && d.live) { d.cur = RP.px; d.tc = RP.simT; d.pnl = a.qty ? (RP.px - a.avg) * a.qty * m : d.pnl; }
   const ts = trChart?.timeScale(), r = ts?.getVisibleLogicalRange(), n = trData.B.length; if (r && r.to - n < 14) ts.setVisibleLogicalRange({ from: r.from + (n + 22 - r.to), to: n + 22 }); // room on the right for the boxes
-  const now = performance.now(); if (a.qty && now - (LP.ol || 0) > 350) { LP.ol = now; trOrderLines(); }
+  const now = performance.now(); if (a.qty && now - (LP.ol || 0) > 120) { LP.ol = now; trOrderLines(); }
   lpDrawAll(); lpHud(); };
-window.lpStop = () => { if (!LP) return; LP.on = false; window.__quiet = false; document.body.classList.remove('larp', 'lprun'); $('#lpcur')?.remove(); $('#lphud')?.remove(); $('#lpnotes')?.remove(); removeEventListener('keydown', lpKey, true); LP = null; };
+window.lpStop = () => { LPF = 1; if (!LP) return; LP.on = false; window.__quiet = false; document.body.classList.remove('larp', 'lprun'); $('#lpcur')?.remove(); $('#lphud')?.remove(); $('#lpnotes')?.remove(); removeEventListener('keydown', lpKey, true); LP = null; };
 function lpKey(e) { if (!LP) return; if (e.key == 'Escape') { e.preventDefault(); lpEnd(true); } else if ((e.key == 'h' || e.key == 'H') && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) $('#lphud')?.classList.toggle('hid'); }
 const lpPnl = () => RP ? RP.acct.me.realized + (RP.acct.me.qty ? (RP.px - RP.acct.me.avg) * RP.acct.me.qty * rpMult() : 0) : 0;
 function lpHud(msg) { let el = $('#lphud'); if (!el) { el = document.createElement('div'); el.id = 'lphud'; document.body.append(el); }
@@ -158,11 +161,11 @@ async function lpIdle(bars, d) { const R = RP; if (!R) return; const end = R.i +
     await lpSleep(lpR(300, 1400)); } while (LP?.on && RP && (bars ? RP.i < end : performance.now() - t0 < 900) && (!d || RP.acct.me.qty)); }
 
 async function larpGo() { const c = window.__larp; window.__larp = null; if (!c || !USER?.admin) return; window.lpStop();
-  LP = { c, sc: Math.max(.3, Math.min(80, c.pace / 30)), on: true, draws: [], plan: lpPlan(c), k: 0, extra: 0, x: 0, y: 0 }; window.__quiet = true; document.body.classList.add('larp', 'lprun'); lpMarkApply(); addEventListener('keydown', lpKey, true);
+  LPF = Math.max(.5, Math.min(80, (c.pace || 30) / 30)); LP = { c, on: true, draws: [], plan: lpPlan(c), k: 0, extra: 0, x: 0, y: 0 }; window.__quiet = true; document.body.classList.add('larp', 'lprun'); lpMarkApply(); addEventListener('keydown', lpKey, true);
   lpCursor(); lpHud('loading');
   if (TR.sym !== c.sym) trSet(c.sym); if (TR.tf !== c.tf) { TR.tf = c.tf; LS.set('mt:tf', c.tf); trUiSync(); trLoad(true); }
   for (let w = 0; w < 100 && !(trData && trData.tf == c.tf && trData.sym == TR.sym && trData.B.length > 200); w++) await lpSleep(150);
-  if (!LP?.on || !trData) return; const B = trData.B, n = B.length, et = t => { const d = new Date((t - TZ()) * 1000), p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(d); return +p[0].value * 60 + +p[2].value; };
+  if (!LP?.on) return; if (!trData) return lpEnd(false, 'no data for ' + c.sym); const B = trData.B, n = B.length, et = t => { const d = new Date((t - TZ()) * 1000), p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(d); return +p[0].value * 60 + +p[2].value; };
   const need = c.trades * (c.tf == '1m' ? 30 : 12), cand = []; for (let i = 40; i < n - need; i++) { const m = et(B[i].t); if (m >= 575 && m <= 600) cand.push(i); }
   let i = cand.length ? lpPick(cand) : Math.floor(lpR(60, Math.max(61, n - need)));
   if (c.when) { const t = Date.parse(c.when) / 1000 + TZ(), k = B.findIndex(b => b.t >= t); if (k >= 40 && k < n - need) i = k; else { toast(`No ${c.tf} candles for that time with enough bars after it: starting on a random morning instead`); } }
@@ -180,8 +183,10 @@ function lpEnd(exit, why) { if (!LP) return; LP.on = false; if (RP) { RP.play = 
 // a fill: an arrow on the chart and a TradingView-style "order executed" notification
 function lpExec(side, qty, px, kind, pnl) { if (!LP) return; LP.draws.push({ id: 'lx' + Math.random().toString(36).slice(2, 8), k: 'exec', side, t1: RP.live.t, p1: px, text: `${side == 'buy' ? 'Buy' : 'Sell'} ${qty}` }); lpDrawAll();
   let box = $('#lpnotes'); if (!box) { box = document.createElement('div'); box.id = 'lpnotes'; document.body.append(box); }
-  const n = document.createElement('div'); n.className = 'lpnote'; n.innerHTML = `<i class="${side}">${side == 'buy' ? '▲' : '▼'}</i><div><b>${kind} order executed</b><span>${side == 'buy' ? 'Buy' : 'Sell'} ${qty} ${esc(trData?.sym || '')} @ ${trN(px)}${pnl != null ? ` · <em class=${pnl >= 0 ? 'up' : 'down'}>${pnl >= 0 ? '+' : ''}${trM(pnl)}</em>` : ''}</span></div>`;
-  box.prepend(n); setTimeout(() => { n.classList.add('out'); setTimeout(() => n.remove(), 400); }, 4200); }
+  const n = document.createElement('div'); n.className = 'lpnote'; n.innerHTML = `<i class="${side}">${side == 'buy' ? '▲' : '▼'}</i><div><b>${kind} order executed</b><span>${side == 'buy' ? 'Buy' : 'Sell'} ${qty} ${esc(trData?.sym || '')} @ ${trN(px)}${pnl != null ? ` · <em class=${pnl >= 0 ? 'up' : 'down'}>${pnl >= 0 ? '+' : ''}${trM(pnl)}</em>` : ''}</span></div><button class=lpnx type=button aria-label="Close notification">×</button>`;
+  const gone = () => { if (!n.isConnected || n.classList.contains('out')) return; n.classList.add('out'); setTimeout(() => n.remove(), 200); };
+  n.querySelector('.lpnx').addEventListener('click', e => { e.stopPropagation(); gone(); }); // the close button works
+  while (box.children.length >= 3) box.lastElementChild.remove(); box.prepend(n); setTimeout(gone, Math.max(600, 1700 / Math.max(1, LPF / 2))); } // short: faster still at higher speeds
 
 // the order window, filled in by hand: side, Market, quantity, take profit and stop loss (with the odd typo)
 async function lpType(sel, text) { let el = $(sel); if (!el) return; await lpTo(sel, .3, .15); await lpClick(); el = $(sel); el.focus(); el.select?.(); await lpSleep(lpR(80, 200)); el.value = '';

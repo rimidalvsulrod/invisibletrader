@@ -19,7 +19,7 @@ const applyAnim=()=>{document.documentElement.dataset.anim=matchMedia('(prefers-
 const cycleTheme=()=>{const order=['tv','auto','light','dark','oled'],t=LS.get('theme','tv');LS.set('theme',order[(order.indexOf(t)+1)%5]);applyTheme();renderSide();toast(`Appearance: ${THEMES[LS.get('theme','tv')]}`)};
 const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 try{if(!LS.get('themev')){LS.set('theme','tv');LS.set('themev',1)}}catch(e){} // the app now matches the trading terminal by default
-const toast=m=>{if(window.__quiet&&/replay/i.test(m))return;const t=document.createElement('div');t.className='toast';t.innerHTML=m;$('#toasts').append(t);setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),150)},3200)};
+const toast=m=>{if(window.__quiet&&/replay/i.test(m))return;const t=document.createElement('div');t.className='toast';t.innerHTML=m+'<button class=tclose type=button aria-label="Close">×</button>';const gone=()=>{if(t.classList.contains('out'))return;t.classList.add('out');setTimeout(()=>t.remove(),150)};t.querySelector('.tclose').onclick=e=>{e.stopPropagation();gone()};$('#toasts').append(t);setTimeout(gone,window.__quiet?1500:2600)};
 const hue=a=>{let h=0;for(const c of String(a))h=(h*31+c.charCodeAt(0))%360;return h};
 const av=(name,addr,img,cls='')=>{const h=hue(addr||name);const bg=`--avl:${4+h%7}%`; // one gray family; the hash only nudges lightness so neighbours stay distinguishable
   const L=esc((name||'?').replace(/^0x/,'').slice(0,1).toUpperCase());return`<span class="av ${cls}" style="${bg};position:relative">${L}${img?`<img src="${esc(img)}" alt="" style="position:absolute;inset:0" onerror="this.remove()">`:''}</span>`};
