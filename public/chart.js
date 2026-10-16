@@ -160,7 +160,7 @@
       const H = 18, gap = 3, fnt = `600 11px ${opt.layout.fontFamily}`; g.font = fnt; const num = v => Math.abs(v) >= 1000 ? v.toLocaleString('en-US', { maximumFractionDigits: 2 }) : String(+v.toFixed(Math.abs(v) < 1 ? 4 : 2)),
         qtxt = num(Math.abs(pos.qty)), ptxt = `${pos.pnl < 0 ? '\u2212' : ''}${Math.abs(pos.pnl).toFixed(2)} USD`,
         items = [['rev', 22], ['tp', 26], ['sl', 26], ['qty', g.measureText(qtxt).width + 14], ['pnl', g.measureText(ptxt).width + 14], ['x', 20]]; const total = items.reduce((s, i) => s + i[1] + gap, -gap);
-      let x = pw - 12 - total; const top = Math.max(2, Math.min(ph - H - 2, y - H / 2)), rr = (px, py, ww, hh, r) => { g.beginPath(); g.roundRect ? g.roundRect(px, py, ww, hh, r) : g.rect(px, py, ww, hh); };
+      let x = pw - 12 - (pos.inset || 0) - total; const top = Math.max(2, Math.min(ph - H - 2, y - H / 2)), rr = (px, py, ww, hh, r) => { g.beginPath(); g.roundRect ? g.roundRect(px, py, ww, hh, r) : g.rect(px, py, ww, hh); };
       for (const [k, ww] of items) { posHit.push({ k, x, y: top, w: ww, h: H }); g.setLineDash([]); g.lineWidth = 1; const cx = x + ww / 2, cy = top + H / 2;
         if (k == 'qty') { rr(x, top, ww, H, 3); g.fillStyle = '#2962ff'; g.fill(); g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(qtxt, cx, cy + .5); }
         else if (k == 'pnl') { rr(x, top, ww, H, 3); g.fillStyle = '#131722'; g.fill(); g.strokeStyle = '#2962ff'; g.stroke(); g.fillStyle = good ? '#26a69a' : '#ef5350'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ptxt, cx, cy + .5); }

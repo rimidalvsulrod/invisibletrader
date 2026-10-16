@@ -113,7 +113,9 @@ async function closePos(uid, sym, part) { sym = norm(sym); const p = await db.on
 async function reversePos(uid, sym) { sym = norm(sym); const p = await db.one("SELECT * FROM mtpos WHERE uid=$1 AND acct='me' AND sym=$2", [uid, sym]); if (!p) throw err(400, 'no position'); const q = Number(p.qty), d = q > 0 ? -1 : 1;
   await db.q("UPDATE mtord SET status='cancelled' WHERE uid=$1 AND sym=$2 AND status='open' AND grp IS NOT NULL", [uid, sym]); await fill(uid, 'me', sym, d === 1 ? 'buy' : 'sell', Math.abs(q) * 2, slip(sym, await quote(sym), d), 'reversed by you'); return { ok: true }; }
 async function exitPos(uid, b) { const sym = norm(b.sym), kind = b.kind === 'tp' ? 'tp' : 'sl', px = Number(b.px); const p = await db.one("SELECT * FROM mtpos WHERE uid=$1 AND acct='me' AND sym=$2", [uid, sym]); if (!p) throw err(400, 'no position');
-  const q = Number(p.qty), long = q > 0, last = await quote(sym); if (!(px > 0)) throw err(400, 'Enter a price');
+  const q = Number(p.qty), long = q > 0, k0 = kind === 'tp' ? 'limit' : 'stop';
+  if (b.remove) { await db.q("UPDATE mtord SET status='cancelled' WHERE uid=$1 AND sym=$2 AND status='open' AND grp IS NOT NULL AND kind=$3", [uid, sym, k0]); return { ok: true }; }
+  const last = await quote(sym); if (!(px > 0)) throw err(400, 'Enter a price');
   if (kind === 'tp' ? (long ? px <= last : px >= last) : (long ? px >= last : px <= last)) throw err(400, `The ${kind === 'tp' ? 'take-profit' : 'stop-loss'} must be ${(kind === 'tp') === long ? 'above' : 'below'} the price`);
   const open = await db.one("SELECT grp FROM mtord WHERE uid=$1 AND sym=$2 AND status='open' AND grp IS NOT NULL LIMIT 1", [uid, sym]), g = open ? open.grp : ID(), k = kind === 'tp' ? 'limit' : 'stop';
   await db.q("UPDATE mtord SET status='cancelled' WHERE uid=$1 AND sym=$2 AND status='open' AND grp=$3 AND kind=$4", [uid, sym, g, k]);

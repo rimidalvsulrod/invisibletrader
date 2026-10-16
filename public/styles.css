@@ -1077,3 +1077,12 @@ body.larp .trpaper,body.larp .twfoot,body.larp .rppick{display:none!important}bo
 #lpcur.touch{width:34px;height:34px;margin:-17px 0 0 -17px;filter:none}#lpcur.touch i{display:block;width:100%;height:100%;border-radius:50%;background:rgba(255,255,255,.28);border:1.5px solid rgba(255,255,255,.55);opacity:0;transition:opacity .15s}
 #lpcur.touch.dn i{opacity:1}#lpcur.touch.dn{transform:scale(.85)}
 @media (max-width:760px){#lphud{left:8px;right:8px;bottom:calc(64px + env(safe-area-inset-bottom));flex-wrap:wrap;gap:6px 10px}#lpnotes{right:8px;left:8px;width:auto;bottom:calc(120px + env(safe-area-inset-bottom))}}
+/* TradingView-style dialog (close / reverse position) */
+.trdlgw{position:fixed;inset:0;z-index:400;display:grid;place-items:center;background:rgba(0,0,0,.35);padding:16px}
+.trdlg{width:min(480px,100%);background:#1e222d;color:#d1d4dc;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6);font-size:13.5px}
+.trdh{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid #363a45}.trdh b{font-size:19px;font-weight:600;color:#fff}.trdx{border:0;background:none;color:#d1d4dc;cursor:pointer;padding:4px;border-radius:6px}.trdx:hover{background:#2a2e39}
+.trdb{padding:18px 20px}.trdrow{display:flex;gap:14px;align-items:flex-start}.trdic{width:36px;height:36px;border-radius:50%;background:#131722;display:grid;place-items:center;font-weight:700;color:#fff;flex:none}
+.trdt b{color:#fff}.trdt i{font-style:normal;color:#787b86;margin:0 2px}.trdsub{margin-top:6px;color:#9598a1}
+.trdpart{display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer;color:#d1d4dc}.trdpart input{position:absolute;opacity:0}.trdbox{width:16px;height:16px;border:1.5px solid #787b86;border-radius:3px;display:grid;place-items:center}.trdpart input:checked+.trdbox{background:#fff;border-color:#fff}.trdpart input:checked+.trdbox:after{content:"";width:8px;height:4px;border:2px solid #131722;border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.trdq{margin-top:10px;width:100%;height:36px;border-radius:6px;border:1px solid #363a45;background:#131722;color:#fff;padding:0 10px;font:inherit}
+.trdf{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid #363a45}.trdf button{height:34px;padding:0 16px;border-radius:7px;font:inherit;font-weight:600;cursor:pointer}.trdc{background:none;border:1px solid #434651;color:#d1d4dc}.trdc:hover{background:#2a2e39}.trdok{background:#fff;border:0;color:#131722}.trdok:hover{background:#e0e3eb}

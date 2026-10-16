@@ -2,7 +2,7 @@
 // long / short position tool, drags the green and red boxes, clicks Buy or Sell and manages the trade, while the replay plays.
 // It looks ahead in the replay data so the day ends up green or red, as chosen, with some losing (or winning) trades mixed in.
 let LP = null;
-const lpR = (a, b) => a + Math.random() * (b - a), lpPick = a => a[Math.floor(Math.random() * a.length)], lpSleep = ms => new Promise(r => setTimeout(r, ms));
+const lpR = (a, b) => a + Math.random() * (b - a), lpPick = a => a[Math.floor(Math.random() * a.length)], lpSleep = ms => new Promise(r => setTimeout(r, ms / (LP?.sc || 1))); // the hand's pace scales with the replay speed
 const lpShuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const LP_SYMS = [['SPY', 'SPY'], ['QQQ', 'QQQ'], ['NQ=F', 'NQ'], ['ES=F', 'ES'], ['BTC-USD', 'BTC'], ['AAPL', 'AAPL'], ['TSLA', 'TSLA'], ['NVDA', 'NVDA']];
 
@@ -18,12 +18,13 @@ function larpPage() {
     <div><b>Account balance</b><div class=row style="gap:8px;margin-top:8px;align-items:center"><span class=mut>$</span><input class=inp id=lpbal type=number min=100 step=1000 value="${LS.get('mt:rpbal', 100000)}" style="max-width:160px"></div></div>
     <div><b>Trades</b><div style="margin-top:8px">${seg('lptr', [[3, '3'], [5, '5'], [8, '8']], c.trades)}</div></div>
     <div><b>Candles</b><div style="margin-top:8px">${seg('lptf', [['1m', '1 minute'], ['5m', '5 minutes']], c.tf)}</div></div>
-    <div><b>Speed</b><div style="margin-top:8px">${seg('lppace', [[10, 'Slow'], [30, 'Normal'], [60, 'Fast']], c.pace)}</div></div>
+    <div><b>Speed</b><div class=row style="gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap"><input class=inp id=lppace type=number min=1 max=100000 step=1 value="${c.pace}" style="max-width:130px"><span class=mut>times real time. The mouse moves that much faster too.</span></div><div class=hubchips style="margin-top:8px" id=lppre>${[10, 30, 60, 120, 300, 600, 1000, 3000].map(v => `<button class=chip data-v=${v}>${v}×</button>`).join('')}</div></div>
     <div class=row style="gap:10px;align-items:center"><button class="btn pri" id=lpgo>Start</button><span class=mut style="font-size:12.5px">Esc stops it · H hides the small control</span></div>
     <div class=mut style="font-size:12.5px">It runs on a past session in the replay paper account; nothing goes to a broker. Results land near the amount, not exactly on it.</div></div>`;
+  $('#lppre').querySelectorAll('button').forEach(b => b.onclick = () => { $('#lppace').value = b.dataset.v; });
   app.querySelectorAll('.seg,.hubchips').forEach(g => g.querySelectorAll('button').forEach(b => b.onclick = () => { g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }));
   $('#lpgo').onclick = () => { const v = id => app.querySelector(`#${id} .on`).dataset.v;
-    const cfg = { sym: v('lpsym'), goal: v('lpgoal'), amt: Math.max(50, +$('#lpamt').value || 1500), trades: +v('lptr'), tf: v('lptf'), pace: +v('lppace') }; LS.set('lp:cfg', cfg); LS.set('mt:rpbal', Math.max(100, +$('#lpbal').value || 1e5));
+    const cfg = { sym: v('lpsym'), goal: v('lpgoal'), amt: Math.max(50, +$('#lpamt').value || 1500), trades: +v('lptr'), tf: v('lptf'), pace: Math.max(1, Math.min(1e5, +$('#lppace').value || 30)) }; LS.set('lp:cfg', cfg); LS.set('mt:rpbal', Math.max(100, +$('#lpbal').value || 1e5));
     trInit(); TR.sym = cfg.sym; TR.tf = cfg.tf; LS.set('mt:sym', cfg.sym); LS.set('mt:tf', cfg.tf); window.__larp = cfg; location.hash = '#/trade'; };
 }
 
@@ -34,7 +35,7 @@ function lpPut(x, y) { LP.x = x; LP.y = y; const el = lpCursor(); el.style.left 
   const cv = $('#trc canvas'); if (!cv) return; const r = cv.getBoundingClientRect(); if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) cv.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, pointerType: 'mouse', bubbles: true })); }
 // human-like moves, not smooth: a quick ballistic push that stops short or long of the target, one or two small corrections,
 // a wobbly path, whole-pixel steps at uneven intervals with the odd hitch (like a real mouse polled by the browser)
-async function lpSeg(x0, y0, x, y, T, wob, each) { const d = Math.hypot(x - x0, y - y0) || 1, ux = (x - x0) / d, uy = (y - y0) / d, bend = lpR(-.12, .12) * d,
+async function lpSeg(x0, y0, x, y, T, wob, each) { T = T / (LP?.sc || 1); const d = Math.hypot(x - x0, y - y0) || 1, ux = (x - x0) / d, uy = (y - y0) / d, bend = lpR(-.12, .12) * d,
     f1 = lpR(1.5, 3.5), f2 = lpR(4, 8), ph1 = lpR(0, 6.3), ph2 = lpR(0, 6.3), k = lpR(1.6, 2.6), t0 = performance.now();
   while (LP?.on) { const t = Math.min(1, (performance.now() - t0) / T), s = 1 - Math.pow(1 - t, k) * (1 - t * .15), // fast start, long slow-down
       off = bend * 4 * s * (1 - s) + wob * (Math.sin(f1 * s * 6.3 + ph1) * .7 + Math.sin(f2 * s * 6.3 + ph2) * .3) * Math.sin(Math.PI * s);
@@ -145,7 +146,7 @@ async function lpIdle(bars, d) { const R = RP; if (!R) return; const end = R.i +
     await lpSleep(lpR(300, 1400)); } while (LP?.on && RP && (bars ? RP.i < end : performance.now() - t0 < 900) && (!d || RP.acct.me.qty)); }
 
 async function larpGo() { const c = window.__larp; window.__larp = null; if (!c || !USER?.admin) return; window.lpStop();
-  LP = { c, on: true, draws: [], plan: lpPlan(c), k: 0, extra: 0, x: 0, y: 0 }; window.__quiet = true; document.body.classList.add('larp', 'lprun'); addEventListener('keydown', lpKey, true);
+  LP = { c, sc: Math.max(.3, Math.min(80, c.pace / 30)), on: true, draws: [], plan: lpPlan(c), k: 0, extra: 0, x: 0, y: 0 }; window.__quiet = true; document.body.classList.add('larp', 'lprun'); addEventListener('keydown', lpKey, true);
   lpCursor(); lpHud('loading');
   if (TR.sym !== c.sym) trSet(c.sym); if (TR.tf !== c.tf) { TR.tf = c.tf; LS.set('mt:tf', c.tf); trUiSync(); trLoad(true); }
   for (let w = 0; w < 100 && !(trData && trData.tf == c.tf && trData.sym == TR.sym && trData.B.length > 200); w++) await lpSleep(150);

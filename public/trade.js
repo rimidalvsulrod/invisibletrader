@@ -64,7 +64,7 @@ async function tradePage() {
   addEventListener('themechange', trTheme);
   mtapi('mcpinfo').then(r => { trWant = !!r.has; if (trWant) { trSync(); trT3 = setInterval(trSync, 3000); } }).catch(() => {}); // Claude connection: report the view, apply Claude's commands
 }
-function trLib() { return window.MimicCharts ? Promise.resolve() : new Promise((ok, no) => { const s = document.createElement('script'); s.src = '/chart.js?v=6'; s.onload = ok; s.onerror = () => no(new Error('chart engine failed to load')); document.head.append(s); }); }
+function trLib() { return window.MimicCharts ? Promise.resolve() : new Promise((ok, no) => { const s = document.createElement('script'); s.src = '/chart.js?v=7'; s.onload = ok; s.onerror = () => no(new Error('chart engine failed to load')); document.head.append(s); }); }
 function trOpts() { const dark = trDark(), tv = dark && trTT() == 'tv' && document.body.classList.contains('term'), fg = tv ? '#7d89b0' : dark ? '#8b8f9a' : '#5d606b', grid = tv ? 'rgba(90,120,230,.09)' : dark ? 'rgba(255,255,255,.045)' : 'rgba(42,46,57,.06)', ln = tv ? '#1c2650' : dark ? '#1e2128' : '#e0e3eb', lab = tv ? '#22327a' : dark ? '#2a2e39' : '#131722';
   return { layout: { background: { type: 'solid', color: 'transparent' }, textColor: fg, fontFamily: '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif', fontSize: 11 }, grid: { vertLines: { color: grid }, horzLines: { color: grid } },
     rightPriceScale: { borderVisible: true, borderColor: ln, scaleMargins: { top: .1, bottom: .08 } }, timeScale: { borderVisible: true, borderColor: ln, timeVisible: true, secondsVisible: SECT[TR?.tf] > 0, rightOffset: 10, barSpacing: 7 },
@@ -78,6 +78,7 @@ function trTheme() { if (trChart) { trChart.applyOptions(trOpts()); trPaint(true
 function trBuild() {
   const el = $('#trc'); trChart = MimicCharts.createChart(el, { ...trOpts(), autoSize: true });
   trChart.subscribeCrosshairMove(p => { trLegend(p); trBubble(p); }); trChart.subscribeClick(p => trClick(p));
+  trChart.subscribePosition(trPosAct);
   trChart.subscribeDrawings(l => { if (l && trData) LS.set('mt:draw:' + trData.sym, l); trLtUi(); trLegend(); });
   const off = () => { trFit = false; }; el.addEventListener('wheel', off, { passive: true }); el.addEventListener('mousedown', off); el.addEventListener('touchstart', off, { passive: true });
   trChart.timeScale().subscribeVisibleLogicalRangeChange(() => trVP());
@@ -206,10 +207,9 @@ function trPick(q = '', grp = 'All', mi = trPickM) { trPickM = mi; const tgt = m
 }
 function trOrderLines() { // your position and resting orders, drawn on the chart
   if (!trS.main || (!trState && !TR.rp)) return; for (const pl of trS.main._ol || []) try { trS.main.removePriceLine(pl); } catch (e) {} const out = [];
-  if (TR.rp) { rpLines(out); trS.main._ol = out; return; }
-  const p = trState.me.positions.find(x => x.sym == trData?.sym); if (p) out.push(trS.main.createPriceLine({ price: p.avg, color: p.qty > 0 ? trCss('--up') : trCss('--down'), lineWidth: 2, lineStyle: 0, title: `${p.qty > 0 ? 'Long' : 'Short'} ${trN(Math.abs(p.qty), p.mult === 1 && /-USD/.test(p.sym) ? undefined : 0)}  ${trM(p.upnl)}` }));
+  if (TR.rp) { rpLines(out); trS.main._ol = out; trPosSync(); return; }
   for (const o of trState.orders.filter(x => x.sym == trData?.sym)) out.push(trS.main.createPriceLine({ price: o.px, color: o.side == 'buy' ? trCss('--up') : trCss('--down'), lineWidth: 1, lineStyle: 2, title: `${o.grp ? (o.kind == 'stop' ? 'SL' : 'TP') : o.kind} ${o.side} ${trN(o.qty, 0)}` }));
-  trS.main._ol = out; }
+  trS.main._ol = out; trPosSync(); }
 function trLegend(p) {
   const el = $('#trleg'); if (!el || !trData) return; const B = trBars(); let i = B.length - 1; if (p && p.time != null) { const k = B.findIndex(b => b.t === p.time); if (k >= 0) i = k; } const b = B[i]; if (!b) return;
   const chg = i ? (b.c / B[i - 1].c - 1) * 100 : 0, vals = [];
@@ -306,7 +306,7 @@ function trUpd(px, vol = 0) { // add one price to the data (a new bar when the t
   else { last.c = px; last.h = Math.max(last.h, px); last.l = Math.min(last.l, px); last.v = (last.v || 0) + vol; } return true; }
 function trLive(px, vol) { if (trS.main && trUpd(px, vol)) trRender(px); }
 function trRender(px) {
-  if (!trData || !trS.main) return; const B = trData.B;
+  if (!trData || !trS.main) return; const B = trData.B; trPosSync();
   const b = trBars()[B.length - 1], line = /smooth|line|base/.test(TR.type); try { trS.main.update(line ? { time: b.t, value: b.c } : { time: b.t, open: b.o, high: b.h, low: b.l, close: b.c }); } catch (e) {}
   if (px !== trLastPx) { const el = $('#trpx'), dir = trLastPx == null ? 0 : px > trLastPx ? 1 : -1; trLastPx = px; const t = trN(px); if (el) { el.textContent = t; el.classList.remove('tkup', 'tkdn'); void el.offsetWidth; if (dir) el.classList.add(dir > 0 ? 'tkup' : 'tkdn'); }
     if ($('#trmpx')) $('#trmpx').textContent = t; if ($('#trqsp')) { $('#trqsp').textContent = t; $('#trqbp').textContent = t; }
@@ -399,7 +399,7 @@ function trVP() { // volume profile over the visible bars, drawn on a canvas lai
   let lo = Infinity, hi = -Infinity; for (let i = a; i <= z; i++) { lo = Math.min(lo, B[i].l); hi = Math.max(hi, B[i].h); } if (!(hi > lo)) return;
   const n = trPrm('vp').rows || 28, st = (hi - lo) / n, U = new Array(n).fill(0), D = new Array(n).fill(0);
   for (let i = a; i <= z; i++) { const b = B[i], v = b.v || 1, k0 = Math.max(0, Math.floor((b.l - lo) / st)), k1 = Math.min(n - 1, Math.floor((b.h - lo) / st)), each = v / (k1 - k0 + 1); for (let k = k0; k <= k1; k++) (b.c >= b.o ? U : D)[k] += each; }
-  const mx = Math.max(...U.map((u, k) => u + D[k])), poc = U.map((u, k) => u + D[k]).indexOf(mx), g = cv.getContext('2d'); g.scale(dpr, dpr); const maxW = W * .28;
+  const mx = Math.max(...U.map((u, k) => u + D[k])), poc = U.map((u, k) => u + D[k]).indexOf(mx), g = cv.getContext('2d'); g.scale(dpr, dpr); const maxW = W * .2;
   for (let k = 0; k < n; k++) { const y1 = trS.main.priceToCoordinate(lo + k * st), y2 = trS.main.priceToCoordinate(lo + (k + 1) * st); if (y1 == null || y2 == null) continue; const h = Math.max(1, Math.abs(y1 - y2) - 1), y = Math.min(y1, y2), wu = U[k] / mx * maxW, wd = D[k] / mx * maxW;
     g.fillStyle = k == poc ? 'rgba(41,98,255,.75)' : 'rgba(41,98,255,.38)'; g.fillRect(W - wu - wd, y, wu, h); g.fillStyle = k == poc ? 'rgba(255,152,0,.8)' : 'rgba(255,152,0,.42)'; g.fillRect(W - wd, y, wd, h); }
   const yp = trS.main.priceToCoordinate(lo + (poc + .5) * st); if (yp != null) { g.strokeStyle = 'rgba(255,82,82,.9)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, yp); g.lineTo(W, yp); g.stroke(); } }
@@ -547,7 +547,7 @@ function rpExit() { const R = RP; if (R) { const m = R.acct.me, eq = rpEq(m); to
 const rpMult = () => trData?.spec?.mult || 1, rpEq = a => a.cash + a.qty * (RP?.px || 0) * rpMult();
 function rpFill(acct, side, qty, px, why) { const a = RP.acct[acct], d = side == 'buy' ? 1 : -1, m = rpMult(); px = px * (1 + d * .0002);
   if (a.qty * d < 0) { const close = Math.min(Math.abs(a.qty), qty), pnl = (px - a.avg) * -d * close * m; a.realized += pnl; a.n++; if (pnl > 0) a.won++; a.qty += d * close; qty -= close; if (!a.qty) a.avg = 0; RP.fills.unshift({ acct, side, qty: close, px, pnl, t: RP.simT, why }); }
-  if (qty > 0) { a.avg = (a.avg * Math.abs(a.qty) + px * qty) / (Math.abs(a.qty) + qty); a.qty += d * qty; RP.fills.unshift({ acct, side, qty, px, pnl: 0, t: RP.simT, why }); }
+  if (qty > 0) { if (!a.qty) a.t0 = RP.live ? RP.live.t : RP.simT; a.avg = (a.avg * Math.abs(a.qty) + px * qty) / (Math.abs(a.qty) + qty); a.qty += d * qty; RP.fills.unshift({ acct, side, qty, px, pnl: 0, t: RP.simT, why }); }
   a.cash = a.start + a.realized - a.qty * a.avg * m; }
 function rpOrder(o) { const R = RP; if (!R) return; if (!(o.qty > 0)) return toast('Enter a quantity'); const id = ++R.seq;
   if (o.kind == 'market') { rpFill('me', o.side, o.qty, R.px, 'market'); if (R.opp) rpFill('opp', o.side == 'buy' ? 'sell' : 'buy', o.qty, R.px, 'opposite of yours'); toast(`${o.side == 'buy' ? 'Bought' : 'Sold'} ${o.qty} at ${trN(R.px)} (replay)`); rpBrackets(o, id); }
@@ -559,8 +559,15 @@ function rpTick(px, bar) { const R = RP; R.px = px; let hit = false;
     R.orders = R.orders.filter(x => x !== o && !(o.grp && x.grp === o.grp)); const fp = o.kind == 'limit' ? o.px : px; rpFill('me', o.side, o.qty, fp, o.br ? (o.kind == 'stop' ? 'stop-loss' : 'take-profit') : o.kind);
     if (R.opp) rpFill('opp', o.side == 'buy' ? 'sell' : 'buy', o.qty, fp, 'opposite of yours'); if (!o.br) rpBrackets(o, o.id); hit = true; toast(`Replay: ${o.br ? (o.kind == 'stop' ? 'stop-loss' : 'take-profit') : o.kind + ' order'} filled at ${trN(fp)}`); }
   if (hit) trOrderLines(); }
-function rpClose() { const a = RP.acct.me; if (!a.qty) return; const side = a.qty > 0 ? 'sell' : 'buy', q = Math.abs(a.qty); RP.orders = RP.orders.filter(o => !o.br); rpFill('me', side, q, RP.px, 'closed by you'); if (RP.opp && RP.acct.opp.qty) rpFill('opp', RP.acct.opp.qty > 0 ? 'sell' : 'buy', Math.abs(RP.acct.opp.qty), RP.px, 'closed with yours'); trOrderLines(); rpUi(); }
-function rpLines(out) { const a = RP.acct.me, u = (RP.px - a.avg) * a.qty * rpMult(); if (a.qty) out.push(trS.main.createPriceLine({ price: a.avg, color: u >= 0 ? trCss('--up') : trCss('--down'), lineWidth: 2, lineStyle: 0, title: `${a.qty > 0 ? 'Long' : 'Short'} ${trN(Math.abs(a.qty), Number.isInteger(a.qty) ? 0 : undefined)}  ${u >= 0 ? '+' : ''}${trM(u)}` }));
+function rpClose(part) { const a = RP.acct.me; if (!a.qty) return; const side = a.qty > 0 ? 'sell' : 'buy', aq = Math.abs(a.qty), pq = +part, partial = pq > 0 && pq < aq - 1e-9, q = partial ? pq : aq;
+  if (partial) { for (const o of RP.orders) if (o.br) o.qty = aq - q; } else RP.orders = RP.orders.filter(o => !o.br);
+  rpFill('me', side, q, RP.px, partial ? 'partly closed by you' : 'closed by you');
+  if (RP.opp && RP.acct.opp.qty) { const oq = Math.abs(RP.acct.opp.qty), x = partial ? Math.min(oq, q) : oq; rpFill('opp', RP.acct.opp.qty > 0 ? 'sell' : 'buy', x, RP.px, 'closed with yours'); } trOrderLines(); rpUi(); }
+function rpReverse() { const a = RP.acct.me; if (!a.qty) return; RP.orders = RP.orders.filter(o => !o.br); rpFill('me', a.qty > 0 ? 'sell' : 'buy', Math.abs(a.qty) * 2, RP.px, 'reversed by you');
+  if (RP.opp && RP.acct.opp.qty) rpFill('opp', RP.acct.opp.qty > 0 ? 'sell' : 'buy', Math.abs(RP.acct.opp.qty) * 2, RP.px, 'reversed with yours'); trOrderLines(); rpUi(); }
+function rpExitSet(kind, px) { const a = RP.acct.me; if (!a.qty) return; const k = kind == 'tp' ? 'limit' : 'stop', g = RP.orders.find(o => o.br)?.grp ?? ++RP.seq; RP.orders = RP.orders.filter(o => !(o.br && o.kind == k));
+  if (px) RP.orders.push({ id: ++RP.seq, grp: g, side: a.qty > 0 ? 'sell' : 'buy', kind: k, qty: Math.abs(a.qty), px, acct: 'me', br: 1 }); trOrderLines(); }
+function rpLines(out) {
   for (const o of RP.orders) out.push(trS.main.createPriceLine({ price: o.px, color: o.side == 'buy' ? trCss('--up') : trCss('--down'), lineWidth: 1, lineStyle: 2, title: `${o.br ? (o.kind == 'stop' ? 'SL' : 'TP') : o.kind} ${o.side} ${trN(o.qty, 0)}` })); }
 function rpBar(html) { let el = $('#rpbar'); if (!el) { el = document.createElement('div'); el.id = 'rpbar'; el.className = 'rpbar'; ($('.trchartcard') || document.body).append(el); } el.innerHTML = html; return el; }
 function rpUi() { const R = RP; if (!R) return; const m = R.acct.me, o = R.acct.opp, eq = rpEq(m), op = rpEq(o), up = (m.qty ? (R.px - m.avg) * m.qty * rpMult() : 0), d = new Date((R.simT - TZ()) * 1000);
@@ -606,3 +613,28 @@ function trBalMgr() { $('#trbalm')?.remove(); const st = trState?.me, el = docum
   $('#tbwd').onclick = () => { const v = Math.abs(+$('#tbadd').value); if (v) run({ acct: 'me', mode: 'add', amount: -v }, `Withdrew ${trM(v)}`); };
   $('#tbrpgo').onclick = () => { const v = Math.max(100, +$('#tbrp').value || 1e5); LS.set('mt:rpbal', v); toast(`Replays start with ${trM(v)}`); close(); };
   $('#tbrst').onclick = async () => { if (!confirm('Reset your paper account to $100,000? Positions, orders and history are cleared.')) return; await mtapi('reset', { acct: 'me' }); await mtapi('reset', { acct: 'opp' }); close(); trStateLoad(); toast('Accounts reset'); }; }
+
+// ---- the position tag on the chart (TradingView style): entry line, zone, arrow, and  [reverse] [TP] [SL] [qty] [P&L] [x] ----
+function trPosInfo() { if (!trData?.B?.length) return null; const B = trData.B, last = B[B.length - 1], m = trData.spec?.mult || 1, sym = trData.sym;
+  if (TR.rp && RP) { const a = RP.acct.me; if (!a.qty) return null; const ex = RP.orders.filter(o => o.br), px = RP.px;
+    return { sym, side: a.qty > 0 ? 'long' : 'short', price: a.avg, qty: a.qty, time: a.t0 ?? last.t, last: px, pnl: (px - a.avg) * a.qty * m, tp: ex.some(o => o.kind == 'limit'), sl: ex.some(o => o.kind == 'stop') }; }
+  const q = trState?.me?.positions?.find(x => x.sym == sym); if (!q) return null; const long = q.qty > 0, ex = (trState.orders || []).filter(o => o.sym == sym && o.grp);
+  const f = (trState.fills || []).find(x => x.acct == 'me' && x.sym == sym && !x.pnl && (x.side == 'buy') == long), px = last.c;
+  return { sym, side: long ? 'long' : 'short', price: q.avg, qty: q.qty, time: f ? f.ts / 1000 + TZ() : last.t, last: px, pnl: (px - q.avg) * q.qty * m, tp: ex.some(o => o.kind == 'limit'), sl: ex.some(o => o.kind == 'stop') }; }
+function trPosSync() { try { const P = trPosInfo(); if (P) P.inset = TR.ind.includes('vp') && !/smooth|line|base/.test(TR.type) ? Math.round(($('#trc')?.clientWidth || 0) * .2) + 6 : 0; trChart?.setPosition?.(P); } catch (e) {} }
+function trPosAct(k) { const P = trPosInfo(); if (!P) return;
+  if (k == 'x' || k == 'qty' || k == 'pnl') return trCloseDlg(P); if (k == 'rev') return trRevDlg(P);
+  if (k == 'tp' || k == 'sl') { const long = P.side == 'long', up = (k == 'tp') == long, d = Math.max(P.last * (k == 'tp' ? .006 : .004), trTickSz() * 6), px = Math.round((P.last + (up ? d : -d)) / trTickSz()) * trTickSz();
+    if (P[k]) { if (TR.rp) { rpExitSet(k, 0); trPosSync(); } else mtapi('exit', { sym: P.sym, kind: k, px: P.last, remove: 1 }).then(trStateLoad).catch(e => toast(esc(e.message))); toast(`${k == 'tp' ? 'Take profit' : 'Stop loss'} removed`); }
+    else { if (TR.rp) { rpExitSet(k, px); trPosSync(); } else mtapi('exit', { sym: P.sym, kind: k, px }).then(trStateLoad).catch(e => toast(esc(e.message))); toast(`${k == 'tp' ? 'Take profit' : 'Stop loss'} set at ${trN(px)}`); } } }
+function trDlg(title, body, ok, onOk) { $('#trdlg')?.remove(); const w = document.createElement('div'); w.id = 'trdlg'; w.className = 'trdlgw';
+  w.innerHTML = `<div class=trdlg role=dialog aria-label="${esc(title)}"><div class=trdh><b>${esc(title)}</b><button class=trdx aria-label=Close>${ic('x', 18)}</button></div><div class=trdb>${body}</div><div class=trdf><button class=trdc>Cancel</button><button class=trdok>${esc(ok)}</button></div></div>`;
+  document.body.append(w); const close = () => w.remove(); w.onclick = e => { if (e.target === w) close(); }; w.querySelector('.trdx').onclick = w.querySelector('.trdc').onclick = close;
+  w.querySelector('.trdok').onclick = async () => { try { await onOk(w); close(); } catch (e) { toast(esc(e.message || String(e))); } }; return w; }
+const trPosRow = P => `<div class=trdrow><span class=trdic>${esc((P.sym || '?')[0])}</span><div><div class=trdt><b>${esc(trData?.ex ? trData.ex.split(' ')[0].toUpperCase() + ':' : '')}${esc(P.sym.replace('-USD', '').replace('=F', ''))}</b> <i>\u2022</i> ${P.side == 'long' ? 'Long' : 'Short'} ${trN(Math.abs(P.qty), Number.isInteger(P.qty) ? 0 : undefined)} @ ${trN(P.price)}</div>`;
+function trCloseDlg(P) { const w = trDlg('Close position', `${trPosRow(P)}<label class=trdpart><input type=checkbox id=trdp><span class=trdbox></span>Partial close</label><input id=trdq class=trdq type=number min=0 step=any placeholder="Quantity (max ${trN(Math.abs(P.qty))})" hidden></div></div>`, 'Close position', async d => {
+    const part = d.querySelector('#trdp').checked ? +d.querySelector('#trdq').value : 0; if (d.querySelector('#trdp').checked && !(part > 0)) throw new Error('Enter how much to close');
+    if (TR.rp) rpClose(part); else { await mtapi('close', { sym: P.sym, qty: part || undefined }); trStateLoad(); } toast(part && part < Math.abs(P.qty) ? 'Position partly closed' : 'Position closed'); });
+  const cb = w.querySelector('#trdp'), qi = w.querySelector('#trdq'); cb.onchange = () => { qi.hidden = !cb.checked; if (cb.checked) { qi.value = trN(Math.abs(P.qty) / 2).replace(/,/g, ''); qi.focus(); } }; }
+function trRevDlg(P) { trDlg('Reverse position', `${trPosRow(P)}<div class=trdsub>Closes it and opens the same size on the other side at the current price.</div></div></div>`, 'Reverse position', async () => {
+    if (TR.rp) rpReverse(); else { await mtapi('reverse', { sym: P.sym }); trStateLoad(); } toast('Position reversed'); }); }
