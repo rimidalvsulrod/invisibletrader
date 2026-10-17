@@ -4,6 +4,7 @@ const LABS = [ // [id, icon, name] in the menu, by group
   ['ICT', [['fvg', 'star', 'FVG Bot'], ['fib', 'spark', 'Fibonacci OTE'], ['stdv', 'wave', 'STDV Bot'], ['qt', 'book', 'Quarterly Theory'], ['liq', 'scales', 'Liquidity Raid'], ['amt', 'flask', 'AMT Value Area']]],
   ['Options', [['putwall', 'lock', 'Put Wall'], ['callwall', 'unlock', 'Call Wall'], ['flip', 'arrow', 'Gamma Flip'], ['vex', 'spark', 'VEX Bot'], ['oflow', 'wave', 'Options Flow']]],
   ['Quant', [['quant', 'flask', 'Quant RSI-2'], ['top', 'trophy', 'Top Picks'], ['proven', 'star', 'Proven Trend'], ['pairs', 'scales', 'Stat-Arb Pairs'], ['macro', 'coin', 'Macro Regime'], ['wallst', 'book', 'Wall Street']]],
+  ['AI', [['kronos', 'spark', 'Kronos AI']]],
   ['Order flow', [['lv2', 'search', 'LV2 Imbalance'], ['foot', 'paper', 'Footprint'], ['cvd', 'wave', 'Order Flow CVD'], ['heat', 'sun', 'Heat Map']]]];
 const LABIDS = LABS.flatMap(([, x]) => x.map(y => y[0]));
 let labT = null, labS = null, labId = null;

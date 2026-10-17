@@ -186,4 +186,4 @@ async function tick() {
 }
 function start() { for (const f of FAM) if (f.start) f.start(); }
 module.exports = { REG, UNIT, unitOf, runBars, bars5, closedUpto, liveTrades, stats, sync, closeRow, account, open, api, tick, start, norm, pnlOf, size, J, clamp, ID, START };
-for (const f of ['ictfam', 'optfam', 'quantfam', 'flowfam']) { let m; try { m = require('./lab/' + f); } catch (e) { if (e.code === 'MODULE_NOT_FOUND' && String(e.message).includes('/lab/' + f)) continue; throw e; } FAM.push(m); for (const s of m.STRATS) REG[s.id] = s; }
+for (const f of ['ictfam', 'optfam', 'quantfam', 'flowfam', 'kronosfam']) { let m; try { m = require('./lab/' + f); } catch (e) { if (e.code === 'MODULE_NOT_FOUND' && String(e.message).includes('/lab/' + f)) continue; throw e; } FAM.push(m); for (const s of m.STRATS) REG[s.id] = s; }

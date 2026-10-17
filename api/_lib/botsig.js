@@ -32,7 +32,7 @@ async function sig(uid, k, chartSym) {
       return out({ status: h ? `${s.name} holds ${chartSym}: ${(h.w * 100).toFixed(1)}% of the book. ${h.why || ''}` : `${s.name} does not hold ${chartSym} now. Holds ${(v.holdings || []).slice(0, 6).map(x => x.sym).join(', ') || 'nothing'}.`, held: !!h, levels: h && h.px ? [{ p: h.px, name: 'bot entry', color: '#2962ff' }] : [] }); }
     if (syms && !syms.includes(want)) return out({ off: syms.map(toChart), status: `${s.name} trades ${syms.map(toChart).join(' / ')}. Open that symbol to see its signals.` });
     const cfg = L.norm(s, { sym: syms ? want : undefined }), v = await s.view(cfg, { uid }), extra = [];
-    if (s.run && s.group === 'ICT') try { const ICT = require('./ict'), b = await L.bars5(cfg.sym, 3e5), ses = ICT.sessions(b), atr = ICT.atrSeries(b); // the last 10 sessions of trades, not just today
+    if (s.run && (s.group === 'ICT' || s.id === 'kronos')) try { const ICT = require('./ict'), b = await L.bars5(cfg.sym, 3e5), ses = ICT.sessions(b), atr = ICT.atrSeries(b); // the last 10 sessions of trades, not just today
       for (let i = Math.max(0, ses.length - 11); i < ses.length - 1; i++) for (const T of s.run(b, ses, i, cfg, Infinity, atr).trades) { extra.push({ t: ms(T.entryT), type: 'entry', dir: T.dir, p: T.entry, why: T.why0 || T.label || '' }); if (T.exitT) extra.push({ t: ms(T.exitT), type: 'exit', dir: T.dir, p: T.exit, why: T.why || '' }); } } catch (e) {}
     return fromView(v, extra); }
   const o = OLD[k]; if (!o) throw Object.assign(new Error('unknown bot'), { status: 400 });

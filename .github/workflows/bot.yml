@@ -40,6 +40,24 @@ jobs:
       - uses: actions/setup-node@v4
         if: steps.dog.outputs.skip != '1' && env.DATABASE_URL != ''
         with: { node-version: 22 }
+      # Kronos AI bot (optional): the open-source Kronos candlestick model needs Python + PyTorch. Third-party code, so: exact versions, prebuilt wheels only (no install scripts), the Kronos
+      # repo at one reviewed commit, and everything installed WITHOUT this job's secrets in the environment. The runner starts the model as a child process with a bare environment too
+      # (api/_lib/kronos.js). If any of this fails the step is skipped (KRONOS stays unset) and the runner carries on exactly as before.
+      - uses: actions/setup-python@v5
+        if: steps.dog.outputs.skip != '1' && env.DATABASE_URL != ''
+        with: { python-version: '3.12' }
+      - name: Install Kronos (pinned, no secrets)
+        if: steps.dog.outputs.skip != '1' && env.DATABASE_URL != ''
+        continue-on-error: true
+        run: |
+          set -e
+          clean() { env -u DATABASE_URL -u SESSION_SECRET -u POLYMARKET_US_KEY_ID -u POLYMARKET_US_SECRET_KEY -u MAX_ORDER_USD -u TRADING_DISABLED -u GH_TOKEN "$@"; }
+          python -m venv "$RUNNER_TEMP/kronos-venv"
+          clean "$RUNNER_TEMP/kronos-venv/bin/pip" install --quiet --only-binary=:all: torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
+          clean "$RUNNER_TEMP/kronos-venv/bin/pip" install --quiet --only-binary=:all: numpy==2.4.6 pandas==3.0.6 einops==0.8.1 huggingface_hub==0.33.1 safetensors==0.6.2 tqdm==4.70.1
+          clean git clone --quiet https://github.com/shiyu-coder/Kronos.git "$RUNNER_TEMP/Kronos"
+          clean git -C "$RUNNER_TEMP/Kronos" checkout --quiet 67b630e67f6a18c9e9be918d9b4337c960db1e9a
+          { echo "KRONOS=1"; echo "KRONOS_PY=$RUNNER_TEMP/kronos-venv/bin/python"; echo "KRONOS_DIR=$RUNNER_TEMP/Kronos"; echo "KRONOS_THREADS=2"; } >> "$GITHUB_ENV"
       - name: Check for trades (every 2s with DATABASE_URL, else every 10s via the site)
         if: steps.dog.outputs.skip != '1'
         run: |
