@@ -142,6 +142,7 @@ async function api(uid, op, b, q) {
       return { quotes: L.map(s => { const m = R.find(x => x.symbol === s)?.response?.[0]?.meta || {}; return { sym: s, px: m.regularMarketPrice ?? null, prev: m.chartPreviousClose ?? m.previousClose ?? null }; }) }; }
     case 'botlist': return { bots: require('./botsig').list() };
     case 'botsig': return require('./botsig').sig(uid, String(q.k || b.k || ''), norm(q.sym || b.sym));
+    case 'botauto': return require('./botauto').auto(norm(q.sym || b.sym));
     case 'quote': return { sym: norm(q.sym || b.sym), px: await quote(q.sym || b.sym), t: Date.now() }; // the 1-second ticker
     case 'trades': { const s = norm(q.sym || b.sym); if (!isCrypto(s)) return { trades: [] }; // the latest trades, to seed 1-second charts
       const r = await fetch(`https://api.exchange.coinbase.com/products/${s}/trades?limit=1000`, { headers: { 'user-agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8e3) }); if (!r.ok) throw err(502, 'Coinbase ' + r.status);

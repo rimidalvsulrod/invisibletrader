@@ -11,11 +11,22 @@ async function botRunPicker() {
   if (TR.rp || TR.rpPick) return toast('Leave the replay first: a bot runs on the live chart');
   await trBotReg(); const sym = trData?.sym || TR.sym, all = Object.entries(IND).filter(([, d]) => d.bot).map(([k, d]) => ({ k, ...d })), ok = all.filter(b => !b.syms || b.syms.includes(sym)), no = all.length - ok.length, last = LS.get('mt:botrun', {});
   const qty = last.qty || (trFut() ? 1 : trCrypto() ? 0.01 : 10), unit = trFut() ? 'contracts' : trCrypto() ? 'coins' : 'shares';
-  trDlg('Run a bot on this chart', ok.length ? `<div class=brlist>${ok.map((b, i) => `<label class=brrow><input type=radio name=brk value="${esc(b.k)}" ${(last.k ? last.k == b.k : !i) ? 'checked' : ''}><span class=brdot style="background:${b.col}"></span><div><b>${esc(b.n)}</b><div class=brd>${esc(b.d)}</div></div></label>`).join('')}</div>
+  const w = trDlg('Run a bot on this chart', ok.length ? `<div class=brauto><button type=button class="btn sm" id=brauto>Auto choose</button><span class=brd>Picks the bot with the best recent record on this ticker, in markets like today's.</span></div><div id=braum class=braum hidden></div><div class=brlist>${ok.map((b, i) => `<label class=brrow><input type=radio name=brk value="${esc(b.k)}" ${(last.k ? last.k == b.k : !i) ? 'checked' : ''}><span class=brdot style="background:${b.col}"></span><div><b>${esc(b.n)}</b><div class=brd>${esc(b.d)}</div></div></label>`).join('')}</div>
      <label class=brsz>Size <input id=brqty class=trdq type=number min=0 step=any value="${qty}" style="width:110px;margin:0 8px"> ${unit} per trade</label>
      <div class=trdsub>${no} more bot${no == 1 ? '' : 's'} trade other symbols. Trades go to your Mimic paper account only. A position the bot opens stays open if you stop it.</div>` : `<div class=trdsub>None of your bots trade ${esc(brShort(sym))}. Open a symbol they work on (NQ, ES, SPY, BTC ...) and try again.</div>`,
     ok.length ? 'Start' : 'Close', async d => { if (!ok.length) return; const k = d.querySelector('input[name=brk]:checked')?.value, q = +d.querySelector('#brqty').value; if (!k) throw new Error('Pick a bot'); if (!(q > 0)) throw new Error('Enter a size'); botRunStart(k, q); });
+  const ab = w.querySelector('#brauto'); if (ab) ab.onclick = () => botAuto(w, sym, ab);
 }
+// Auto choose: the server ranks the bots on this symbol by their record over the last 40 sessions, half of it from sessions that began like today (api/_lib/botauto.js)
+async function botAuto(w, sym, btn) { const out = w.querySelector('#braum'); btn.disabled = true; btn.textContent = 'Checking…';
+  try { const r = await mtapi('botauto', null, `&sym=${encodeURIComponent(sym)}`), top = r.ranked.filter(x => x.ok).slice(0, 4), row = r.pick && [...w.querySelectorAll('input[name=brk]')].find(i => i.value == r.pick);
+    if (row) { row.checked = true; row.closest('.brrow').scrollIntoView({ block: 'nearest' }); }
+    out.hidden = false; out.className = 'braum' + (r.weak || !r.pick ? ' weak' : '');
+    out.innerHTML = `${r.state ? `<div>Market: ${esc(r.state.text)}${r.open ? '' : ' (closed now: this is for the next session)'}.</div>` : ''}<div><b>${esc(r.note)}</b></div>`
+      + (top.length ? `<div class=brd>${top.map(x => `${esc(x.name)} ${x.score >= 0 ? '+' : ''}${x.score.toFixed(2)}R/session (${x.n} trades)`).join(' · ')}. Past results do not promise future ones.</div>` : '');
+    if (r.pick && !row) out.insertAdjacentHTML('beforeend', '<div class=brd>That bot is not in the list below.</div>'); }
+  catch (e) { out.hidden = false; out.className = 'braum weak'; out.textContent = e.message; }
+  btn.disabled = false; btn.textContent = 'Auto choose'; }
 function botRunStart(k, qty) {
   botRunStop(false); BR = { k, name: IND[k].n, sym: trData.sym, qty, seen: new Set(), init: false, draws: [], box: null, msg: 'starting', t0: Date.now(), busy: false, tk: 0 };
   LS.set('mt:botrun', { k, qty }); $('#trbotb')?.classList.add('on'); botHud(); brRunPoll(); BR.iv = setInterval(brRunPoll, 10000); toast(`${IND[k].n} is running on ${brShort(BR.sym)}`);
