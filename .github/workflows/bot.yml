@@ -49,6 +49,7 @@ jobs:
       - name: Install Kronos (pinned, no secrets)
         if: steps.dog.outputs.skip != '1' && env.DATABASE_URL != ''
         continue-on-error: true
+        timeout-minutes: 12
         run: |
           set -e
           clean() { env -u DATABASE_URL -u SESSION_SECRET -u POLYMARKET_US_KEY_ID -u POLYMARKET_US_SECRET_KEY -u MAX_ORDER_USD -u TRADING_DISABLED -u GH_TOKEN "$@"; }
