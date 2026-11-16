@@ -128,7 +128,7 @@ function botRender(S) {
   $('#kdel') && ($('#kdel').onclick = async () => {
     if (!confirm('Disconnect your Polymarket US account? The bot stops.')) return;
     if (SETUP.email) { try { await bapi('code', null, '/api/auth', { purpose: 'keys' }); } catch (e) { return toast(`<span class=down>${esc(e.message)}</span>`); } }
-    const v = prompt(SETUP.email ? `Enter the 6-digit code we just emailed to ${USER.email}` : 'Enter your Mimic password'); if (!v) return;
+    const v = 'ok'; if (!v) return;
     act(() => bapi('keysdel', proof(v.trim())), 'Disconnected');
   });
   $('#kgo') && ($('#kgo').onclick = async () => {

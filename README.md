@@ -5,7 +5,7 @@ Track public Polymarket International wallets and execute high-confidence signal
 
 - `public/` — the site (no build step)
 - `api/proxy.js` — read-only proxy to Polymarket's APIs
-- `api/auth.js` — owner login (single user)
+- `api/auth.js` — no login: the site is a single built-in owner (anyone with the URL has full access)
 - `api/bot.js` — Auto Trader settings/state (owner only)
 - `api/cron.js` — runs the trading engine; call it every minute
 - `api/_lib/engine.js` — the signal copier (international trade → matched Polymarket US market → IOC order)
@@ -16,8 +16,7 @@ Local dev: `npm install && DEV_PGMEM=1 ADMIN_PASSWORD=devpassword SESSION_SECRET
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | Postgres (Vercel → Storage → Neon sets it) |
-| `ADMIN_PASSWORD` | Your login password (8+ chars) |
-| `SESSION_SECRET` | Long random string (32+ chars) |
+| `SESSION_SECRET` | Long random string (32+ chars), encrypts stored broker keys |
 | `CRON_SECRET` | Key for `/api/cron?key=…` |
 | `POLYMARKET_US_KEY_ID`, `POLYMARKET_US_SECRET_KEY` | Polymarket US Key ID and Secret Key |
 | `MAX_ORDER_USD` | Hard cap per order (default 25) |

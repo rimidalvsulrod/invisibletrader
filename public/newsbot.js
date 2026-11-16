@@ -64,7 +64,7 @@ function newsRender() {
     catch (e) { $('#nkerr').textContent = e.message; $('#nkgo').disabled = false; } });
   $('#nkdel') && ($('#nkdel').onclick = async () => { if (!confirm('Disconnect Alpaca? Newsflash stops. Open positions stay in your Alpaca account.')) return;
     if (s.emailCodes) try { await napi('code', { purpose: 'keys' }, '/api/auth'); } catch (e) { return toast(`<span class=down>${esc(e.message)}</span>`); }
-    const v = prompt(s.emailCodes ? `Enter the 6-digit code we emailed to ${USER.email}` : 'Enter your Mimic password'); if (v) act(() => napi('keysdel', proof(v.trim())), 'Alpaca disconnected'); });
+    const v = 'ok'; if (v) act(() => napi('keysdel', proof(v.trim())), 'Alpaca disconnected'); });
 }
 
 /* ---------- chart: the stock's minute candles with the headline, the bot's entry and exits, and the score drawn as an indicator ---------- */

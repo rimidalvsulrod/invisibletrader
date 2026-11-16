@@ -14,7 +14,7 @@ module.exports = handler(async (req, body, q) => {
     data: await AL.getAlpacaCreds(uid).catch(() => null), lastPrice: async sym => { const a = await AL.getAlpacaCreds(uid); if (!a) throw err(400, 'Connect Alpaca (free) for market data'); return AL.last(a, sym); } }; };
   if (op && op.startsWith('b-')) return brokerOps(u, op.slice(2), body);
   switch (op) {
-    case 'state': return { broker, emailCodes: await mail.configured(),
+    case 'state': return { broker, emailCodes: false,
       alpaca: await AL.getAlpacaCreds(uid).then(c => c ? { connected: true, key: c.key.slice(0, 6) + '…', paper: c.paper } : { connected: false }).catch(() => ({ connected: false })),
       webull: w?.appKey ? { configured: true, key: w.appKey.slice(0, 6) + '…', accountId: w.accountId || null, hasToken: !!w.token, tokenStatus: w.tokenStatus || null, unlocked: !!w.unlocked, capUsd: w.capUsd ?? 1000 } : { configured: false } };
     case 'select': { const to = body.broker === 'webull' ? 'webull' : 'alpaca'; if (to === broker) return { ok: true, broker };
