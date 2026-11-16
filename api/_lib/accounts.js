@@ -1,4 +1,4 @@
-// No accounts: the whole site is one built-in owner. Anyone who opens it is that owner.
+// One owner account, no password: knowing the owner email is the access code.
 const db = require('./db');
 const byId = id => db.one('SELECT * FROM users WHERE id=$1', [id]);
 const pub = u => u && { id: u.id, email: u.email, verified: true, admin: true };
@@ -11,7 +11,10 @@ async function owner() {
   if (!u.verified || !u.admin) { await db.q('UPDATE users SET verified=true, admin=true WHERE id=$1', [u.id]); u = await byId(u.id); }
   OWNER_ID = u.id; return u;
 }
-const current = () => owner(), need = () => owner();
+const { err, readCookie } = require('./util'), S = require('./settings');
+// signed in only with the session cookie that the owner-email login hands out
+async function current(req) { const c = req && readCookie(req, await S.secret()); if (!c) return null; const u = await owner(); return c.uid === u.id ? u : null; }
+async function need(req) { const u = await current(req); if (!u) throw err(401, 'Not logged in'); return u; }
 const byEmail = () => owner();
 const confirm = async () => {}, notify = () => {}, sendCode = async () => {}, checkCode = async () => {};
-module.exports = { byId, byEmail, pub, current, need, confirm, notify, sendCode, checkCode };
+module.exports = { owner, byId, byEmail, pub, current, need, confirm, notify, sendCode, checkCode };

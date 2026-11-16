@@ -70,7 +70,7 @@ async function bestBoard(){
 /* ---------- follows (synced to server when logged in, so the bot copies them) ---------- */
 /* Tracked traders: when you're logged in, your account on the server holds the one list every device shows
    (the Auto Trader copies exactly this list). Logged out, tracking is disabled so devices can't drift apart. */
-let fol={},OWNER=true,USER={email:'',admin:true},SETUP={db:true,email:false};const OLDFOL=LS.get('fol',null)||{}; // list saved on this device by older versions
+let fol={},OWNER=false,USER=null,SETUP={db:true,email:false};const OLDFOL=LS.get('fol',null)||{}; // list saved on this device by older versions
 const folPaint=()=>$$('[data-f]').forEach(b=>{const on=!!fol[b.dataset.f];b.classList.toggle('on',on);b.title=on?'Stop tracking':'Track';const t=[...b.childNodes].find(x=>x.nodeType==3&&x.textContent.trim());if(t)t.textContent=on?' Tracking':' Track'});
 const setFol=list=>{const before=Object.keys(fol).sort().join();fol={};(list||[]).forEach(f=>fol[f.wallet]=f.name||short(f.wallet));folPaint();renderSide();
   if(location.hash.startsWith('#/journal')&&Object.keys(fol).sort().join()!==before)journal()}; // keep the Tracking page in step
@@ -118,7 +118,7 @@ let BOTON=false,TOPBAL=null;
 function renderSide(){const p=location.hash.slice(2).split('/')[0];const nf=Object.keys(fol).length;
   $('#side').innerHTML=`<div class=mobile-sheet-head><b>More</b><button class=tbtn id=sheetclose aria-label="Close menu">${ic('x',18)}</button></div><a class=logo href="#/"><img src="/icon.svg" alt="" width=34 height=34><span><b>Mimic</b></span></a>`+
   NAV.map(([g,items])=>(g?`<div class=navg>${g}</div>`:'')+items.map(([k,i,t])=>`<a class="nv ${NAVSEC(p)===k?'on':''}" href="#/${k}" title="${t}">${ic(i)}${t}${k=='bot'&&BOTON?'<span class=dot></span>':''}${k=='journal'&&nf?`<span class="pill n" style="margin-left:auto">${nf}</span>`:''}</a>`).join('')).join('')+
-  `<div class=sfoot><a class="nv ${p=='help'?'on':''}" href="#/help">${ic('help')}Help</a></div>`;
+  `<div class=sfoot><a class="nv ${p=='help'?'on':''}" href="#/help">${ic('help')}Help</a>${OWNER?`<a class=nv href="#" id=lo>${ic('x')}Log out</a>`:`<a class=nv href="#/account">${ic('lock')}Log in</a>`}</div>`;
   $('#tabbar').innerHTML=[['','home','Home'],['trade','wave','Trade'],['backtests','flask','Backtest'],['bots','bot','Bots'],['indicators','spark','Indicators']].map(([k,i,t])=>`<a href="#/${k}" class="${NAVSEC(p)===k?'on':''}">${ic(i)}<span>${t}</span></a>`).join('');
   const hasBal=TOPBAL!=null&&TOPBAL!==""&&Number.isFinite(Number(TOPBAL));$('#topr').innerHTML=`${hasBal?`<a class=topbal href="#/bot" title="Open Polymarket US account"><span>Polymarket US</span><b class=num>${usd(TOPBAL,2)}</b></a>`:''}<a class=tbtn href="#/settings" aria-label=Settings title=Settings>${ic('gear',18)}</a><button class=tbtn id=ttheme aria-label="Light or dark">${ic(document.documentElement.dataset.theme=='dark'?'sun':'moon',18)}</button>`;$('#ttheme').onclick=()=>{const cur=LS.get('theme','tv');if(cur=='dark'||cur=='oled'||cur=='tv')LS.set('darkkind',cur);LS.set('theme',document.documentElement.dataset.theme=='dark'?'light':LS.get('darkkind','tv'));applyTheme();renderSide();window.dispatchEvent(new Event('themechange'))};
   

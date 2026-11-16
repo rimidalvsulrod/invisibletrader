@@ -5,7 +5,7 @@ Track public Polymarket International wallets and execute high-confidence signal
 
 - `public/` — the site (no build step)
 - `api/proxy.js` — read-only proxy to Polymarket's APIs
-- `api/auth.js` — no login: the site is a single built-in owner (anyone with the URL has full access)
+- `api/auth.js` — no login: the site is a single built-in owner (log in with the owner email only, no password)
 - `api/bot.js` — Auto Trader settings/state (owner only)
 - `api/cron.js` — runs the trading engine; call it every minute
 - `api/_lib/engine.js` — the signal copier (international trade → matched Polymarket US market → IOC order)
